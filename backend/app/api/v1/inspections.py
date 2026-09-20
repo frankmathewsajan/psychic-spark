@@ -29,6 +29,10 @@ def ingest_telemetry_batch(
     payload: Tier1BatchPayload,
     db: Annotated[Session, Depends(get_db)],
 ):
+    """
+    Ingests batched inspection metadata over 2G/EDGE cellular.
+    Applies idempotency by updating existing records rather than raising constraint errors.
+    """
     for item in payload.inspections:
         existing = db.query(Inspection).filter(Inspection.id == item.id).first()
 
@@ -81,6 +85,10 @@ def upload_audit_image(
     file: Annotated[UploadFile, File(...)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    """
+    Receives full-res JPEG/PNG images deferred until Wi-Fi availability.
+    Runs synchronously in FastAPI's external threadpool to prevent blocking the event loop.
+    """
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not inspection:
         raise HTTPException(

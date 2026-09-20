@@ -44,6 +44,7 @@ example
 
 # dumps and tool outputs
 repomix-output.xml
+repomix-output*.md
 
 # Python & virtual environments
 backend/.venv/
@@ -58,5 +59,8 @@ __pycache__/
 # Local databases and audit uploads
 *.db
 *.sqlite3
+inspections.db
+storage/audit_images/*
+!storage/audit_images/.gitkeep
 backend/storage/audit_images/*
 !backend/storage/audit_images/.gitkeep

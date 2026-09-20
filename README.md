@@ -1,49 +1,47 @@
 # Novo
 
-Offline-first smart meter inspection and edge quality assurance application for field technicians, built with Expo SDK 57, React Native, and local SQLite persistence.
+Offline-first smart meter inspection and edge quality assurance platform. The system comprises an Expo mobile field application with local SQLite persistence and a FastAPI ingestion gateway for cellular telemetry batching and audit photo storage.
 
 ## Architecture
 
 ```mermaid
 graph TD
-    subgraph UI ["Presentation Layer (Expo Router)"]
+    subgraph Mobile ["Mobile Client (Expo SDK 57 / React Native)"]
         Layout["Root Layout (_layout.tsx)"]
         Dashboard["Dashboard Screen (index.tsx)"]
         Capture["Capture Viewfinder (capture.tsx)"]
         Validation["QA Validation Screen (validation.tsx)"]
+        LocalDB["Local SQLite SSOT (schema.ts, repository.ts)"]
+        Sensors["Sensor Leveling Service (leveling.ts)"]
+        SyncClient["Tier-1 Batch Sync (tier1-sync.ts)"]
     end
 
-    subgraph Design ["Design System"]
-        Theme["Tokens (theme.ts)"]
-        ThemeHook["useTheme Hook (use-theme.tsx)"]
-        ThemedUI["ThemedText / ThemedView"]
+    subgraph Gateway ["Ingestion Gateway (FastAPI Backend)"]
+        Router["API Router (router.py)"]
+        HealthEndpoint["Health Diagnostics (/api/v1/health)"]
+        BatchEndpoint["Batch Ingestion (/api/v1/inspections/batch)"]
+        ImageEndpoint["Audit Image Upload (/api/v1/inspections/{id}/image)"]
+        ORMLayer["SQLAlchemy Models (Inspection, InspectionPhoto)"]
+        Schemas["Pydantic Schemas (Tier1BatchPayload)"]
     end
 
-    subgraph Services ["Service Layer"]
-        Leveling["Accelerometer Leveling (leveling.ts)"]
-        Sync["Tier-1 Cellular Sync (tier1-sync.ts)"]
+    subgraph Storage ["Server Persistence"]
+        ServerDB[("Backend SQLite DB (inspections.db)")]
+        ImageDisk["Audit Photo Storage (/storage/audit_images)"]
     end
 
-    subgraph Core ["Core Persistence & Models"]
-        Repo["Inspection Repository (repository.ts)"]
-        Client["SQLite Database Client (client.ts)"]
-        Schema["DDL Schema & WAL Mode (schema.ts)"]
-        Types["Domain Types (inspection.ts)"]
-        Logger["Structured Logger (logger/index.ts)"]
-    end
-
-    Layout --> Client
-    Dashboard --> Repo
-    Dashboard --> Sync
-    Capture --> Leveling
-    Validation --> Repo
-    Sync --> Repo
-    Repo --> Client
-    Client --> Schema
-    Dashboard --> ThemedUI
-    Validation --> ThemedUI
-    ThemedUI --> ThemeHook
-    ThemeHook --> Theme
+    Layout --> LocalDB
+    Dashboard --> LocalDB
+    Dashboard --> SyncClient
+    Capture --> Sensors
+    Validation --> LocalDB
+    SyncClient -->|HTTP POST Tier-1 Batch| BatchEndpoint
+    BatchEndpoint --> Schemas
+    BatchEndpoint --> ORMLayer
+    ImageEndpoint --> ORMLayer
+    ImageEndpoint --> ImageDisk
+    HealthEndpoint --> ORMLayer
+    ORMLayer --> ServerDB
 ```
 
 ## Data Flow
@@ -52,96 +50,110 @@ graph TD
 sequenceDiagram
     autonumber
     actor Tech as Technician
-    participant Dash as Dashboard (index.tsx)
-    participant Cam as Capture Screen (capture.tsx)
-    participant Sensor as Accelerometer (leveling.ts)
-    participant Val as Validation (validation.tsx)
-    participant DB as SQLite SSOT (repository.ts)
-    participant GW as Cellular Gateway (tier1-sync.ts)
+    participant Mobile as Mobile App (Expo)
+    participant LocalDB as Local SQLite SSOT
+    participant Gateway as FastAPI Ingestion Gateway
+    participant ServerDB as Server Database
+    participant FileStorage as Audit Photo Storage
 
-    Tech->>Dash: Open App
-    Dash->>DB: Query metrics & shift records
-    DB-->>Dash: Display HUD (Pending, Synced, Photos)
+    Tech->>Mobile: Launch App
+    Mobile->>LocalDB: Read shift metrics and inspection history
+    LocalDB-->>Mobile: Display Queue HUD & Shift Records
 
-    Tech->>Dash: Tap "+ NEW SCAN"
-    Dash->>Cam: Open Viewfinder
-    loop Every 100ms
-        Cam->>Sensor: calculateWallTilt(x, y, z)
-        Sensor-->>Cam: TiltEvaluation (tilt angle, isAligned)
-        Cam->>Cam: Update HUD guidance (90 deg +/- 10 deg)
+    Tech->>Mobile: Tap "+ NEW SCAN"
+    loop Accelerometer Evaluation (100ms interval)
+        Mobile->>Mobile: calculateWallTilt(x, y, z)
+        Mobile->>Mobile: Verify perpendicular alignment (90 deg +/- 10 deg)
     end
 
-    Tech->>Cam: Trigger Capture (enabled when isAligned = true)
-    Cam->>Val: Route to Validation with inference parameters
+    Tech->>Mobile: Trigger Capture (unlocked when aligned)
+    Mobile->>Mobile: Route to Validation with inference readings
 
-    alt Verdict is CRITICAL_HAZARD
-        Val->>Val: Enforce Safety Lockout (commit disabled)
-        Tech->>Cam: Return to re-take inspection
-    else Verdict is PASS or WARNING
-        Tech->>Val: Verify serial number and OCR confidence
-        Tech->>Val: Optional manual kWh override
-        Tech->>Val: Tap "COMMIT RECORD TO LOCAL SQLITE SSOT"
-        Val->>DB: insertInspection() with PENDING sync status
-        Val->>Dash: Return to Dashboard
-        Dash->>DB: Refresh queue via useFocusEffect
+    alt Critical Hazard Detected
+        Mobile->>Mobile: Enforce Safety Lockout (Commit disabled)
+        Tech->>Mobile: Re-inspect meter terminal cover
+    else Status is PASS or WARNING
+        Tech->>Mobile: Verify OCR confidence & optional kWh manual override
+        Tech->>Mobile: Tap "COMMIT RECORD TO LOCAL SQLITE SSOT"
+        Mobile->>LocalDB: insertInspection() with status: PENDING
+        Mobile->>LocalDB: Auto-refresh HUD via useFocusEffect
     end
 
-    Tech->>Dash: Tap "DISPATCH TIER-1 BATCH"
-    Dash->>GW: POST /api/v1/inspections/batch (up to 15 records)
-    alt Dispatch Success
-        GW-->>Dash: HTTP 200 OK
-        Dash->>DB: resolveTier1Batch(ids, true) -> SYNCED
-    else Network Failure
-        Dash->>DB: resolveTier1Batch(ids, false) -> Revert to PENDING
+    Tech->>Mobile: Tap "DISPATCH TIER-1 BATCH"
+    Mobile->>LocalDB: Transition up to 15 records to SYNCING
+    Mobile->>Gateway: POST /api/v1/inspections/batch (Tier1BatchPayload)
+    Gateway->>ServerDB: Upsert Inspection records (idempotent)
+    ServerDB-->>Gateway: Commit OK
+    Gateway-->>Mobile: HTTP 200 OK (BatchIngestResponse)
+    Mobile->>LocalDB: Transition records to SYNCED
+
+    opt Tier-2 Photo Upload
+        Mobile->>Gateway: POST /api/v1/inspections/{id}/image (photo_type, file)
+        Gateway->>FileStorage: Store {id}_{photo_type}.jpg
+        Gateway->>ServerDB: Upsert InspectionPhoto record
+        ServerDB-->>Gateway: Commit OK
+        Gateway-->>Mobile: HTTP 200 OK (ImageUploadResponse)
+        Mobile->>LocalDB: Transition photo status to SYNCED
     end
 ```
 
-## Core Modules
+## System Components
 
-- **Local SQLite SSOT** (`src/core/db/`): Configured with WAL journal mode (`PRAGMA journal_mode = WAL`) and crash recovery that resets dangling `SYNCING` records back to `PENDING` on bootstrap. Indexed on sync tier columns.
-- **Sensor Leveling** (`src/services/sensor/leveling.ts`): Uses accelerometer vector magnitudes to compute tilt from vertical, enforcing perpendicular alignment within a 10 degree tolerance before capture is unlocked.
-- **Tier-1 Batch Sync** (`src/services/sync/tier1-sync.ts`): Prepares and dispatches offline inspection telemetry batches (up to 15 records per payload) to a cellular gateway endpoint.
-- **Safety Lockout Enforcement** (`src/app/validation.tsx`): Blocks submission when critical hazards are flagged, requiring field remediation and re-inspection.
-- **Shift Dashboard** (`src/app/index.tsx`): Provides real-time queue metrics HUD, serial number lookup, and automated focus re-querying via `useFocusEffect`.
+### Mobile Client (`src/`)
+- **Local SQLite SSOT** (`src/core/db/`): Configured with WAL journal mode (`PRAGMA journal_mode = WAL`) and crash recovery resetting uncommitted `SYNCING` records back to `PENDING` on startup.
+- **Sensor Leveling** (`src/services/sensor/leveling.ts`): Uses accelerometer vector magnitudes to compute tilt from vertical, enforcing perpendicular alignment within 10 degrees before capture unlocks.
+- **Tier-1 Batch Sync** (`src/services/sync/tier1-sync.ts`): Dispatches offline inspection telemetry batches (up to 15 records per payload) to the gateway endpoint.
+- **Safety Lockout Enforcement** (`src/app/validation.tsx`): Blocks submission when critical hazards are detected, requiring field remediation.
+- **Shift Dashboard** (`src/app/index.tsx`): Displays real-time offline queue metrics HUD, meter search, and automated focus re-querying via `useFocusEffect`.
+
+### Ingestion Gateway (`backend/`)
+- **FastAPI Application** (`backend/app/main.py`): Asynchronous gateway with CORS middleware, lifespan database bootstrapping, and structured API routing under `/api/v1`.
+- **Telemetry Batch Ingestion** (`backend/app/api/v1/inspections.py`): Endpoint `/api/v1/inspections/batch` accepting `Tier1BatchPayload` with idempotent upsert logic.
+- **Audit Image Upload** (`backend/app/api/v1/inspections.py`): Endpoint `/api/v1/inspections/{inspection_id}/image` accepting multipart form data for photo types (`CASING`, `TERMINAL_COVER`, `DISPLAY`, `TAMPER_SEAL`) persisted to `storage/audit_images/`.
+- **Database Layer** (`backend/app/core/database.py`, `backend/app/models/inspection.py`): SQLAlchemy models with cascading foreign keys and unique constraints per photo type.
+- **Diagnostics** (`backend/app/api/v1/health.py`): Endpoint `/api/v1/health` providing database connectivity checks with HTTP 503 degraded error responses on connection loss.
 
 ## Getting Started
 
 ### Prerequisites
+- Node.js (v18+) and pnpm
+- Python (3.14+) and uv (or pip)
 
-- Node.js (v18+)
-- pnpm
-
-### Installation
+### Mobile Application
 
 ```bash
+# Install dependencies
 pnpm install
-```
 
-### Running the App
-
-```bash
 # Start Metro bundler
 pnpm start
 
-# Run on Android
+# Target platforms
 pnpm android
-
-# Run on iOS
 pnpm ios
-
-# Run on Web
 pnpm web
+
+# Code quality
+pnpm lint
+pnpm check
+npx tsc --noEmit
 ```
 
-### Code Quality
+### Ingestion Gateway
 
 ```bash
-# Biome linter
-pnpm lint
+cd backend
 
-# Biome formatter & linter check
-pnpm check
+# Create virtual environment and install dependencies
+uv venv
+uv pip install -r requirements.txt
 
-# TypeScript type check
-npx tsc --noEmit
+# Run development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run test suite
+pytest tests
+
+# Linting
+ruff check app tests
 ```

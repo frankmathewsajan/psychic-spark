@@ -44,3 +44,19 @@ example
 
 # dumps and tool outputs
 repomix-output.xml
+
+# Python & virtual environments
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+
+# Local databases and audit uploads
+*.db
+*.sqlite3
+backend/storage/audit_images/*
+!backend/storage/audit_images/.gitkeep

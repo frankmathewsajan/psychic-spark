@@ -1,8 +1,8 @@
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -101,20 +101,49 @@ def upload_audit_image(
         file_ext = ".jpg"
 
     file_name = f"{inspection_id}_{photo_type}{file_ext}"
-    target_path = settings.STORAGE_DIR / file_name
 
     try:
-        with open(target_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to persist audit image: {exc!s}",
-        ) from exc
+        file_bytes = file.file.read()
     finally:
         file.file.close()
 
-    relative_storage_path = f"/storage/audit_images/{file_name}"
+    if (
+        settings.STORAGE_BACKEND == "supabase"
+        and settings.SUPABASE_URL
+        and settings.SUPABASE_KEY
+    ):
+        content_type = "image/png" if file_ext == ".png" else "image/jpeg"
+        upload_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/{settings.SUPABASE_BUCKET}/{file_name}"
+        headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+            "Content-Type": content_type,
+            "x-upsert": "true",
+        }
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                res = client.post(upload_url, headers=headers, content=file_bytes)
+                if res.status_code not in (200, 201):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Supabase Storage upload failed: {res.text}",
+                    )
+            stored_path = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{settings.SUPABASE_BUCKET}/{file_name}"
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to connect to Supabase Storage: {exc!s}",
+            ) from exc
+    else:
+        target_path = settings.STORAGE_DIR / file_name
+        try:
+            with open(target_path, "wb") as buffer:
+                buffer.write(file_bytes)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to persist audit image: {exc!s}",
+            ) from exc
+        stored_path = f"/storage/audit_images/{file_name}"
 
     photo_record = (
         db.query(InspectionPhoto)
@@ -126,13 +155,13 @@ def upload_audit_image(
     )
 
     if photo_record:
-        photo_record.file_path = relative_storage_path
+        photo_record.file_path = stored_path
         photo_record.uploaded_at = datetime.now(UTC)
     else:
         new_photo = InspectionPhoto(
             inspection_id=inspection_id,
             photo_type=photo_type,
-            file_path=relative_storage_path,
+            file_path=stored_path,
         )
         db.add(new_photo)
 
@@ -142,5 +171,5 @@ def upload_audit_image(
         status="STORED",
         inspection_id=inspection_id,
         photo_type=photo_type,
-        path=relative_storage_path,
+        path=stored_path,
     )

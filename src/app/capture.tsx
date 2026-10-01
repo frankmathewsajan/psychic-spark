@@ -1,4 +1,5 @@
-﻿import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system/legacy";
+import { useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -21,7 +22,17 @@ export default function CaptureScreen() {
 		return () => subscription.remove();
 	}, []);
 
-	const handleCapture = () => {
+	const handleCapture = async () => {
+		const filename = `raw_EB4820194_${Date.now()}.jpg`;
+		const imagePath = `${FileSystem.documentDirectory ?? ""}${filename}`;
+
+		// Write mock JPEG binary header so file exists for Tier 2 multipart upload
+		await FileSystem.writeAsStringAsync(
+			imagePath,
+			"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/",
+			{ encoding: FileSystem.EncodingType.UTF8 },
+		);
+
 		router.push({
 			pathname: "/validation",
 			params: {
@@ -30,7 +41,7 @@ export default function CaptureScreen() {
 				confidence: "0.962",
 				status: "PASS",
 				hazard: "",
-				imagePath: "/data/user/0/com.novo/files/raw_EB4820194.jpg",
+				imagePath: imagePath,
 			},
 		});
 	};

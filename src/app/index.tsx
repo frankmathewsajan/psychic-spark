@@ -1,4 +1,4 @@
-﻿import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
 	Pressable,
@@ -16,6 +16,16 @@ import { getDb } from "@/core/db/client";
 import { getInspections, getQueueMetrics } from "@/core/db/repository";
 import type { InspectionRecord, QueueMetrics } from "@/core/types/inspection";
 import { executeTier1Sync } from "@/services/sync/tier1-sync";
+import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
+
+// Android emulator uses 10.0.2.2 to reach host machine; Web/iOS uses localhost.
+// Replace with your computer's local LAN IP (e.g., http://192.168.1.15:8000) when testing on physical devices.
+// const GATEWAY_URL = Platform.select({
+// 	android: "http://10.0.2.2:8000",
+// 	default: "http://localhost:8000",
+// });
+
+const GATEWAY_URL = "http://10.243.48.157:8000"; // Tailscale / LAN IP pointing to FastAPI backend
 
 export default function DashboardScreen() {
 	const router = useRouter();
@@ -48,7 +58,13 @@ export default function DashboardScreen() {
 	const handleSync = async () => {
 		setRefreshing(true);
 		const db = await getDb();
-		await executeTier1Sync(db, "https://gateway.example.com");
+
+		// 1. Dispatch Tier-1 JSON Telemetry (< 2 KB Batch)
+		await executeTier1Sync(db, GATEWAY_URL);
+
+		// 2. Dispatch Tier-2 Wi-Fi Deferred Photos
+		await executeTier2MediaSync(db, GATEWAY_URL);
+
 		await loadData();
 		setRefreshing(false);
 	};

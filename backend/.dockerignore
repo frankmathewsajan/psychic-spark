@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv/
+.pytest_cache
+.ruff_cache
+.git
+.gitignore
+*.db
+inspections.db
+storage/audit_images/*
+!storage/audit_images/.gitkeep

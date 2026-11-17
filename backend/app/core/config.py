@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str = ""
     SUPABASE_BUCKET: str = "audit-images"
 
+    # Cloud VLM settings
+    GEMINI_API_KEY: str = ""
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=str(BASE_DIR / ".env"),

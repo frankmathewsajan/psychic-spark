@@ -71,6 +71,12 @@ class InspectionDetailItem(BaseModel):
     kwh_reading: float | None = None
     ocr_confidence: float | None = None
     ingested_at: datetime | str
+    audit_stage: str = "IMAGE_RECEIVED"
+    vlm_kwh: float | None = None
+    vlm_confidence: float | None = None
+    vlm_notes: str | None = None
+    vlm_summary: str | None = None
+    vlm_tags: str | None = None
     photos: list[PhotoReadItem] = []
 
     model_config = ConfigDict(from_attributes=True)

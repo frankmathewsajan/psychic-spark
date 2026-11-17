@@ -23,6 +23,11 @@ export interface InspectionRecord {
 	sync_tier2_status: SyncStatus;
 	inference_status: InferenceStatus;
 	tilt_deg?: number;
+	audit_stage?: string;
+	vlm_kwh?: number | null;
+	vlm_notes?: string | null;
+	vlm_summary?: string | null;
+	vlm_tags?: string | null;
 	created_at?: string;
 }
 

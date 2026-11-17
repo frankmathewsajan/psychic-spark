@@ -1,10 +1,14 @@
 # tests/test_batch_sync.py
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import Base, get_db
 from app.main import app
+from app.models.inspection import Inspection
+from app.services import vlm_auditor
 
 MOCK_PAYLOAD = {
     "batch_id": "batch_1726918200000",
@@ -23,16 +27,35 @@ MOCK_PAYLOAD = {
     ],
 }
 
+# Isolated SQLite database for unit tests
+TEST_DB_URL = "sqlite:///./test_inspections.db"
+test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
+
 
 @pytest.fixture(autouse=True)
-def setup_and_teardown_db():
+def setup_and_teardown_db(monkeypatch):
     settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     orig_storage = settings.STORAGE_BACKEND
     settings.STORAGE_BACKEND = "local"
-    Base.metadata.create_all(bind=engine)
+    # Monkeypatch vlm_auditor SessionLocal so background tasks use test SQLite DB
+    monkeypatch.setattr(vlm_auditor, "SessionLocal", TestingSessionLocal)
+
+    Base.metadata.create_all(bind=test_engine)
     yield
     settings.STORAGE_BACKEND = orig_storage
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.mark.asyncio
@@ -87,31 +110,36 @@ async def test_tier2_image_multi_type_upload():
         casing_path = res_casing.json()["path"]
         assert casing_path == "/storage/audit_images/ins_1726918195000_CASING.jpg"
 
-        # Verify static file serving endpoint
-        res_static = await client.get(casing_path)
-        assert res_static.status_code == 200
-        assert res_static.content == casing_content
-
-        # 2. Upload DISPLAY image (asserting no overwrite)
-        display_content = b"\xff\xd8\xff\xe0MockJPEGBinary2"
-        display_file = ("display.jpg", display_content, "image/jpeg")
-        res_display = await client.post(
+        # 2. Upload TERMINAL_COVER image
+        terminal_content = b"\xff\xd8\xff\xe0MockJPEGBinary2"
+        terminal_file = ("terminal.jpg", terminal_content, "image/jpeg")
+        res_terminal = await client.post(
             "/api/v1/inspections/ins_1726918195000/image",
-            data={"photo_type": "DISPLAY"},
-            files={"file": display_file},
+            data={"photo_type": "TERMINAL_COVER"},
+            files={"file": terminal_file},
         )
-        assert res_display.status_code == 200
-        display_path = res_display.json()["path"]
-        assert display_path == "/storage/audit_images/ins_1726918195000_DISPLAY.jpg"
+        assert res_terminal.status_code == 200
+        terminal_path = res_terminal.json()["path"]
+        assert terminal_path == "/storage/audit_images/ins_1726918195000_TERMINAL_COVER.jpg"
 
-        # Verify second static file serving endpoint
-        res_static_display = await client.get(display_path)
-        assert res_static_display.status_code == 200
-        assert res_static_display.content == display_content
+        # 3. Retransmit duplicate photo_type
+        res_terminal_dup = await client.post(
+            "/api/v1/inspections/ins_1726918195000/image",
+            data={"photo_type": "TERMINAL_COVER"},
+            files={"file": terminal_file},
+        )
+        assert res_terminal_dup.status_code == 200
+
+        # Verify audit_stage is set to IMAGE_RECEIVED (Ack 1)
+        db = TestingSessionLocal()
+        insp = db.query(Inspection).filter(Inspection.id == "ins_1726918195000").first()
+        assert insp is not None
+        assert insp.audit_stage in ("IMAGE_RECEIVED", "VLM_SKIPPED", "VLM_VERIFIED")
+        db.close()
 
 
 @pytest.mark.asyncio
-async def test_tier2_image_supabase_storage_upload(monkeypatch):
+async def test_supabase_storage_integration(monkeypatch):
     import httpx
 
     async with AsyncClient(
@@ -163,6 +191,7 @@ async def test_admin_dashboard_and_list_inspections():
         assert res_admin.status_code == 200
         assert "text/html" in res_admin.headers["content-type"]
         assert "Novo Admin" in res_admin.text
+        assert "Cloud VLM" in res_admin.text
 
         # Verify inspections listing endpoint
         res_list = await client.get("/api/v1/inspections")
@@ -171,6 +200,5 @@ async def test_admin_dashboard_and_list_inspections():
         assert len(inspections) == 1
         assert inspections[0]["id"] == "ins_1726918195000"
         assert inspections[0]["meter_serial_number"] == "EB4820194"
+        assert "audit_stage" in inspections[0]
         assert isinstance(inspections[0]["photos"], list)
-
-

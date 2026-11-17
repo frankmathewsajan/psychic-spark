@@ -1,5 +1,9 @@
 import type { SQLiteDatabase } from "expo-sqlite";
-import { prepareTier1Batch, resolveTier1Batch } from "../../core/db/repository";
+import {
+	prepareTier1Batch,
+	resolveTier1Batch,
+	updateInspectionAuditStage,
+} from "../../core/db/repository";
 import { logger } from "../../core/logger";
 
 export interface Tier1SyncOptions {
@@ -253,5 +257,59 @@ export async function executeTier1Sync(
 		return false;
 	} finally {
 		isSyncing = false;
+	}
+}
+
+/**
+ * Pulls recent inspection records from the gateway to synchronize
+ * Cloud VLM audit stage, reconciled kWh, and diagnostic notes into local SQLite.
+ */
+export async function reconcileCloudAuditStatus(
+	db: SQLiteDatabase,
+	gatewayUrl: string,
+): Promise<number> {
+	try {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 10000);
+		const res = await fetch(
+			`${gatewayUrl.trim().replace(/\/+$/, "")}/api/v1/inspections?limit=50`,
+			{
+				method: "GET",
+				signal: controller.signal,
+			},
+		);
+		clearTimeout(timer);
+
+		if (!res.ok) return 0;
+		const remoteItems = (await res.json()) as Array<{
+			id: string;
+			audit_stage?: string;
+			vlm_kwh?: number | null;
+			vlm_notes?: string | null;
+		}>;
+
+		let updatedCount = 0;
+		for (const item of remoteItems) {
+			if (item.id && item.audit_stage) {
+				await updateInspectionAuditStage(
+					db,
+					item.id,
+					item.audit_stage,
+					item.vlm_kwh ?? null,
+					item.vlm_notes ?? null,
+				);
+				updatedCount++;
+			}
+		}
+		if (updatedCount > 0) {
+			logger.info(
+				"SyncTier1",
+				`Reconciled ${updatedCount} inspection audit statuses from cloud`,
+			);
+		}
+		return updatedCount;
+	} catch (err) {
+		logger.warn("SyncTier1", "Cloud audit status reconciliation skipped", err);
+		return 0;
 	}
 }

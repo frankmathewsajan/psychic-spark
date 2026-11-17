@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS inspections (
     sync_tier2_status TEXT DEFAULT 'PENDING',
     inference_status TEXT CHECK(inference_status IN ('PENDING_ML','PROCESSING','NEEDS_REVIEW','DONE')) DEFAULT 'DONE',
     tilt_deg REAL DEFAULT 0.0,
+    audit_stage TEXT DEFAULT 'IMAGE_RECEIVED',
+    vlm_kwh REAL,
+    vlm_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -65,6 +68,19 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 		} catch {
 			// Column exists
 		}
+
+		// LIVE MIGRATION 2b: Add VLM audit columns if missing
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN audit_stage TEXT DEFAULT 'IMAGE_RECEIVED';`,
+			);
+		} catch {}
+		try {
+			await db.runAsync(`ALTER TABLE inspections ADD COLUMN vlm_kwh REAL;`);
+		} catch {}
+		try {
+			await db.runAsync(`ALTER TABLE inspections ADD COLUMN vlm_notes TEXT;`);
+		} catch {}
 
 		// LIVE MIGRATION 3: Check if sync_tier1_status has a restrictive CHECK constraint that blocks 'HOLD_ML'
 		// In SQLite, old tables with CHECK(sync_tier1_status IN ('PENDING', 'SYNCING', 'SYNCED')) will reject 'HOLD_ML'.

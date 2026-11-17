@@ -274,6 +274,23 @@ export async function commitReviewedInspection(
 	);
 }
 
+export async function updateInspectionAuditStage(
+	db: SQLiteDatabase,
+	id: string,
+	auditStage: string,
+	vlmKwh: number | null,
+	vlmNotes: string | null,
+): Promise<void> {
+	await db.runAsync(
+		`UPDATE inspections SET
+			audit_stage = ?,
+			vlm_kwh = COALESCE(?, vlm_kwh),
+			vlm_notes = ?
+		WHERE id = ?;`,
+		[auditStage, vlmKwh, vlmNotes, id],
+	);
+}
+
 export async function clearAllInspections(db: SQLiteDatabase): Promise<void> {
 	await db.runAsync(`DELETE FROM inspections;`);
 	logger.info("Repository", "Cleared all inspection records from SQLite");

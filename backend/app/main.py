@@ -91,14 +91,18 @@ ADMIN_HTML = """<!DOCTYPE html>
     </header>
 
     <!-- METRICS CARDS -->
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-4 my-6">
       <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
         <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total</div>
         <div id="stat-total" class="text-2xl font-bold mt-1">0</div>
       </div>
       <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-        <div class="text-xs font-medium text-emerald-600 uppercase tracking-wide">Verified Pass</div>
+        <div class="text-xs font-medium text-emerald-600 uppercase tracking-wide">Edge Pass</div>
         <div id="stat-pass" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
+        <div class="text-xs font-medium text-teal-600 uppercase tracking-wide">VLM Audited</div>
+        <div id="stat-vlm" class="text-2xl font-bold text-teal-600 mt-1">0</div>
       </div>
       <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
         <div class="text-xs font-medium text-amber-600 uppercase tracking-wide">Warnings</div>
@@ -118,6 +122,7 @@ ADMIN_HTML = """<!DOCTYPE html>
       <div class="flex items-center gap-1.5 self-start sm:self-auto overflow-x-auto">
         <button onclick="setFilter('ALL')" id="filter-ALL" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-zinc-900 text-white">All</button>
         <button onclick="setFilter('PASS')" id="filter-PASS" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Pass</button>
+        <button onclick="setFilter('VLM_VERIFIED')" id="filter-VLM_VERIFIED" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">VLM Verified</button>
         <button onclick="setFilter('WARNING')" id="filter-WARNING" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Warning</button>
         <button onclick="setFilter('CRITICAL_HAZARD')" id="filter-CRITICAL_HAZARD" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Hazard</button>
       </div>
@@ -131,14 +136,15 @@ ADMIN_HTML = """<!DOCTYPE html>
             <tr class="border-b border-zinc-200 bg-zinc-50/75 text-zinc-500 font-medium text-xs uppercase tracking-wider">
               <th class="p-3 w-16">Photo</th>
               <th class="p-3">Meter S/N</th>
-              <th class="p-3">Reading</th>
+              <th class="p-3">Edge Reading</th>
+              <th class="p-3">Cloud VLM</th>
+              <th class="p-3">Audit Stage</th>
               <th class="p-3">Status</th>
-              <th class="p-3">Confidence</th>
               <th class="p-3">Timestamp</th>
             </tr>
           </thead>
           <tbody id="table-body" class="divide-y divide-zinc-200 font-normal">
-            <tr><td colspan="6" class="p-8 text-center text-zinc-400">Loading inspection records...</td></tr>
+            <tr><td colspan="7" class="p-8 text-center text-zinc-400">Loading inspection records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -183,21 +189,27 @@ ADMIN_HTML = """<!DOCTYPE html>
     function updateStats() {
       document.getElementById('stat-total').textContent = allData.length;
       document.getElementById('stat-pass').textContent = allData.filter(d => d.qa_status === 'PASS').length;
-      document.getElementById('stat-warn').textContent = allData.filter(d => d.qa_status === 'WARNING').length;
+      document.getElementById('stat-vlm').textContent = allData.filter(d => d.audit_stage === 'VLM_VERIFIED').length;
+      document.getElementById('stat-warn').textContent = allData.filter(d => d.qa_status === 'WARNING' || d.audit_stage === 'MISMATCH_FLAGGED').length;
       document.getElementById('stat-crit').textContent = allData.filter(d => d.qa_status === 'CRITICAL_HAZARD').length;
     }
 
     function renderTable() {
       const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
       const filtered = allData.filter(item => {
-        const matchesFilter = activeFilter === 'ALL' || item.qa_status === activeFilter;
+        let matchesFilter = true;
+        if (activeFilter === 'VLM_VERIFIED') {
+          matchesFilter = item.audit_stage === 'VLM_VERIFIED';
+        } else if (activeFilter !== 'ALL') {
+          matchesFilter = item.qa_status === activeFilter;
+        }
         const matchesQuery = !q || (item.meter_serial_number || '').toLowerCase().includes(q) || (item.id || '').toLowerCase().includes(q);
         return matchesFilter && matchesQuery;
       });
 
       const tbody = document.getElementById('table-body');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-zinc-400">No records found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-zinc-400">No records found.</td></tr>';
         return;
       }
 
@@ -207,25 +219,39 @@ ADMIN_HTML = """<!DOCTYPE html>
           ? `<img src="${photo}" onclick="openModal('${photo}')" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-xs font-mono\\'>N/A</div>'" class="w-10 h-10 object-cover rounded border border-zinc-200 cursor-pointer hover:opacity-80 transition">`
           : `<div class="w-10 h-10 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-xs font-mono">N/A</div>`;
 
-        let badgeClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';
-        if (item.qa_status === 'PASS') badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        else if (item.qa_status === 'WARNING') badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        else if (item.qa_status === 'CRITICAL_HAZARD') badgeClass = 'bg-red-50 text-red-700 border-red-200';
+        let statusClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';
+        if (item.qa_status === 'PASS') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        else if (item.qa_status === 'WARNING') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
+        else if (item.qa_status === 'CRITICAL_HAZARD') statusClass = 'bg-red-50 text-red-700 border-red-200';
 
-        const kwhText = item.kwh_reading != null ? `${Number(item.kwh_reading).toFixed(1)} kWh` : '<span class="text-zinc-400">—</span>';
-        const confText = item.ocr_confidence != null ? `${Math.round(item.ocr_confidence * 100)}%` : '—';
+        let auditHtml = '<span class="text-zinc-400 text-xs">—</span>';
+        if (item.audit_stage === 'VLM_VERIFIED') {
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-teal-50 text-teal-700 border-teal-200" title="${item.vlm_notes || 'Verified'}">✓✓ VLM Verified</span>`;
+        } else if (item.audit_stage === 'MISMATCH_FLAGGED') {
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-amber-50 text-amber-700 border-amber-200 cursor-help" title="${item.vlm_notes || 'Mismatch'}">⚠ Mismatch</span>`;
+        } else if (item.audit_stage === 'IMAGE_RECEIVED') {
+          auditHtml = '<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-sky-50 text-sky-700 border-sky-200">✓ Received</span>';
+        } else if (item.audit_stage === 'VLM_SKIPPED') {
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border bg-zinc-100 text-zinc-500 border-zinc-200" title="${item.vlm_notes || ''}">Skipped</span>`;
+        }
+
+        const edgeKwhText = item.kwh_reading != null ? `${Number(item.kwh_reading).toFixed(1)} kWh` : '<span class="text-zinc-400">—</span>';
+        const vlmKwhText = item.vlm_kwh != null 
+          ? `<span class="font-medium text-teal-700" title="${item.vlm_summary || ''}">${Number(item.vlm_kwh).toFixed(1)} kWh</span>`
+          : '<span class="text-zinc-400">—</span>';
         const timeText = item.ingested_at ? new Date(item.ingested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (item.timestamp_utc || '—');
 
         return `<tr class="hover:bg-zinc-50 transition">
           <td class="p-3">${photoHtml}</td>
           <td class="p-3 font-mono font-medium text-zinc-900">${item.meter_serial_number || 'UNKNOWN'}</td>
-          <td class="p-3 font-medium">${kwhText}</td>
+          <td class="p-3 font-medium">${edgeKwhText}</td>
+          <td class="p-3">${vlmKwhText}</td>
+          <td class="p-3">${auditHtml}</td>
           <td class="p-3">
-            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border ${badgeClass}">
+            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border ${statusClass}">
               ${item.qa_status}
             </span>
           </td>
-          <td class="p-3 text-zinc-600">${confText}</td>
           <td class="p-3 text-zinc-500 text-xs font-mono">${timeText}</td>
         </tr>`;
       }).join('');

@@ -29,6 +29,16 @@ class Inspection(Base):
         DateTime, default=get_utc_now, nullable=False
     )
 
+    # Tier-3 Cloud VLM Second-Verification fields
+    audit_stage: Mapped[str] = mapped_column(
+        String, default="IMAGE_RECEIVED", nullable=False, index=True
+    )
+    vlm_kwh: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vlm_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vlm_notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    vlm_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    vlm_tags: Mapped[str | None] = mapped_column(String, nullable=True)
+
     photos: Mapped[list["InspectionPhoto"]] = relationship(
         "InspectionPhoto", back_populates="inspection", cascade="all, delete-orphan"
     )

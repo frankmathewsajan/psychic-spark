@@ -26,6 +26,7 @@ import type { InspectionRecord, QueueMetrics } from "@/core/types/inspection";
 import {
 	executeTier1Sync,
 	getTier1BackoffInfo,
+	reconcileCloudAuditStatus,
 } from "@/services/sync/tier1-sync";
 import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
 
@@ -85,6 +86,8 @@ export default function DashboardScreen() {
 		if (tier1Success) {
 			setSyncFeedback("Synced ✓");
 			await executeTier2MediaSync(db, gatewayUrl);
+			// Reconcile Cloud VLM audit stage & verified reading back to local SQLite
+			await reconcileCloudAuditStatus(db, gatewayUrl);
 		} else {
 			const backoff = getTier1BackoffInfo();
 			if (backoff.lastError === "Server not reachable") {
@@ -332,40 +335,63 @@ export default function DashboardScreen() {
 												<Text style={styles.snText}>
 													{item.meter_serial_number || "UNKNOWN"}
 												</Text>
-												{isPendingMl ? (
-													<View style={styles.processChip}>
-														<Text style={styles.processChipText}>
-															In Process
-														</Text>
-													</View>
-												) : (
-													<View
-														style={[
-															styles.chip,
-															isPass && styles.chipSuccess,
-															isWarn && styles.chipWarn,
-															!isPass && !isWarn && styles.chipError,
-														]}
-													>
-														<Text
+												<View style={styles.badgesCluster}>
+													{isPendingMl ? (
+														<View style={styles.processChip}>
+															<Text style={styles.processChipText}>
+																In Process
+															</Text>
+														</View>
+													) : (
+														<View
 															style={[
-																styles.chipText,
-																isPass && styles.chipTextSuccess,
-																isWarn && styles.chipTextWarn,
-																!isPass && !isWarn && styles.chipTextError,
+																styles.chip,
+																isPass && styles.chipSuccess,
+																isWarn && styles.chipWarn,
+																!isPass && !isWarn && styles.chipError,
 															]}
 														>
-															{item.qa_status}
-														</Text>
-													</View>
-												)}
+															<Text
+																style={[
+																	styles.chipText,
+																	isPass && styles.chipTextSuccess,
+																	isWarn && styles.chipTextWarn,
+																	!isPass && !isWarn && styles.chipTextError,
+																]}
+															>
+																{item.qa_status}
+															</Text>
+														</View>
+													)}
+
+													{/* Two-Stage Cloud Acknowledgment Badge */}
+													{item.audit_stage === "VLM_VERIFIED" ? (
+														<View style={styles.vlmVerifiedChip}>
+															<Text style={styles.vlmVerifiedText}>✓✓ VLM</Text>
+														</View>
+													) : item.audit_stage === "MISMATCH_FLAGGED" ? (
+														<View style={styles.mismatchChip}>
+															<Text style={styles.mismatchText}>
+																⚠ Mismatch
+															</Text>
+														</View>
+													) : item.sync_tier2_status === "SYNCED" ? (
+														<View style={styles.uploadedChip}>
+															<Text style={styles.uploadedText}>
+																✓ Uploaded
+															</Text>
+														</View>
+													) : null}
+												</View>
 											</View>
 											<Text style={styles.metaText}>
 												{isPendingMl
 													? "Running model on device..."
 													: item.extracted_kwh != null
 														? `${item.extracted_kwh} kWh`
-														: "Tap to enter reading"}
+														: item.vlm_kwh != null
+															? `${item.vlm_kwh} kWh (VLM)`
+															: "Tap to enter reading"}
 											</Text>
 										</View>
 									</View>
@@ -629,6 +655,44 @@ const styles = StyleSheet.create({
 		fontSize: 10,
 		fontWeight: "700",
 		color: MD3.color.primary,
+	},
+	badgesCluster: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+	},
+	vlmVerifiedChip: {
+		backgroundColor: "#CCFBF1",
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	vlmVerifiedText: {
+		fontSize: 9,
+		fontWeight: "700",
+		color: "#0F766E",
+	},
+	mismatchChip: {
+		backgroundColor: "#FEF3C7",
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	mismatchText: {
+		fontSize: 9,
+		fontWeight: "700",
+		color: "#B45309",
+	},
+	uploadedChip: {
+		backgroundColor: "#E0F2FE",
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	uploadedText: {
+		fontSize: 9,
+		fontWeight: "700",
+		color: "#0369A1",
 	},
 	emptyCard: {
 		backgroundColor: MD3.color.surfaceContainerLow,

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
@@ -16,6 +16,7 @@ from app.schemas.inspection import (
     PhotoType,
     Tier1BatchPayload,
 )
+from app.services.vlm_auditor import run_vlm_meter_audit
 
 router = APIRouter()
 
@@ -107,6 +108,7 @@ def upload_audit_image(
     inspection_id: str,
     photo_type: Annotated[PhotoType, Form(...)],
     file: Annotated[UploadFile, File(...)],
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
 ):
     """
@@ -189,7 +191,17 @@ def upload_audit_image(
         )
         db.add(new_photo)
 
+    # Acknowledgment 1: Mark photo received
+    inspection.audit_stage = "IMAGE_RECEIVED"
     db.commit()
+
+    # Trigger Tier-3 Cloud VLM Second-Verification asynchronously in background
+    background_tasks.add_task(
+        run_vlm_meter_audit,
+        inspection_id=inspection_id,
+        image_bytes=file_bytes,
+        mime_type=file.content_type,
+    )
 
     return ImageUploadResponse(
         status="STORED",

@@ -46,9 +46,10 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # ---------------------------------------------------------------------------
 # Live Web Admin Dashboard (Inspections, Live Fleet Map, Directives)
+# Calm & Collected Dark Technical UI with Render-Style Boot Loading Sequence
 # ---------------------------------------------------------------------------
-ADMIN_HTML = """<!DOCTYPE html>
-<html lang="en">
+ADMIN_HTML = r"""<!DOCTYPE html>
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,10 +57,53 @@ ADMIN_HTML = """<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            obsidian: {
+              950: '#08090a',
+              900: '#0c0d0e',
+              850: '#111317',
+              800: '#17191f',
+              700: '#1f222b',
+              600: '#2c303c',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    .leaflet-popup-content-wrapper { border-radius: 8px; font-family: sans-serif; }
+    body {
+      background-color: #0c0d0e;
+      color: #e4e4e7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #111317 !important;
+      color: #e4e4e7 !important;
+      border: 1px solid #1f222b !important;
+      border-radius: 8px !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+    }
+    .leaflet-popup-tip {
+      background: #111317 !important;
+    }
     .online-pulse {
-      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
       background: #10b981; box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
       animation: pulse 1.8s infinite;
     }
@@ -68,95 +112,206 @@ ADMIN_HTML = """<!DOCTYPE html>
       70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
+    /* Calm wireframe grid on loading screen */
+    .wireframe-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+      width: 100%;
+      height: 100%;
+    }
+    .wireframe-cell {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      border-left: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .wireframe-cell-active {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.015);
+    }
+    /* Sleek custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0c0d0e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #232733;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #323746;
+    }
   </style>
 </head>
-<body class="bg-zinc-50 text-zinc-950 font-sans antialiased min-h-screen">
+<body class="bg-[#0c0d0e] text-zinc-100 antialiased min-h-screen selection:bg-zinc-800 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- RENDER-STYLE CALM BOOT LOADING OVERLAY                                     -->
+  <!-- ========================================================================= -->
+  <div id="boot-overlay" class="fixed inset-0 z-50 bg-[#0c0d0e] text-zinc-300 font-mono flex flex-col justify-between p-6 sm:p-12 transition-opacity duration-700 select-none overflow-hidden" onclick="dismissBootOverlay()">
+    
+    <!-- TOP BAR -->
+    <div class="flex items-center justify-between z-10">
+      <div class="flex items-center gap-2.5 text-zinc-100 font-bold tracking-tight text-sm">
+        <svg class="w-4 h-4 text-zinc-200" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>Novo Ops</span>
+      </div>
+      <div class="text-[11px] text-zinc-600 uppercase tracking-widest font-mono hidden sm:block">
+        SSOT GATEWAY &bull; REGION: AP-SOUTH-1
+      </div>
+    </div>
+
+    <!-- RIGHT BACKGROUND WIREFRAME GRID (Render-style technical blueprint) -->
+    <div class="absolute top-0 right-0 w-[58%] h-full pointer-events-none opacity-40 hidden md:block">
+      <div class="wireframe-grid">
+        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
+        <div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
+        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div>
+        <div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
+        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div>
+        <div class="wireframe-cell wireframe-cell-active"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
+      </div>
+    </div>
+
+    <!-- CENTER-LEFT CONSOLE INITIALIZATION STREAM -->
+    <div class="max-w-2xl z-10 my-auto space-y-3.5 text-xs sm:text-[13px] leading-relaxed">
+      <div id="boot-log-container" class="space-y-2">
+        <div class="boot-line text-zinc-500"><span id="boot-ts-1" class="text-zinc-600 font-mono">15:58:38</span> <span class="text-zinc-300 font-medium">INCOMING HTTP REQUEST DETECTED ...</span></div>
+        <div class="boot-line text-zinc-500"><span id="boot-ts-2" class="text-zinc-600 font-mono">15:58:41</span> <span class="text-zinc-300 font-medium">SERVICE WAKING UP ...</span></div>
+        <div class="boot-line my-3 py-1">
+          <pre class="text-zinc-400 text-[10px] sm:text-[11px] leading-tight select-none border border-zinc-800/80 bg-[#101217]/60 p-3 rounded-sm font-mono overflow-x-auto">
+.-------------------------------------------------------------.
+|                                                             |
+|   _  _  _____  _    _  ____       ___  ____  ____  ____     |
+|  ( \( )(  _  )( \  / )(  _ \     / __)(  _ \/ ___)(  _ \    |
+|   )  (  )(_)(  ) \/ (  )___/     \__ \ )___/\___ \ )___/    |
+|  (_)\_)(_____)(____/  (__)       (___/(__)  (____/(__)      |
+|                                                             |
+|   OFFLINE-FIRST EDGE QA & MULTIMODAL VLM GATEWAY            |
+'-------------------------------------------------------------'</pre>
+        </div>
+        <div class="boot-line text-zinc-500"><span id="boot-ts-3" class="text-zinc-600 font-mono">15:58:45</span> <span class="text-zinc-300 font-medium">ALLOCATING COMPUTE RESOURCES & SUPABASE CONNECTION POOL ...</span></div>
+        <div class="boot-line text-zinc-500"><span id="boot-ts-4" class="text-zinc-600 font-mono">15:58:48</span> <span class="text-zinc-300 font-medium">PREPARING INSTANCE FOR INITIALIZATION ...</span></div>
+        <div class="boot-line text-zinc-500"><span id="boot-ts-5" class="text-zinc-600 font-mono">15:58:52</span> <span class="text-zinc-300 font-medium">SYNCHRONIZING WEBSOCKET FLEET COMMAND MESH ...</span></div>
+        <div class="boot-line text-zinc-500"><span id="boot-ts-6" class="text-zinc-600 font-mono">15:58:58</span> <span class="text-zinc-300 font-medium">TIER-3 VLM AUDIT ENGINE READY (GEMINI 3.8 / 4) ...</span></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="flex items-center justify-between text-xs font-mono z-10 pt-4 border-t border-zinc-900/80">
+      <div class="text-zinc-400 hover:text-zinc-200 uppercase tracking-widest text-[11px] transition inline-flex items-center gap-1.5 cursor-pointer">
+        <span>START MONITORING NOVO FLEET</span>
+        <span class="text-zinc-500">&rarr;</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="boot-spinner" class="w-3.5 h-3.5 rounded-full border-2 border-zinc-700 border-t-zinc-200 animate-spin"></div>
+        <span id="boot-status-text" class="text-zinc-300 font-bold uppercase tracking-widest text-[11px]">APPLICATION LOADING</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN NOVO ADMIN CONSOLE (CALM & COLLECTED DARK TECHNICAL UI)              -->
+  <!-- ========================================================================= -->
   <div class="max-w-6xl mx-auto px-4 py-8">
     
     <!-- HEADER -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-zinc-200 gap-4">
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-zinc-800/80 gap-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">Novo Ops Center</h1>
-        <p class="text-sm text-zinc-500 mt-1">Live edge telemetry, Tier-3 VLM verification, and real-time fleet command</p>
+        <div class="flex items-center gap-2.5">
+          <div class="w-2.5 h-2.5 rounded-sm bg-zinc-200"></div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">Novo Admin &bull; Ops Center</h1>
+        </div>
+        <p class="text-xs sm:text-sm text-zinc-400 mt-1">Live edge telemetry, Tier-3 VLM verification, and real-time fleet command</p>
       </div>
-      <div class="flex items-center gap-2">
-        <span id="live-indicator" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+      <div class="flex items-center flex-wrap gap-2">
+        <span id="live-indicator" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-950/60 text-emerald-400 border border-emerald-800/50">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           Live (5s)
         </span>
-        <a href="/api/v1/inspections/export.csv" target="_blank" download="DISCOM_Installation_QC_Audit.csv" class="px-3 py-1.5 text-xs font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition inline-flex items-center gap-1.5">
+        <a href="/api/v1/inspections/export.csv" target="_blank" download="DISCOM_Installation_QC_Audit.csv" class="px-3 py-1.5 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md border border-zinc-700/60 transition inline-flex items-center gap-1.5">
           <span>Export QC CSV</span>
         </a>
-        <button onclick="refreshAll()" class="px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-100 text-zinc-800 rounded-md border border-zinc-200 transition">
+        <button onclick="refreshAll()" class="px-3 py-1.5 text-xs font-medium bg-[#14161c] hover:bg-[#1a1e27] text-zinc-200 rounded-md border border-zinc-800 transition">
           Refresh
         </button>
-        <button onclick="confirmResetData()" class="px-2.5 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-700 rounded-md border border-red-200 transition" title="Clear dummy test records">
+        <button onclick="showBootOverlay()" class="px-2.5 py-1.5 text-xs font-medium bg-[#14161c] hover:bg-[#1a1e27] text-zinc-400 hover:text-zinc-200 rounded-md border border-zinc-800 transition" title="View calm boot terminal">
+          Terminal
+        </button>
+        <button onclick="confirmResetData()" class="px-2.5 py-1.5 text-xs font-medium bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 rounded-md border border-rose-800/40 transition" title="Clear dummy test records">
           Reset Data
         </button>
       </div>
     </header>
 
     <!-- TABS NAVIGATION -->
-    <div class="flex border-b border-zinc-200 mt-4 mb-6 gap-2">
-      <button onclick="switchTab('inspections')" id="tab-btn-inspections" class="tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-900 text-zinc-900 transition">
+    <div class="flex border-b border-zinc-800/80 mt-4 mb-6 gap-2">
+      <button onclick="switchTab('inspections')" id="tab-btn-inspections" class="tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-100 text-zinc-100 transition">
         Audit SSOT & Inspections
       </button>
-      <button onclick="switchTab('fleet')" id="tab-btn-fleet" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-800 transition">
+      <button onclick="switchTab('fleet')" id="tab-btn-fleet" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-300 transition">
         Live Devices & Fleet Map (<span id="fleet-online-badge">0</span> Online)
       </button>
-      <button onclick="switchTab('directives')" id="tab-btn-directives" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-800 transition">
+      <button onclick="switchTab('directives')" id="tab-btn-directives" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-300 transition">
         Directives & Messages (<span id="unread-ack-badge">0</span>)
       </button>
     </div>
 
     <!-- TAB 1: INSPECTIONS CONTENT -->
     <div id="tab-inspections">
-      <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total Ingested</div>
-          <div id="stat-total" class="text-2xl font-bold mt-1">0</div>
+      <!-- STAT CARDS -->
+      <section class="grid grid-cols-2 md:grid-cols-5 gap-3.5 mb-6">
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider font-mono">Total Ingested</div>
+          <div id="stat-total" class="text-2xl font-bold mt-1 text-zinc-100 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-emerald-600 uppercase tracking-wide">Edge Pass</div>
-          <div id="stat-pass" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-emerald-400 uppercase tracking-wider font-mono">Edge Pass</div>
+          <div id="stat-pass" class="text-2xl font-bold text-emerald-400 mt-1 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-teal-600 uppercase tracking-wide">VLM Audited</div>
-          <div id="stat-vlm" class="text-2xl font-bold text-teal-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-teal-400 uppercase tracking-wider font-mono">VLM Audited</div>
+          <div id="stat-vlm" class="text-2xl font-bold text-teal-400 mt-1 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-amber-600 uppercase tracking-wide">Warnings / Mismatch</div>
-          <div id="stat-warn" class="text-2xl font-bold text-amber-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-amber-400 uppercase tracking-wider font-mono">Warnings / Mismatch</div>
+          <div id="stat-warn" class="text-2xl font-bold text-amber-400 mt-1 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-red-600 uppercase tracking-wide">Critical Hazards</div>
-          <div id="stat-crit" class="text-2xl font-bold text-red-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-rose-400 uppercase tracking-wider font-mono">Critical Hazards</div>
+          <div id="stat-crit" class="text-2xl font-bold text-rose-400 mt-1 font-mono">0</div>
         </div>
       </section>
 
+      <!-- SEARCH & FILTER BAR -->
       <div class="flex flex-col sm:flex-row gap-3 mb-4 items-center justify-between">
         <div class="flex gap-2 w-full sm:w-auto">
           <input id="search-input" type="text" placeholder="Search Meter S/N, Tech, Device..." oninput="renderTable()"
-            class="w-full sm:w-72 px-3 py-2 text-sm bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900 placeholder-zinc-400">
-          <select id="tech-filter" onchange="renderTable()" class="px-3 py-2 text-sm bg-white border border-zinc-200 rounded-md focus:outline-none text-zinc-700">
+            class="w-full sm:w-72 px-3 py-2 text-xs bg-[#111317] border border-zinc-800 rounded-md focus:outline-none focus:border-zinc-500 text-zinc-200 placeholder-zinc-500 font-mono">
+          <select id="tech-filter" onchange="renderTable()" class="px-3 py-2 text-xs bg-[#111317] border border-zinc-800 rounded-md focus:outline-none text-zinc-300">
             <option value="ALL">All Technicians</option>
           </select>
         </div>
         
         <div class="flex items-center gap-1.5 self-start sm:self-auto overflow-x-auto">
-          <button onclick="setFilter('ALL')" id="filter-ALL" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-zinc-900 text-white">All</button>
-          <button onclick="setFilter('PASS')" id="filter-PASS" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Pass</button>
-          <button onclick="setFilter('VLM_VERIFIED')" id="filter-VLM_VERIFIED" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">VLM Verified</button>
-          <button onclick="setFilter('WARNING')" id="filter-WARNING" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Warning</button>
-          <button onclick="setFilter('CRITICAL_HAZARD')" id="filter-CRITICAL_HAZARD" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100">Hazard</button>
+          <button onclick="setFilter('ALL')" id="filter-ALL" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-zinc-200 text-zinc-950 transition">All</button>
+          <button onclick="setFilter('PASS')" id="filter-PASS" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-[#111317] text-zinc-400 border border-zinc-800 hover:text-zinc-200 transition">Pass</button>
+          <button onclick="setFilter('VLM_VERIFIED')" id="filter-VLM_VERIFIED" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-[#111317] text-zinc-400 border border-zinc-800 hover:text-zinc-200 transition">VLM Verified</button>
+          <button onclick="setFilter('WARNING')" id="filter-WARNING" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-[#111317] text-zinc-400 border border-zinc-800 hover:text-zinc-200 transition">Warning</button>
+          <button onclick="setFilter('CRITICAL_HAZARD')" id="filter-CRITICAL_HAZARD" class="filter-btn px-3 py-1 text-xs font-medium rounded-md bg-[#111317] text-zinc-400 border border-zinc-800 hover:text-zinc-200 transition">Hazard</button>
         </div>
       </div>
 
-      <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
+      <!-- MAIN TABLE -->
+      <div class="bg-[#111317] rounded-lg border border-zinc-800/80 overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
-              <tr class="border-b border-zinc-200 bg-zinc-50/75 text-zinc-500 font-medium text-xs uppercase tracking-wider">
+              <tr class="border-b border-zinc-800/80 bg-[#0e1014] text-zinc-400 font-medium text-[11px] uppercase tracking-wider font-mono">
                 <th class="p-3 w-16">Photo</th>
                 <th class="p-3">Meter S/N</th>
                 <th class="p-3">Edge Reading</th>
@@ -168,8 +323,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <th class="p-3 text-right">Details</th>
               </tr>
             </thead>
-            <tbody id="table-body" class="divide-y divide-zinc-200 font-normal">
-              <tr><td colspan="9" class="p-8 text-center text-zinc-400">Loading inspection records...</td></tr>
+            <tbody id="table-body" class="divide-y divide-zinc-800/50 font-normal">
+              <tr><td colspan="9" class="p-8 text-center text-zinc-500 font-mono text-xs">Loading inspection records...</td></tr>
             </tbody>
           </table>
         </div>
@@ -178,39 +333,39 @@ ADMIN_HTML = """<!DOCTYPE html>
 
     <!-- TAB 2: LIVE FLEET MAP CONTENT -->
     <div id="tab-fleet" class="hidden">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide">Registered Devices</div>
-          <div id="fleet-stat-total" class="text-2xl font-bold mt-1">0</div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider font-mono">Registered Devices</div>
+          <div id="fleet-stat-total" class="text-2xl font-bold mt-1 text-zinc-100 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-emerald-600 uppercase tracking-wide">Live Connected (WS)</div>
-          <div id="fleet-stat-online" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-emerald-400 uppercase tracking-wider font-mono">Live Connected (WS)</div>
+          <div id="fleet-stat-online" class="text-2xl font-bold text-emerald-400 mt-1 font-mono">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
-          <div class="text-xs font-medium text-sky-600 uppercase tracking-wide">Active Technicians</div>
-          <div id="fleet-stat-techs" class="text-2xl font-bold text-sky-600 mt-1">0</div>
+        <div class="bg-[#111317] p-4 rounded-lg border border-zinc-800/70">
+          <div class="text-[11px] font-medium text-sky-400 uppercase tracking-wider font-mono">Active Technicians</div>
+          <div id="fleet-stat-techs" class="text-2xl font-bold text-sky-400 mt-1 font-mono">0</div>
         </div>
       </div>
 
-      <!-- MAP CONTAINER -->
-      <div class="bg-white rounded-lg border border-zinc-200 p-3 mb-6 shadow-sm">
-        <div class="flex items-center justify-between mb-2 px-1">
-          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Real-Time Fleet Geolocation</div>
-          <div class="text-xs text-zinc-400">Pulsing Green = Connected &bull; Gray = Offline (Last Seen)</div>
+      <!-- MAP CONTAINER (DARK MATTER TILES) -->
+      <div class="bg-[#111317] rounded-lg border border-zinc-800/80 p-3 mb-6 shadow-xl">
+        <div class="flex items-center justify-between mb-2.5 px-1">
+          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-300 font-mono">Real-Time Fleet Geolocation</div>
+          <div class="text-[11px] text-zinc-500 font-mono">Pulsing Green = Connected &bull; Gray = Offline (Last Known)</div>
         </div>
-        <div id="fleet-map" style="height: 380px; width: 100%; border-radius: 6px;" class="bg-zinc-100 z-10"></div>
+        <div id="fleet-map" style="height: 400px; width: 100%; border-radius: 6px;" class="bg-[#0c0d0e] z-10 border border-zinc-800/60"></div>
       </div>
 
       <!-- DEVICES LIST TABLE -->
-      <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
-        <div class="px-4 py-3 border-b border-zinc-200 bg-zinc-50/75">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700">Device Fleet Directory</h3>
+      <div class="bg-[#111317] rounded-lg border border-zinc-800/80 overflow-hidden shadow-xl">
+        <div class="px-4 py-3 border-b border-zinc-800/80 bg-[#0e1014]">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 font-mono">Device Fleet Directory</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
-              <tr class="border-b border-zinc-200 text-zinc-500 font-medium text-xs uppercase tracking-wider">
+              <tr class="border-b border-zinc-800/80 bg-[#0e1014] text-zinc-400 font-medium text-[11px] uppercase tracking-wider font-mono">
                 <th class="p-3">Status</th>
                 <th class="p-3">Device ID</th>
                 <th class="p-3">Technician</th>
@@ -220,8 +375,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <th class="p-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody id="devices-table-body" class="divide-y divide-zinc-200 font-normal">
-              <tr><td colspan="7" class="p-8 text-center text-zinc-400">Loading device fleet...</td></tr>
+            <tbody id="devices-table-body" class="divide-y divide-zinc-800/50 font-normal">
+              <tr><td colspan="7" class="p-8 text-center text-zinc-500 font-mono text-xs">Loading device fleet...</td></tr>
             </tbody>
           </table>
         </div>
@@ -232,19 +387,19 @@ ADMIN_HTML = """<!DOCTYPE html>
     <div id="tab-directives" class="hidden">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h2 class="text-lg font-bold text-zinc-900">Field Communication Hub</h2>
-          <p class="text-xs text-zinc-500">Real-time WebSocket alerts and store-and-forward fallback directives</p>
+          <h2 class="text-lg font-bold text-zinc-100">Field Communication Hub</h2>
+          <p class="text-xs text-zinc-400">Real-time WebSocket alerts and store-and-forward fallback directives</p>
         </div>
-        <button onclick="openDirectiveModal()" class="px-3.5 py-2 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-md transition shadow-sm">
+        <button onclick="openDirectiveModal()" class="px-3.5 py-2 text-xs font-semibold bg-zinc-200 hover:bg-white text-zinc-950 rounded-md transition shadow-sm">
           + New Directive / Alert
         </button>
       </div>
 
-      <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
+      <div class="bg-[#111317] rounded-lg border border-zinc-800/80 overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
-              <tr class="border-b border-zinc-200 bg-zinc-50/75 text-zinc-500 font-medium text-xs uppercase tracking-wider">
+              <tr class="border-b border-zinc-800/80 bg-[#0e1014] text-zinc-400 font-medium text-[11px] uppercase tracking-wider font-mono">
                 <th class="p-3">Dispatched</th>
                 <th class="p-3">Priority & Type</th>
                 <th class="p-3">Target</th>
@@ -252,8 +407,8 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <th class="p-3">Delivery & Technician Replies</th>
               </tr>
             </thead>
-            <tbody id="directives-table-body" class="divide-y divide-zinc-200 font-normal">
-              <tr><td colspan="5" class="p-8 text-center text-zinc-400">Loading dispatched directives...</td></tr>
+            <tbody id="directives-table-body" class="divide-y divide-zinc-800/50 font-normal">
+              <tr><td colspan="5" class="p-8 text-center text-zinc-500 font-mono text-xs">Loading dispatched directives...</td></tr>
             </tbody>
           </table>
         </div>
@@ -261,95 +416,97 @@ ADMIN_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- INSPECTION DETAIL MODAL -->
-  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onclick="closeDetailModal()">
-    <div class="relative w-full max-w-4xl max-h-[92vh] bg-white rounded-xl shadow-2xl overflow-y-auto p-6" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between pb-4 border-b border-zinc-200">
+  <!-- ========================================================================= -->
+  <!-- INSPECTION DETAIL MODAL (DARK LIGHTBOX)                                    -->
+  <!-- ========================================================================= -->
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeDetailModal()">
+    <div class="relative w-full max-w-4xl max-h-[92vh] bg-[#111317] border border-zinc-800 rounded-xl shadow-2xl overflow-y-auto p-6 text-zinc-100" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
         <div>
-          <h3 id="modal-meter-title" class="text-xl font-bold text-zinc-900 font-mono">METER DETAIL</h3>
-          <p id="modal-meta-subtitle" class="text-xs text-zinc-500 mt-0.5">Audit Record</p>
+          <h3 id="modal-meter-title" class="text-lg sm:text-xl font-bold text-zinc-100 font-mono tracking-tight">METER DETAIL</h3>
+          <p id="modal-meta-subtitle" class="text-xs text-zinc-400 mt-0.5 font-mono">Audit Record</p>
         </div>
-        <button onclick="closeDetailModal()" class="px-3 py-1 text-xs font-semibold text-zinc-500 hover:text-zinc-900 bg-zinc-100 rounded-md">Close (Esc)</button>
+        <button onclick="closeDetailModal()" class="px-3 py-1 text-xs font-semibold text-zinc-400 hover:text-zinc-100 bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700/60 rounded-md transition">Close (Esc)</button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <div>
-          <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Audit Capture</h4>
-          <div class="relative bg-zinc-950 rounded-lg overflow-hidden border border-zinc-200 flex items-center justify-center min-h-[260px]">
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Audit Capture</h4>
+          <div class="relative bg-[#08090b] rounded-lg overflow-hidden border border-zinc-800 flex items-center justify-center min-h-[260px]">
             <img id="detail-modal-img" src="" alt="Inspection photo" class="max-h-[380px] w-auto object-contain mx-auto">
           </div>
-          <div id="detail-photo-caption" class="text-xs text-zinc-400 mt-1 font-mono text-center"></div>
+          <div id="detail-photo-caption" class="text-xs text-zinc-500 mt-1.5 font-mono text-center"></div>
         </div>
 
         <div class="space-y-4">
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Verification Matrix</h4>
-            <div class="bg-zinc-50 p-3.5 rounded-lg border border-zinc-200 space-y-2 text-xs">
-              <div class="flex justify-between items-center py-1 border-b border-zinc-200">
-                <span class="text-zinc-500">Edge OCR Reading:</span>
-                <span id="detail-edge-kwh" class="font-mono font-bold text-zinc-900">—</span>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Verification Matrix</h4>
+            <div class="bg-[#0e1014] p-3.5 rounded-lg border border-zinc-800/80 space-y-2 text-xs">
+              <div class="flex justify-between items-center py-1 border-b border-zinc-800/60">
+                <span class="text-zinc-400">Edge OCR Reading:</span>
+                <span id="detail-edge-kwh" class="font-mono font-bold text-zinc-100">—</span>
               </div>
-              <div class="flex justify-between items-center py-1 border-b border-zinc-200">
-                <span class="text-zinc-500">Cloud VLM Reading:</span>
-                <span id="detail-vlm-kwh" class="font-mono font-bold text-teal-700">—</span>
+              <div class="flex justify-between items-center py-1 border-b border-zinc-800/60">
+                <span class="text-zinc-400">Cloud VLM Reading:</span>
+                <span id="detail-vlm-kwh" class="font-mono font-bold text-teal-400">—</span>
               </div>
-              <div class="flex justify-between items-center py-1 border-b border-zinc-200">
-                <span class="text-zinc-500">Reconciliation Status:</span>
+              <div class="flex justify-between items-center py-1 border-b border-zinc-800/60">
+                <span class="text-zinc-400">Reconciliation Status:</span>
                 <span id="detail-reconcile-badge">—</span>
               </div>
               <div class="flex justify-between items-center py-1">
-                <span class="text-zinc-500">Edge QA Status:</span>
+                <span class="text-zinc-400">Edge QA Status:</span>
                 <span id="detail-edge-status">—</span>
               </div>
             </div>
           </div>
 
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">AI Summary & Diagnostics</h4>
-            <div class="bg-zinc-50 p-3.5 rounded-lg border border-zinc-200 space-y-1.5 text-xs">
-              <p id="detail-vlm-summary" class="text-zinc-700 leading-relaxed italic">No AI summary generated.</p>
-              <div id="detail-vlm-tags" class="flex flex-wrap gap-1 mt-2"></div>
-              <p id="detail-vlm-notes" class="text-zinc-500 text-[11px] mt-1 pt-1 border-t border-zinc-200 font-mono"></p>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">AI Summary & Diagnostics</h4>
+            <div class="bg-[#0e1014] p-3.5 rounded-lg border border-zinc-800/80 space-y-1.5 text-xs">
+              <p id="detail-vlm-summary" class="text-zinc-300 leading-relaxed italic">No AI summary generated.</p>
+              <div id="detail-vlm-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
+              <p id="detail-vlm-notes" class="text-zinc-500 text-[11px] mt-1 pt-1.5 border-t border-zinc-800/60 font-mono"></p>
             </div>
           </div>
 
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">4-Point Physical Installation QC</h4>
-            <div id="detail-qc-scorecard" class="bg-zinc-50 p-3 rounded-lg border border-zinc-200 grid grid-cols-2 gap-2 text-xs">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">4-Point Physical Installation QC</h4>
+            <div id="detail-qc-scorecard" class="bg-[#0e1014] p-3 rounded-lg border border-zinc-800/80 grid grid-cols-2 gap-2 text-xs">
               <!-- Populated via openDetailModal -->
             </div>
           </div>
 
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Evidence Integrity Seal</h4>
-            <div class="bg-zinc-50 p-3 rounded-lg border border-zinc-200 text-xs">
-              <span class="text-zinc-400 text-[10px] block font-mono">SHA-256 EVIDENCE DIGEST</span>
-              <div id="detail-evidence-seal" class="mt-1 font-mono text-zinc-700 break-all text-[11px]">—</div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Evidence Integrity Seal</h4>
+            <div class="bg-[#0e1014] p-3 rounded-lg border border-zinc-800/80 text-xs">
+              <span class="text-zinc-500 text-[10px] block font-mono">SHA-256 EVIDENCE DIGEST</span>
+              <div id="detail-evidence-seal" class="mt-1 font-mono text-zinc-300 break-all text-[11px]">—</div>
             </div>
           </div>
 
           <div>
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Device & Field Attribution</h4>
-            <div class="bg-zinc-50 p-3.5 rounded-lg border border-zinc-200 grid grid-cols-2 gap-2 text-xs">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Device & Field Attribution</h4>
+            <div class="bg-[#0e1014] p-3.5 rounded-lg border border-zinc-800/80 grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span class="text-zinc-400 text-[10px] block">TECHNICIAN</span>
-                <span id="detail-attr-tech" class="font-mono font-medium text-zinc-900">—</span>
+                <span class="text-zinc-500 text-[10px] block font-mono">TECHNICIAN</span>
+                <span id="detail-attr-tech" class="font-mono font-medium text-zinc-200">—</span>
               </div>
               <div>
-                <span class="text-zinc-400 text-[10px] block">DEVICE ID</span>
-                <span id="detail-attr-device" class="font-mono text-zinc-700">—</span>
+                <span class="text-zinc-500 text-[10px] block font-mono">DEVICE ID</span>
+                <span id="detail-attr-device" class="font-mono text-zinc-300">—</span>
               </div>
               <div>
-                <span class="text-zinc-400 text-[10px] block">HARDWARE MODEL</span>
-                <span id="detail-attr-model" class="text-zinc-700">—</span>
+                <span class="text-zinc-500 text-[10px] block font-mono">HARDWARE MODEL</span>
+                <span id="detail-attr-model" class="text-zinc-300">—</span>
               </div>
               <div>
-                <span class="text-zinc-400 text-[10px] block">APP VERSION</span>
-                <span id="detail-attr-ver" class="font-mono text-zinc-700">—</span>
+                <span class="text-zinc-500 text-[10px] block font-mono">APP VERSION</span>
+                <span id="detail-attr-ver" class="font-mono text-zinc-300">—</span>
               </div>
-              <div class="col-span-2 pt-1 border-t border-zinc-200">
-                <span class="text-zinc-400 text-[10px] block">GEO COORDINATES</span>
-                <span id="detail-attr-geo" class="font-mono text-zinc-700">—</span>
+              <div class="col-span-2 pt-1 border-t border-zinc-800/60">
+                <span class="text-zinc-500 text-[10px] block font-mono">GEO COORDINATES</span>
+                <span id="detail-attr-geo" class="font-mono text-zinc-300">—</span>
               </div>
             </div>
           </div>
@@ -358,31 +515,33 @@ ADMIN_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- DISPATCH DIRECTIVE MODAL -->
-  <div id="directive-modal" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onclick="closeDirectiveModal()">
-    <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl p-6" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between pb-3 border-b border-zinc-200">
-        <h3 class="text-base font-bold text-zinc-900">Dispatch Field Directive</h3>
-        <button onclick="closeDirectiveModal()" class="text-xs font-semibold text-zinc-400 hover:text-zinc-700">Cancel</button>
+  <!-- ========================================================================= -->
+  <!-- DISPATCH DIRECTIVE MODAL (DARK LIGHTBOX)                                  -->
+  <!-- ========================================================================= -->
+  <div id="directive-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeDirectiveModal()">
+    <div class="relative w-full max-w-lg bg-[#111317] border border-zinc-800 rounded-xl shadow-2xl p-6 text-zinc-100" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+        <h3 class="text-base font-bold text-zinc-100">Dispatch Field Directive</h3>
+        <button onclick="closeDirectiveModal()" class="text-xs font-semibold text-zinc-500 hover:text-zinc-300">Cancel</button>
       </div>
 
       <form onsubmit="submitDirective(event)" class="space-y-4 mt-4 text-xs">
         <div>
-          <label class="block font-medium text-zinc-700 mb-1">Target Group</label>
+          <label class="block font-medium text-zinc-400 mb-1">Target Group</label>
           <div class="grid grid-cols-3 gap-2">
-            <select id="dir-target-type" onchange="updateTargetInput()" class="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md font-medium text-zinc-800">
+            <select id="dir-target-type" onchange="updateTargetInput()" class="px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md font-medium text-zinc-200">
               <option value="BROADCAST">All Technicians</option>
               <option value="TECHNICIAN">Specific Tech</option>
               <option value="DEVICE">Specific Device</option>
             </select>
-            <input id="dir-target-id" type="text" value="ALL" placeholder="Target ID" class="col-span-2 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md font-mono">
+            <input id="dir-target-id" type="text" value="ALL" placeholder="Target ID" class="col-span-2 px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md font-mono text-zinc-200">
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-medium text-zinc-700 mb-1">Directive Type</label>
-            <select id="dir-msg-type" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md font-medium text-zinc-800">
+            <label class="block font-medium text-zinc-400 mb-1">Directive Type</label>
+            <select id="dir-msg-type" class="w-full px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md font-medium text-zinc-200">
               <option value="ALERT">Safety Alert</option>
               <option value="DIRECTIVE">Task Directive</option>
               <option value="REINSPECT">Re-inspection Request</option>
@@ -390,8 +549,8 @@ ADMIN_HTML = """<!DOCTYPE html>
             </select>
           </div>
           <div>
-            <label class="block font-medium text-zinc-700 mb-1">Priority</label>
-            <select id="dir-priority" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md font-medium text-zinc-800">
+            <label class="block font-medium text-zinc-400 mb-1">Priority</label>
+            <select id="dir-priority" class="w-full px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md font-medium text-zinc-200">
               <option value="NORMAL">Normal</option>
               <option value="URGENT">Urgent</option>
               <option value="CRITICAL">Critical</option>
@@ -401,18 +560,18 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
 
         <div>
-          <label class="block font-medium text-zinc-700 mb-1">Title</label>
-          <input id="dir-title" type="text" required placeholder="e.g. Mandatory Seal Re-check" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md">
+          <label class="block font-medium text-zinc-400 mb-1">Title</label>
+          <input id="dir-title" type="text" required placeholder="e.g. Mandatory Seal Re-check" class="w-full px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md text-zinc-200">
         </div>
 
         <div>
-          <label class="block font-medium text-zinc-700 mb-1">Directive Content</label>
-          <textarea id="dir-body" rows="3" required placeholder="Describe the mandatory instructions for the field team..." class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-md"></textarea>
+          <label class="block font-medium text-zinc-400 mb-1">Directive Content</label>
+          <textarea id="dir-body" rows="3" required placeholder="Describe the mandatory instructions for the field team..." class="w-full px-3 py-2 bg-[#0c0d0e] border border-zinc-800 rounded-md text-zinc-200"></textarea>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeDirectiveModal()" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md font-medium">Cancel</button>
-          <button type="submit" id="dir-submit-btn" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-md font-semibold">Dispatch Now</button>
+          <button type="button" onclick="closeDirectiveModal()" class="px-4 py-2 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 rounded-md font-medium transition">Cancel</button>
+          <button type="submit" id="dir-submit-btn" class="px-4 py-2 bg-zinc-200 hover:bg-white text-zinc-950 rounded-md font-semibold transition">Dispatch Now</button>
         </div>
       </form>
     </div>
@@ -432,23 +591,78 @@ ADMIN_HTML = """<!DOCTYPE html>
     let map = null;
     let mapMarkers = {};
 
+    // -------------------------------------------------------------------------
+    // RENDER-STYLE CALM BOOT SEQUENCE
+    // -------------------------------------------------------------------------
+    function initBootTimestamps() {
+      const now = new Date();
+      function fmt(offsetSec) {
+        const d = new Date(now.getTime() - offsetSec * 1000);
+        return d.toTimeString().split(' ')[0];
+      }
+      const el1 = document.getElementById('boot-ts-1'); if (el1) el1.textContent = fmt(20);
+      const el2 = document.getElementById('boot-ts-2'); if (el2) el2.textContent = fmt(17);
+      const el3 = document.getElementById('boot-ts-3'); if (el3) el3.textContent = fmt(13);
+      const el4 = document.getElementById('boot-ts-4'); if (el4) el4.textContent = fmt(10);
+      const el5 = document.getElementById('boot-ts-5'); if (el5) el5.textContent = fmt(6);
+      const el6 = document.getElementById('boot-ts-6'); if (el6) el6.textContent = fmt(1);
+    }
+
+    function dismissBootOverlay() {
+      const overlay = document.getElementById('boot-overlay');
+      if (!overlay) return;
+      overlay.classList.add('opacity-0', 'pointer-events-none');
+      setTimeout(() => { overlay.style.display = 'none'; }, 700);
+    }
+
+    function showBootOverlay() {
+      const overlay = document.getElementById('boot-overlay');
+      if (!overlay) return;
+      initBootTimestamps();
+      const statusText = document.getElementById('boot-status-text');
+      const spinner = document.getElementById('boot-spinner');
+      if (statusText) statusText.textContent = 'APPLICATION LOADING';
+      if (spinner) {
+        spinner.className = 'w-3.5 h-3.5 rounded-full border-2 border-zinc-700 border-t-zinc-200 animate-spin';
+      }
+      overlay.style.display = 'flex';
+      overlay.classList.remove('opacity-0', 'pointer-events-none');
+
+      // Calm sequence auto-completion
+      setTimeout(() => {
+        if (statusText) statusText.textContent = 'SYSTEM READY';
+        if (spinner) {
+          spinner.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+        }
+      }, 1200);
+      setTimeout(() => {
+        dismissBootOverlay();
+      }, 1900);
+    }
+
+    // -------------------------------------------------------------------------
+    // MAP & TABS
+    // -------------------------------------------------------------------------
     function initMap() {
       if (map || typeof L === 'undefined') return;
       const el = document.getElementById('fleet-map');
       if (!el) return;
       map = L.map('fleet-map').setView([19.0760, 72.8777], 5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      
+      // CartoDB Dark Matter tiles for a calm, serene dark aesthetic
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
+        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" class="text-zinc-500">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" class="text-zinc-500">CARTO</a>'
       }).addTo(map);
     }
 
     function switchTab(tab) {
       currentTab = tab;
       document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.className = 'tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-800 transition';
+        btn.className = 'tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-300 transition';
       });
-      document.getElementById('tab-btn-' + tab).className = 'tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-900 text-zinc-900 transition';
+      document.getElementById('tab-btn-' + tab).className = 'tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-100 text-zinc-100 transition';
 
       document.getElementById('tab-inspections').classList.toggle('hidden', tab !== 'inspections');
       document.getElementById('tab-fleet').classList.toggle('hidden', tab !== 'fleet');
@@ -466,9 +680,9 @@ ADMIN_HTML = """<!DOCTYPE html>
     function setFilter(filter) {
       activeFilter = filter;
       document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.className = 'filter-btn px-3 py-1 text-xs font-medium rounded-md bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100';
+        btn.className = 'filter-btn px-3 py-1 text-xs font-medium rounded-md bg-[#111317] text-zinc-400 border border-zinc-800 hover:text-zinc-200 transition';
       });
-      document.getElementById('filter-' + filter).className = 'filter-btn px-3 py-1 text-xs font-medium rounded-md bg-zinc-900 text-white';
+      document.getElementById('filter-' + filter).className = 'filter-btn px-3 py-1 text-xs font-medium rounded-md bg-zinc-200 text-zinc-950 transition';
       renderTable();
     }
 
@@ -543,43 +757,43 @@ ADMIN_HTML = """<!DOCTYPE html>
 
       const tbody = document.getElementById('table-body');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-zinc-400">No matching inspection records found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-zinc-500 font-mono text-xs">No matching inspection records found.</td></tr>';
         return;
       }
 
       tbody.innerHTML = filtered.map(item => {
         const photo = item.photos && item.photos.length > 0 ? item.photos[0].file_path : null;
         const photoHtml = photo 
-          ? `<img src="${escapeHtml(photo)}" onclick="openDetailModal('${escapeHtml(item.id)}')" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-xs font-mono\\'>N/A</div>'" class="w-10 h-10 object-cover rounded border border-zinc-200 cursor-pointer hover:opacity-80 transition">`
-          : `<div class="w-10 h-10 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-xs font-mono">N/A</div>`;
+          ? `<img src="${escapeHtml(photo)}" onclick="openDetailModal('${escapeHtml(item.id)}')" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-mono\\'>N/A</div>'" class="w-10 h-10 object-cover rounded border border-zinc-800 cursor-pointer hover:border-zinc-500 transition">`
+          : `<div class="w-10 h-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-mono">N/A</div>`;
 
-        let statusClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';
-        if (item.qa_status === 'PASS') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        else if (item.qa_status === 'WARNING') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        else if (item.qa_status === 'CRITICAL_HAZARD') statusClass = 'bg-red-50 text-red-700 border-red-200';
+        let statusClass = 'bg-zinc-900 text-zinc-400 border-zinc-800';
+        if (item.qa_status === 'PASS') statusClass = 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60';
+        else if (item.qa_status === 'WARNING') statusClass = 'bg-amber-950/60 text-amber-400 border-amber-800/60';
+        else if (item.qa_status === 'CRITICAL_HAZARD') statusClass = 'bg-rose-950/60 text-rose-400 border-rose-800/60';
 
-        let auditHtml = '<span class="text-zinc-400 text-xs">—</span>';
+        let auditHtml = '<span class="text-zinc-600 text-xs font-mono">—</span>';
         if (item.audit_stage === 'VLM_VERIFIED') {
-          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-teal-50 text-teal-700 border-teal-200" title="${escapeHtml(item.vlm_notes || 'Verified')}">✓✓ VLM Verified</span>`;
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-teal-950/60 text-teal-300 border-teal-800/60" title="${escapeHtml(item.vlm_notes || 'Verified')}">✓✓ VLM Verified</span>`;
         } else if (item.audit_stage === 'MISMATCH_FLAGGED') {
-          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-amber-50 text-amber-700 border-amber-200 cursor-help" title="${escapeHtml(item.vlm_notes || 'Mismatch')}">⚠ Mismatch</span>`;
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-amber-950/60 text-amber-300 border-amber-800/60 cursor-help" title="${escapeHtml(item.vlm_notes || 'Mismatch')}">⚠ Mismatch</span>`;
         } else if (item.audit_stage === 'IMAGE_RECEIVED') {
-          auditHtml = '<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-sky-50 text-sky-700 border-sky-200">✓ Received</span>';
+          auditHtml = '<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded border bg-sky-950/60 text-sky-300 border-sky-800/60">✓ Received</span>';
         } else if (item.audit_stage === 'VLM_SKIPPED') {
-          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border bg-zinc-100 text-zinc-500 border-zinc-200" title="${escapeHtml(item.vlm_notes || '')}">Skipped</span>`;
+          auditHtml = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border bg-zinc-900 text-zinc-500 border-zinc-800" title="${escapeHtml(item.vlm_notes || '')}">Skipped</span>`;
         }
 
-        const edgeKwhText = item.kwh_reading != null ? `${Number(item.kwh_reading).toFixed(1)} kWh` : '<span class="text-zinc-400">—</span>';
+        const edgeKwhText = item.kwh_reading != null ? `${Number(item.kwh_reading).toFixed(1)} kWh` : '<span class="text-zinc-600">—</span>';
         const vlmKwhText = item.vlm_kwh != null 
-          ? `<span class="font-medium text-teal-700" title="${escapeHtml(item.vlm_summary || '')}">${Number(item.vlm_kwh).toFixed(1)} kWh</span>`
-          : '<span class="text-zinc-400">—</span>';
+          ? `<span class="font-medium text-teal-400" title="${escapeHtml(item.vlm_summary || '')}">${Number(item.vlm_kwh).toFixed(1)} kWh</span>`
+          : '<span class="text-zinc-600">—</span>';
         const timeText = item.ingested_at ? new Date(item.ingested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : (escapeHtml(item.timestamp_utc) || '—');
 
-        return `<tr class="hover:bg-zinc-50 transition cursor-pointer" onclick="openDetailModal('${escapeHtml(item.id)}')">
+        return `<tr class="hover:bg-[#161922] transition cursor-pointer" onclick="openDetailModal('${escapeHtml(item.id)}')">
           <td class="p-3" onclick="event.stopPropagation()">${photoHtml}</td>
-          <td class="p-3 font-mono font-medium text-zinc-900">${escapeHtml(item.meter_serial_number || 'UNKNOWN')}</td>
-          <td class="p-3 font-medium">${edgeKwhText}</td>
-          <td class="p-3">${vlmKwhText}</td>
+          <td class="p-3 font-mono font-medium text-zinc-200">${escapeHtml(item.meter_serial_number || 'UNKNOWN')}</td>
+          <td class="p-3 font-mono font-medium">${edgeKwhText}</td>
+          <td class="p-3 font-mono">${vlmKwhText}</td>
           <td class="p-3">${auditHtml}</td>
           <td class="p-3">
             <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border ${statusClass}">
@@ -587,12 +801,12 @@ ADMIN_HTML = """<!DOCTYPE html>
             </span>
           </td>
           <td class="p-3 text-xs">
-            <div class="font-medium text-zinc-800">${escapeHtml(item.technician_id || 'UNKNOWN')}</div>
-            <div class="text-zinc-400 font-mono text-[11px] truncate max-w-[120px]">${escapeHtml(item.device_model || item.device_id || 'Android')}</div>
+            <div class="font-medium text-zinc-200">${escapeHtml(item.technician_id || 'UNKNOWN')}</div>
+            <div class="text-zinc-500 font-mono text-[11px] truncate max-w-[120px]">${escapeHtml(item.device_model || item.device_id || 'Android')}</div>
           </td>
-          <td class="p-3 text-zinc-500 text-xs font-mono">${timeText}</td>
+          <td class="p-3 text-zinc-400 text-xs font-mono">${timeText}</td>
           <td class="p-3 text-right">
-            <button onclick="openDetailModal('${escapeHtml(item.id)}')" class="px-2 py-1 text-xs text-zinc-500 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded font-medium">Inspect</button>
+            <button onclick="openDetailModal('${escapeHtml(item.id)}')" class="px-2.5 py-1 text-xs text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/60 rounded font-medium transition">Inspect</button>
           </td>
         </tr>`;
       }).join('');
@@ -613,29 +827,29 @@ ADMIN_HTML = """<!DOCTYPE html>
     function renderFleetTable() {
       const tbody = document.getElementById('devices-table-body');
       if (allDevices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-zinc-400">No registered mobile devices found yet. Connect Expo app to see devices.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-zinc-500 font-mono text-xs">No registered mobile devices found yet. Connect Expo app to see devices.</td></tr>';
         return;
       }
 
       tbody.innerHTML = allDevices.map(d => {
         const isOnline = d.is_online;
         const statusBadge = isOnline
-          ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="online-pulse"></span> Online</span>`
-          : `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-500 border border-zinc-200">Offline</span>`;
+          ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"><span class="online-pulse"></span> Online</span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-900 text-zinc-500 border border-zinc-800">Offline</span>`;
 
         const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).toLocaleTimeString() : '—';
         const latLon = d.latitude && d.longitude ? `${Number(d.latitude).toFixed(4)}, ${Number(d.longitude).toFixed(4)}` : 'Last Known (Default)';
         const batteryText = d.battery_level != null ? `${Math.round(d.battery_level * 100)}%` : '—';
 
-        return `<tr class="hover:bg-zinc-50 transition">
+        return `<tr class="hover:bg-[#161922] transition">
           <td class="p-3">${statusBadge}</td>
-          <td class="p-3 font-mono font-medium text-xs text-zinc-900">${escapeHtml(d.device_id)}</td>
-          <td class="p-3 font-medium text-xs text-zinc-800">${escapeHtml(d.technician_id)}</td>
-          <td class="p-3 text-xs text-zinc-500">${escapeHtml(d.device_model || 'Android')} (${escapeHtml(d.app_version || '1.0.0')})</td>
-          <td class="p-3 text-xs font-mono text-zinc-600">${latLon} <span class="text-zinc-400">@ ${lastSeen}</span></td>
-          <td class="p-3 text-xs text-zinc-700">${batteryText}</td>
+          <td class="p-3 font-mono font-medium text-xs text-zinc-200">${escapeHtml(d.device_id)}</td>
+          <td class="p-3 font-medium text-xs text-zinc-300">${escapeHtml(d.technician_id)}</td>
+          <td class="p-3 text-xs text-zinc-400">${escapeHtml(d.device_model || 'Android')} (${escapeHtml(d.app_version || '1.0.0')})</td>
+          <td class="p-3 text-xs font-mono text-zinc-400">${latLon} <span class="text-zinc-500">@ ${lastSeen}</span></td>
+          <td class="p-3 text-xs text-zinc-300 font-mono">${batteryText}</td>
           <td class="p-3 text-right">
-            <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded">Send Alert</button>
+            <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="px-2.5 py-1 text-xs font-semibold bg-zinc-200 hover:bg-white text-zinc-950 rounded transition">Send Alert</button>
           </td>
         </tr>`;
       }).join('');
@@ -650,12 +864,12 @@ ADMIN_HTML = """<!DOCTYPE html>
         const color = d.is_online ? '#10b981' : '#71717a';
 
         const popupHtml = `
-          <div class="p-1 text-xs">
-            <div class="font-bold text-zinc-900">${escapeHtml(d.technician_id)} &bull; ${d.is_online ? '<span class="text-emerald-600">ONLINE</span>' : '<span class="text-zinc-400">OFFLINE</span>'}</div>
-            <div class="text-[11px] font-mono text-zinc-500 mt-0.5">${escapeHtml(d.device_id)}</div>
-            <div class="text-[11px] text-zinc-600 mt-1">${escapeHtml(d.device_model || 'Android')} &bull; Battery: ${d.battery_level != null ? Math.round(d.battery_level*100)+'%' : 'N/A'}</div>
-            <div class="mt-2 pt-2 border-t border-zinc-200">
-              <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="w-full py-1 bg-zinc-900 text-white rounded text-center font-bold text-[11px]">Send Direct Alert</button>
+          <div class="p-1 text-xs text-zinc-200">
+            <div class="font-bold text-zinc-100">${escapeHtml(d.technician_id)} &bull; ${d.is_online ? '<span class="text-emerald-400">ONLINE</span>' : '<span class="text-zinc-500">OFFLINE</span>'}</div>
+            <div class="text-[11px] font-mono text-zinc-400 mt-0.5">${escapeHtml(d.device_id)}</div>
+            <div class="text-[11px] text-zinc-400 mt-1">${escapeHtml(d.device_model || 'Android')} &bull; Battery: ${d.battery_level != null ? Math.round(d.battery_level*100)+'%' : 'N/A'}</div>
+            <div class="mt-2 pt-2 border-t border-zinc-800">
+              <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="w-full py-1 bg-zinc-200 hover:bg-white text-zinc-950 rounded text-center font-bold text-[11px] transition">Send Direct Alert</button>
             </div>
           </div>
         `;
@@ -667,10 +881,10 @@ ADMIN_HTML = """<!DOCTYPE html>
           const marker = L.circleMarker([lat, lon], {
             radius: 8,
             fillColor: color,
-            color: '#ffffff',
+            color: '#111317',
             weight: 2,
             opacity: 1,
-            fillOpacity: 0.9
+            fillOpacity: 0.95
           }).addTo(map);
           marker.bindPopup(popupHtml);
           mapMarkers[key] = marker;
@@ -689,45 +903,45 @@ ADMIN_HTML = """<!DOCTYPE html>
     function renderDirectivesTable() {
       const tbody = document.getElementById('directives-table-body');
       if (allDirectives.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-zinc-400">No directives or alerts sent yet. Click "+ New Directive" to broadcast.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-zinc-500 font-mono text-xs">No directives or alerts sent yet. Click "+ New Directive" to broadcast.</td></tr>';
         return;
       }
 
       tbody.innerHTML = allDirectives.map(d => {
-        let pClass = 'bg-zinc-100 text-zinc-700';
-        if (d.priority === 'CRITICAL') pClass = 'bg-red-50 text-red-700 border-red-200';
-        else if (d.priority === 'URGENT') pClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        else if (d.priority === 'NORMAL') pClass = 'bg-sky-50 text-sky-700 border-sky-200';
+        let pClass = 'bg-zinc-900 text-zinc-400 border-zinc-800';
+        if (d.priority === 'CRITICAL') pClass = 'bg-rose-950/60 text-rose-400 border-rose-800/60';
+        else if (d.priority === 'URGENT') pClass = 'bg-amber-950/60 text-amber-400 border-amber-800/60';
+        else if (d.priority === 'NORMAL') pClass = 'bg-sky-950/60 text-sky-400 border-sky-800/60';
 
         const createdStr = d.created_at ? new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
         const acks = d.acks || [];
         const actionedCount = acks.filter(a => a.status === 'ACTIONED').length;
         const deliveredCount = acks.filter(a => a.status === 'DELIVERED').length;
 
-        let ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-zinc-100 text-zinc-600">Pending Receipt (0)</span>`;
+        let ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-zinc-900 text-zinc-400 border-zinc-800">Pending Receipt (0)</span>`;
         if (actionedCount > 0) {
-          ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-emerald-50 text-emerald-700 border-emerald-200">✓✓ Actioned (${actionedCount})</span>`;
+          ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-emerald-950/60 text-emerald-400 border-emerald-800/60">✓✓ Actioned (${actionedCount})</span>`;
         } else if (deliveredCount > 0) {
-          ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-blue-50 text-blue-700 border-blue-200">✓ Delivered (${deliveredCount})</span>`;
+          ackPill = `<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded border bg-sky-950/60 text-sky-400 border-sky-800/60">✓ Delivered (${deliveredCount})</span>`;
         }
 
         const acksDetail = acks.map(a => 
-          `<div class="text-[11px] font-mono text-zinc-600 mt-1 bg-zinc-50 p-1.5 rounded border border-zinc-200">
-             <div class="font-bold text-zinc-800">[${escapeHtml(a.status)}] ${escapeHtml(a.technician_id)} (${escapeHtml(a.device_id)}) @ ${new Date(a.ack_at).toLocaleTimeString()}</div>
-             ${a.client_notes ? '<div class="text-zinc-600 mt-0.5 italic">"' + escapeHtml(a.client_notes) + '"</div>' : ''}
+          `<div class="text-[11px] font-mono text-zinc-400 mt-1.5 bg-[#0e1014] p-2 rounded border border-zinc-800/80">
+             <div class="font-bold text-zinc-200">[${escapeHtml(a.status)}] ${escapeHtml(a.technician_id)} (${escapeHtml(a.device_id)}) @ ${new Date(a.ack_at).toLocaleTimeString()}</div>
+             ${a.client_notes ? '<div class="text-zinc-400 mt-0.5 italic">"' + escapeHtml(a.client_notes) + '"</div>' : ''}
            </div>`
         ).join('');
 
-        return `<tr class="hover:bg-zinc-50 transition">
-          <td class="p-3 text-xs font-mono text-zinc-500">${createdStr}</td>
+        return `<tr class="hover:bg-[#161922] transition">
+          <td class="p-3 text-xs font-mono text-zinc-400">${createdStr}</td>
           <td class="p-3 text-xs">
             <span class="inline-flex px-2 py-0.5 rounded border text-[11px] font-semibold ${pClass}">${escapeHtml(d.priority)}</span>
-            <span class="text-zinc-500 font-mono text-[11px] ml-1">${escapeHtml(d.message_type)}</span>
+            <span class="text-zinc-400 font-mono text-[11px] ml-1">${escapeHtml(d.message_type)}</span>
           </td>
-          <td class="p-3 text-xs font-mono font-medium text-zinc-900">${escapeHtml(d.target_type)}: ${escapeHtml(d.target_id)}</td>
+          <td class="p-3 text-xs font-mono font-medium text-zinc-200">${escapeHtml(d.target_type)}: ${escapeHtml(d.target_id)}</td>
           <td class="p-3 text-xs">
-            <div class="font-bold text-zinc-900">${escapeHtml(d.title)}</div>
-            <div class="text-zinc-600 text-xs mt-0.5">${escapeHtml(d.body)}</div>
+            <div class="font-bold text-zinc-100">${escapeHtml(d.title)}</div>
+            <div class="text-zinc-400 text-xs mt-0.5">${escapeHtml(d.body)}</div>
           </td>
           <td class="p-3 text-xs">
             ${ackPill}
@@ -758,20 +972,20 @@ ADMIN_HTML = """<!DOCTYPE html>
       document.getElementById('detail-edge-kwh').textContent = item.kwh_reading != null ? `${Number(item.kwh_reading).toFixed(1)} kWh` : 'null (Missing)';
       document.getElementById('detail-vlm-kwh').textContent = item.vlm_kwh != null ? `${Number(item.vlm_kwh).toFixed(1)} kWh (${Math.round((item.vlm_confidence || 0) * 100)}% conf)` : 'None detected';
 
-      let rBadge = '<span class="text-zinc-400">Not Reconciled</span>';
+      let rBadge = '<span class="text-zinc-500 font-mono">Not Reconciled</span>';
       if (item.audit_stage === 'VLM_VERIFIED') {
-        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-teal-50 text-teal-700 border border-teal-200">✓✓ Match & Reconciled</span>';
+        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-teal-950/60 text-teal-300 border border-teal-800/60">✓✓ Match & Reconciled</span>';
       } else if (item.audit_stage === 'MISMATCH_FLAGGED') {
-        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-amber-50 text-amber-700 border border-amber-200">⚠ Discrepancy Flagged</span>';
+        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">⚠ Discrepancy Flagged</span>';
       } else if (item.audit_stage === 'IMAGE_RECEIVED') {
-        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-sky-50 text-sky-700 border border-sky-200">✓ Image Received</span>';
+        rBadge = '<span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded bg-sky-950/60 text-sky-300 border border-sky-800/60">✓ Image Received</span>';
       }
       document.getElementById('detail-reconcile-badge').innerHTML = rBadge;
 
-      let stClass = 'text-zinc-700 font-bold';
-      if (item.qa_status === 'PASS') stClass = 'text-emerald-600 font-bold';
-      else if (item.qa_status === 'WARNING') stClass = 'text-amber-600 font-bold';
-      else if (item.qa_status === 'CRITICAL_HAZARD') stClass = 'text-red-600 font-bold';
+      let stClass = 'text-zinc-400 font-bold';
+      if (item.qa_status === 'PASS') stClass = 'text-emerald-400 font-bold';
+      else if (item.qa_status === 'WARNING') stClass = 'text-amber-400 font-bold';
+      else if (item.qa_status === 'CRITICAL_HAZARD') stClass = 'text-rose-400 font-bold';
       document.getElementById('detail-edge-status').innerHTML = `<span class="${stClass}">${escapeHtml(item.qa_status)}</span> ${item.hazard_reason ? '(' + escapeHtml(item.hazard_reason) + ')' : ''}`;
 
       document.getElementById('detail-vlm-summary').textContent = item.vlm_summary || 'No AI summary generated for this record.';
@@ -782,7 +996,7 @@ ADMIN_HTML = """<!DOCTYPE html>
       if (item.vlm_tags) {
         item.vlm_tags.split(',').map(t => t.trim()).filter(Boolean).forEach(tag => {
           const span = document.createElement('span');
-          span.className = 'px-2 py-0.5 text-[11px] font-medium bg-zinc-200 text-zinc-800 rounded';
+          span.className = 'px-2 py-0.5 text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60 rounded font-mono';
           span.textContent = tag;
           tagsElem.appendChild(span);
         });
@@ -801,25 +1015,25 @@ ADMIN_HTML = """<!DOCTYPE html>
         const casingOk = qc.casing_undamaged !== false;
 
         qcElem.innerHTML = `
-          <div class="p-2 rounded ${wireSafe ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}">
-            <span class="text-[10px] text-zinc-500 block uppercase">Wire Safety</span>
-            <span class="font-bold text-xs ${wireSafe ? 'text-emerald-700' : 'text-red-700'}">${wireSafe ? 'SAFE' : 'CRITICAL HAZARD'}</span>
+          <div class="p-2.5 rounded ${wireSafe ? 'bg-emerald-950/40 border border-emerald-800/50' : 'bg-rose-950/40 border border-rose-800/50'}">
+            <span class="text-[10px] text-zinc-400 block uppercase font-mono">Wire Safety</span>
+            <span class="font-bold text-xs ${wireSafe ? 'text-emerald-400' : 'text-rose-400'}">${wireSafe ? 'SAFE' : 'CRITICAL HAZARD'}</span>
           </div>
-          <div class="p-2 rounded ${coverSeated ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}">
-            <span class="text-[10px] text-zinc-500 block uppercase">Terminal Cover</span>
-            <span class="font-bold text-xs ${coverSeated ? 'text-emerald-700' : 'text-amber-700'}">${coverSeated ? 'SEATED' : 'UNSEATED'}</span>
+          <div class="p-2.5 rounded ${coverSeated ? 'bg-emerald-950/40 border border-emerald-800/50' : 'bg-amber-950/40 border border-amber-800/50'}">
+            <span class="text-[10px] text-zinc-400 block uppercase font-mono">Terminal Cover</span>
+            <span class="font-bold text-xs ${coverSeated ? 'text-emerald-400' : 'text-amber-400'}">${coverSeated ? 'SEATED' : 'UNSEATED'}</span>
           </div>
-          <div class="p-2 rounded ${sealIntact ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}">
-            <span class="text-[10px] text-zinc-500 block uppercase">Tamper Seal</span>
-            <span class="font-bold text-xs ${sealIntact ? 'text-emerald-700' : 'text-amber-700'}">${sealIntact ? 'INTACT' : 'TAMPERED / MISSING'}</span>
+          <div class="p-2.5 rounded ${sealIntact ? 'bg-emerald-950/40 border border-emerald-800/50' : 'bg-amber-950/40 border border-amber-800/50'}">
+            <span class="text-[10px] text-zinc-400 block uppercase font-mono">Tamper Seal</span>
+            <span class="font-bold text-xs ${sealIntact ? 'text-emerald-400' : 'text-amber-400'}">${sealIntact ? 'INTACT' : 'TAMPERED / MISSING'}</span>
           </div>
-          <div class="p-2 rounded ${casingOk ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}">
-            <span class="text-[10px] text-zinc-500 block uppercase">Casing Integrity</span>
-            <span class="font-bold text-xs ${casingOk ? 'text-emerald-700' : 'text-red-700'}">${casingOk ? 'UNDAMAGED' : 'DAMAGED'}</span>
+          <div class="p-2.5 rounded ${casingOk ? 'bg-emerald-950/40 border border-emerald-800/50' : 'bg-rose-950/40 border border-rose-800/50'}">
+            <span class="text-[10px] text-zinc-400 block uppercase font-mono">Casing Integrity</span>
+            <span class="font-bold text-xs ${casingOk ? 'text-emerald-400' : 'text-rose-400'}">${casingOk ? 'UNDAMAGED' : 'DAMAGED'}</span>
           </div>
         `;
       } else {
-        qcElem.innerHTML = `<div class="col-span-2 text-zinc-400 italic py-1 text-center">QC checklist pending VLM analysis</div>`;
+        qcElem.innerHTML = `<div class="col-span-2 text-zinc-500 italic py-1.5 text-center font-mono">QC checklist pending VLM analysis</div>`;
       }
 
       // Evidence Integrity Seal (SHA-256)
@@ -827,12 +1041,12 @@ ADMIN_HTML = """<!DOCTYPE html>
       if (item.evidence_sha256) {
         sealElem.innerHTML = `
           <div class="flex items-center justify-between gap-2">
-            <span class="font-mono text-zinc-800 break-all select-all">${escapeHtml(item.evidence_sha256)}</span>
-            <button onclick="navigator.clipboard.writeText('${escapeHtml(item.evidence_sha256)}')" class="px-2 py-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded flex-shrink-0">Copy</button>
+            <span class="font-mono text-zinc-300 break-all select-all text-[11px]">${escapeHtml(item.evidence_sha256)}</span>
+            <button onclick="navigator.clipboard.writeText('${escapeHtml(item.evidence_sha256)}')" class="px-2 py-1 text-[10px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 rounded flex-shrink-0 transition">Copy</button>
           </div>
         `;
       } else {
-        sealElem.innerHTML = '<span class="text-zinc-400 italic">No evidence seal recorded</span>';
+        sealElem.innerHTML = '<span class="text-zinc-500 italic font-mono">No evidence seal recorded</span>';
       }
 
       document.getElementById('detail-attr-tech').textContent = item.technician_id || 'UNKNOWN';
@@ -843,7 +1057,7 @@ ADMIN_HTML = """<!DOCTYPE html>
       const lat = item.latitude != null ? Number(item.latitude).toFixed(5) : null;
       const lon = item.longitude != null ? Number(item.longitude).toFixed(5) : null;
       if (lat && lon) {
-        document.getElementById('detail-attr-geo').innerHTML = `<a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" class="text-blue-600 hover:underline">${lat}, ${lon} ↗</a>`;
+        document.getElementById('detail-attr-geo').innerHTML = `<a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" class="text-sky-400 hover:underline font-mono">${lat}, ${lon} &nearr;</a>`;
       } else {
         document.getElementById('detail-attr-geo').textContent = '—';
       }
@@ -938,11 +1152,23 @@ ADMIN_HTML = """<!DOCTYPE html>
       if (e.key === 'Escape') {
         closeDetailModal();
         closeDirectiveModal();
+        dismissBootOverlay();
       }
     });
 
+    // Boot sequence initial trigger on first load
+    initBootTimestamps();
     setupAdminWebSocket();
-    refreshAll();
+    refreshAll().then(() => {
+      // Once first data fetch resolves, smoothly mark as ready and dismiss
+      const statusText = document.getElementById('boot-status-text');
+      const spinner = document.getElementById('boot-spinner');
+      if (statusText) statusText.textContent = 'SYSTEM READY';
+      if (spinner) {
+        spinner.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+      }
+      setTimeout(dismissBootOverlay, 1400);
+    });
     setInterval(refreshAll, 5000);
   </script>
 </body>

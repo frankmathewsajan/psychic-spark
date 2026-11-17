@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ActivityIndicator,
 	Pressable,
@@ -37,6 +37,7 @@ import {
 	syncClientMessages,
 } from "@/services/sync/tier1-sync";
 import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
+import { deviceWsClient } from "@/services/sync/websocket-client";
 
 const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
 
@@ -57,6 +58,7 @@ export default function DashboardScreen() {
 	const [history, setHistory] = useState<InspectionRecord[]>([]);
 	const [reviewQueue, setReviewQueue] = useState<InspectionRecord[]>([]);
 	const [activeMessages, setActiveMessages] = useState<ClientMessage[]>([]);
+	const [replyNotes, setReplyNotes] = useState<{ [msgId: string]: string }>({});
 
 	const loadData = useCallback(async () => {
 		const db = await getDb();
@@ -74,6 +76,22 @@ export default function DashboardScreen() {
 		setActiveMessages(msgs);
 	}, [search]);
 
+	// Initialize real-time WebSocket connection to gateway
+	useEffect(() => {
+		let isMounted = true;
+		(async () => {
+			const db = await getDb();
+			if (!isMounted) return;
+			deviceWsClient.init(db, gatewayUrl, "TECH-01", () => {
+				if (isMounted) loadData();
+			});
+		})();
+		return () => {
+			isMounted = false;
+			deviceWsClient.disconnect();
+		};
+	}, [gatewayUrl, loadData]);
+
 	useFocusEffect(
 		useCallback(() => {
 			loadData();
@@ -83,17 +101,31 @@ export default function DashboardScreen() {
 	const handleAcknowledgeMessage = async (msgId: string) => {
 		const db = await getDb();
 		const devId = await getOrCreateDeviceId(db);
-		await recordClientAck(
-			db,
+		const userReply = replyNotes[msgId]?.trim() || "Acknowledged by technician";
+
+		// 1. Try real-time WebSocket push first
+		const wsSent = deviceWsClient.sendAck(
 			msgId,
-			devId,
-			"TECH-01",
 			"ACTIONED",
-			"Acknowledged in field app",
+			"TECH-01",
+			userReply,
 		);
+
+		// 2. Persist in local SQLite (SSOT)
+		await recordClientAck(db, msgId, devId, "TECH-01", "ACTIONED", userReply);
+
+		setReplyNotes((prev) => {
+			const updated = { ...prev };
+			delete updated[msgId];
+			return updated;
+		});
+
 		await loadData();
-		// Flush ack to server if online
-		await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
+
+		// 3. Fallback HTTP flush if WS was offline
+		if (!wsSent) {
+			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
+		}
 	};
 
 	const handleSync = async () => {
@@ -204,6 +236,15 @@ export default function DashboardScreen() {
 								</View>
 								<Text style={styles.alertTitle}>{msg.title}</Text>
 								<Text style={styles.alertBody}>{msg.body}</Text>
+								<TextInput
+									style={styles.replyInput}
+									placeholder="Add field note or reply..."
+									placeholderTextColor="#9CA3AF"
+									value={replyNotes[msg.id] ?? ""}
+									onChangeText={(txt) =>
+										setReplyNotes((prev) => ({ ...prev, [msg.id]: txt }))
+									}
+								/>
 							</View>
 							<Pressable
 								style={({ pressed }) => [
@@ -212,7 +253,7 @@ export default function DashboardScreen() {
 								]}
 								onPress={() => handleAcknowledgeMessage(msg.id)}
 							>
-								<Text style={styles.ackBtnText}>ACK</Text>
+								<Text style={styles.ackBtnText}>Reply & ACK</Text>
 							</Pressable>
 						</View>
 					))}
@@ -555,6 +596,17 @@ const styles = StyleSheet.create({
 		fontSize: 11,
 		color: MD3.color.onSurfaceVariant,
 		marginTop: 2,
+	},
+	replyInput: {
+		backgroundColor: "#FFFFFF",
+		borderWidth: 1,
+		borderColor: "#D1D5DB",
+		borderRadius: 6,
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		fontSize: 11,
+		color: "#111827",
+		marginTop: 6,
 	},
 	ackBtn: {
 		backgroundColor: "#18181B",

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
+import app.models.device  # noqa: F401
 import app.models.inspection  # noqa: F401
 import app.models.message  # noqa: F401
 
@@ -44,30 +45,30 @@ app.mount("/storage", StaticFiles(directory=storage_dir), name="storage")
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # ---------------------------------------------------------------------------
-# Live Web Admin Dashboard (Dual Tab: Inspections & Field Directives)
+# Live Web Admin Dashboard (Inspections, Live Fleet Map, Directives)
 # ---------------------------------------------------------------------------
 ADMIN_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Novo Admin &bull; Inspections & Directives</title>
+  <title>Novo Admin &bull; Inspections & Fleet</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            border: '#e4e4e7',
-            background: '#ffffff',
-            foreground: '#09090b',
-            muted: '#71717a',
-            card: '#ffffff'
-          }
-        }
-      }
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+    .leaflet-popup-content-wrapper { border-radius: 8px; font-family: sans-serif; }
+    .online-pulse {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      background: #10b981; box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+      animation: pulse 1.8s infinite;
     }
-  </script>
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
 </head>
 <body class="bg-zinc-50 text-zinc-950 font-sans antialiased min-h-screen">
   <div class="max-w-6xl mx-auto px-4 py-8">
@@ -76,15 +77,18 @@ ADMIN_HTML = """<!DOCTYPE html>
     <header class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-zinc-200 gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">Novo Ops Center</h1>
-        <p class="text-sm text-zinc-500 mt-1">Live edge telemetry, Tier-3 VLM verification, and field client messaging</p>
+        <p class="text-sm text-zinc-500 mt-1">Live edge telemetry, Tier-3 VLM verification, and real-time fleet command</p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <span id="live-indicator" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           Live (5s)
         </span>
         <button onclick="refreshAll()" class="px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-100 text-zinc-800 rounded-md border border-zinc-200 transition">
           Refresh
+        </button>
+        <button onclick="confirmResetData()" class="px-2.5 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-700 rounded-md border border-red-200 transition" title="Clear dummy test records">
+          Reset Data
         </button>
       </div>
     </header>
@@ -94,14 +98,16 @@ ADMIN_HTML = """<!DOCTYPE html>
       <button onclick="switchTab('inspections')" id="tab-btn-inspections" class="tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-900 text-zinc-900 transition">
         Audit SSOT & Inspections
       </button>
+      <button onclick="switchTab('fleet')" id="tab-btn-fleet" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-800 transition">
+        Live Devices & Fleet Map (<span id="fleet-online-badge">0</span> Online)
+      </button>
       <button onclick="switchTab('directives')" id="tab-btn-directives" class="tab-btn pb-3 px-3 text-sm font-medium border-b-2 border-transparent text-zinc-500 hover:text-zinc-800 transition">
-        Field Directives & Direct Messaging (<span id="unread-ack-badge">0</span>)
+        Directives & Messages (<span id="unread-ack-badge">0</span>)
       </button>
     </div>
 
     <!-- TAB 1: INSPECTIONS CONTENT -->
     <div id="tab-inspections">
-      <!-- METRICS CARDS -->
       <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
           <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total Ingested</div>
@@ -125,7 +131,6 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
       </section>
 
-      <!-- CONTROLS ROW -->
       <div class="flex flex-col sm:flex-row gap-3 mb-4 items-center justify-between">
         <div class="flex gap-2 w-full sm:w-auto">
           <input id="search-input" type="text" placeholder="Search Meter S/N, Tech, Device..." oninput="renderTable()"
@@ -144,7 +149,6 @@ ADMIN_HTML = """<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TABLE -->
       <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
@@ -169,12 +173,64 @@ ADMIN_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 2: DIRECTIVES & MESSAGING CONTENT -->
+    <!-- TAB 2: LIVE FLEET MAP CONTENT -->
+    <div id="tab-fleet" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
+          <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide">Registered Devices</div>
+          <div id="fleet-stat-total" class="text-2xl font-bold mt-1">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
+          <div class="text-xs font-medium text-emerald-600 uppercase tracking-wide">Live Connected (WS)</div>
+          <div id="fleet-stat-online" class="text-2xl font-bold text-emerald-600 mt-1">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
+          <div class="text-xs font-medium text-sky-600 uppercase tracking-wide">Active Technicians</div>
+          <div id="fleet-stat-techs" class="text-2xl font-bold text-sky-600 mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- MAP CONTAINER -->
+      <div class="bg-white rounded-lg border border-zinc-200 p-3 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <div class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Real-Time Fleet Geolocation</div>
+          <div class="text-xs text-zinc-400">Pulsing Green = Connected &bull; Gray = Offline (Last Seen)</div>
+        </div>
+        <div id="fleet-map" style="height: 380px; width: 100%; border-radius: 6px;" class="bg-zinc-100 z-10"></div>
+      </div>
+
+      <!-- DEVICES LIST TABLE -->
+      <div class="bg-white rounded-lg border border-zinc-200 overflow-hidden shadow-sm">
+        <div class="px-4 py-3 border-b border-zinc-200 bg-zinc-50/75">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700">Device Fleet Directory</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="border-b border-zinc-200 text-zinc-500 font-medium text-xs uppercase tracking-wider">
+                <th class="p-3">Status</th>
+                <th class="p-3">Device ID</th>
+                <th class="p-3">Technician</th>
+                <th class="p-3">Hardware & Version</th>
+                <th class="p-3">Location / Last Seen</th>
+                <th class="p-3">Battery</th>
+                <th class="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="devices-table-body" class="divide-y divide-zinc-200 font-normal">
+              <tr><td colspan="7" class="p-8 text-center text-zinc-400">Loading device fleet...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: DIRECTIVES & MESSAGING CONTENT -->
     <div id="tab-directives" class="hidden">
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-lg font-bold text-zinc-900">Field Communication Hub</h2>
-          <p class="text-xs text-zinc-500">Dispatch store-and-forward alerts to mobile clients with guaranteed ACK tracing</p>
+          <p class="text-xs text-zinc-500">Real-time WebSocket alerts and store-and-forward fallback directives</p>
         </div>
         <button onclick="openDirectiveModal()" class="px-3.5 py-2 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-md transition shadow-sm">
           + New Directive / Alert
@@ -190,7 +246,7 @@ ADMIN_HTML = """<!DOCTYPE html>
                 <th class="p-3">Priority & Type</th>
                 <th class="p-3">Target</th>
                 <th class="p-3">Directive / Message</th>
-                <th class="p-3">Delivery & ACK Tracking</th>
+                <th class="p-3">Delivery & Technician Replies</th>
               </tr>
             </thead>
             <tbody id="directives-table-body" class="divide-y divide-zinc-200 font-normal">
@@ -214,7 +270,6 @@ ADMIN_HTML = """<!DOCTYPE html>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <!-- LEFT: AUDIT PHOTO -->
         <div>
           <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Audit Capture</h4>
           <div class="relative bg-zinc-950 rounded-lg overflow-hidden border border-zinc-200 flex items-center justify-center min-h-[260px]">
@@ -223,7 +278,6 @@ ADMIN_HTML = """<!DOCTYPE html>
           <div id="detail-photo-caption" class="text-xs text-zinc-400 mt-1 font-mono text-center"></div>
         </div>
 
-        <!-- RIGHT: SIDE-BY-SIDE MATRIX -->
         <div class="space-y-4">
           <div>
             <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Verification Matrix</h4>
@@ -347,21 +401,29 @@ ADMIN_HTML = """<!DOCTYPE html>
   </div>
 
   <script>
-    // Safeguard 3: Safe DOM rendering helper
     function escapeHtml(str) {
       if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
     let allData = [];
     let allDirectives = [];
+    let allDevices = [];
     let activeFilter = 'ALL';
     let currentTab = 'inspections';
+    let map = null;
+    let mapMarkers = {};
+
+    function initMap() {
+      if (map || typeof L === 'undefined') return;
+      const el = document.getElementById('fleet-map');
+      if (!el) return;
+      map = L.map('fleet-map').setView([19.0760, 72.8777], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+    }
 
     function switchTab(tab) {
       currentTab = tab;
@@ -371,7 +433,16 @@ ADMIN_HTML = """<!DOCTYPE html>
       document.getElementById('tab-btn-' + tab).className = 'tab-btn pb-3 px-3 text-sm font-semibold border-b-2 border-zinc-900 text-zinc-900 transition';
 
       document.getElementById('tab-inspections').classList.toggle('hidden', tab !== 'inspections');
+      document.getElementById('tab-fleet').classList.toggle('hidden', tab !== 'fleet');
       document.getElementById('tab-directives').classList.toggle('hidden', tab !== 'directives');
+
+      if (tab === 'fleet') {
+        setTimeout(() => {
+          initMap();
+          if (map) map.invalidateSize();
+          renderFleetMap();
+        }, 100);
+      }
     }
 
     function setFilter(filter) {
@@ -384,7 +455,7 @@ ADMIN_HTML = """<!DOCTYPE html>
     }
 
     async function refreshAll() {
-      await Promise.all([fetchData(), fetchDirectives()]);
+      await Promise.all([fetchData(), fetchDirectives(), fetchDevices()]);
     }
 
     async function fetchData() {
@@ -395,9 +466,7 @@ ADMIN_HTML = """<!DOCTYPE html>
         updateStats();
         updateTechFilterDropdown();
         renderTable();
-      } catch (e) {
-        console.error('Fetch error:', e);
-      }
+      } catch (e) { console.error('Fetch error:', e); }
     }
 
     async function fetchDirectives() {
@@ -407,9 +476,16 @@ ADMIN_HTML = """<!DOCTYPE html>
         allDirectives = await res.json();
         document.getElementById('unread-ack-badge').textContent = allDirectives.length;
         renderDirectivesTable();
-      } catch (e) {
-        console.error('Directives fetch error:', e);
-      }
+      } catch (e) { console.error('Directives fetch error:', e); }
+    }
+
+    async function fetchDevices() {
+      try {
+        const res = await fetch('/api/v1/devices');
+        if (!res.ok) return;
+        allDevices = await res.json();
+        renderFleetUI();
+      } catch (e) { console.error('Devices fetch error:', e); }
     }
 
     function updateStats() {
@@ -424,11 +500,8 @@ ADMIN_HTML = """<!DOCTYPE html>
       const select = document.getElementById('tech-filter');
       const currentVal = select.value;
       const techs = Array.from(new Set(allData.map(d => d.technician_id).filter(Boolean)));
-      
       let html = '<option value="ALL">All Technicians</option>';
-      techs.forEach(t => {
-        html += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
-      });
+      techs.forEach(t => { html += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`; });
       select.innerHTML = html;
       select.value = currentVal;
     }
@@ -439,20 +512,14 @@ ADMIN_HTML = """<!DOCTYPE html>
 
       const filtered = allData.filter(item => {
         let matchesFilter = true;
-        if (activeFilter === 'VLM_VERIFIED') {
-          matchesFilter = item.audit_stage === 'VLM_VERIFIED';
-        } else if (activeFilter !== 'ALL') {
-          matchesFilter = item.qa_status === activeFilter;
-        }
-
+        if (activeFilter === 'VLM_VERIFIED') matchesFilter = item.audit_stage === 'VLM_VERIFIED';
+        else if (activeFilter !== 'ALL') matchesFilter = item.qa_status === activeFilter;
         const matchesTech = techFilter === 'ALL' || item.technician_id === techFilter;
-
         const matchesQuery = !q ||
           (item.meter_serial_number || '').toLowerCase().includes(q) ||
           (item.id || '').toLowerCase().includes(q) ||
           (item.technician_id || '').toLowerCase().includes(q) ||
           (item.device_id || '').toLowerCase().includes(q);
-
         return matchesFilter && matchesTech && matchesQuery;
       });
 
@@ -513,6 +580,94 @@ ADMIN_HTML = """<!DOCTYPE html>
       }).join('');
     }
 
+    function renderFleetUI() {
+      const onlineCount = allDevices.filter(d => d.is_online).length;
+      document.getElementById('fleet-online-badge').textContent = onlineCount;
+      document.getElementById('fleet-stat-total').textContent = allDevices.length;
+      document.getElementById('fleet-stat-online').textContent = onlineCount;
+      const techCount = new Set(allDevices.map(d => d.technician_id).filter(Boolean)).size;
+      document.getElementById('fleet-stat-techs').textContent = techCount;
+
+      renderFleetTable();
+      renderFleetMap();
+    }
+
+    function renderFleetTable() {
+      const tbody = document.getElementById('devices-table-body');
+      if (allDevices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-zinc-400">No registered mobile devices found yet. Connect Expo app to see devices.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = allDevices.map(d => {
+        const isOnline = d.is_online;
+        const statusBadge = isOnline
+          ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="online-pulse"></span> Online</span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-500 border border-zinc-200">Offline</span>`;
+
+        const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).toLocaleTimeString() : '—';
+        const latLon = d.latitude && d.longitude ? `${Number(d.latitude).toFixed(4)}, ${Number(d.longitude).toFixed(4)}` : 'Last Known (Default)';
+        const batteryText = d.battery_level != null ? `${Math.round(d.battery_level * 100)}%` : '—';
+
+        return `<tr class="hover:bg-zinc-50 transition">
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 font-mono font-medium text-xs text-zinc-900">${escapeHtml(d.device_id)}</td>
+          <td class="p-3 font-medium text-xs text-zinc-800">${escapeHtml(d.technician_id)}</td>
+          <td class="p-3 text-xs text-zinc-500">${escapeHtml(d.device_model || 'Android')} (${escapeHtml(d.app_version || '1.0.0')})</td>
+          <td class="p-3 text-xs font-mono text-zinc-600">${latLon} <span class="text-zinc-400">@ ${lastSeen}</span></td>
+          <td class="p-3 text-xs text-zinc-700">${batteryText}</td>
+          <td class="p-3 text-right">
+            <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded">Send Alert</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderFleetMap() {
+      if (!map) return;
+      allDevices.forEach(d => {
+        const lat = d.latitude || 19.0760;
+        const lon = d.longitude || 72.8777;
+        const key = d.device_id;
+        const color = d.is_online ? '#10b981' : '#71717a';
+
+        const popupHtml = `
+          <div class="p-1 text-xs">
+            <div class="font-bold text-zinc-900">${escapeHtml(d.technician_id)} &bull; ${d.is_online ? '<span class="text-emerald-600">ONLINE</span>' : '<span class="text-zinc-400">OFFLINE</span>'}</div>
+            <div class="text-[11px] font-mono text-zinc-500 mt-0.5">${escapeHtml(d.device_id)}</div>
+            <div class="text-[11px] text-zinc-600 mt-1">${escapeHtml(d.device_model || 'Android')} &bull; Battery: ${d.battery_level != null ? Math.round(d.battery_level*100)+'%' : 'N/A'}</div>
+            <div class="mt-2 pt-2 border-t border-zinc-200">
+              <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="w-full py-1 bg-zinc-900 text-white rounded text-center font-bold text-[11px]">Send Direct Alert</button>
+            </div>
+          </div>
+        `;
+
+        if (mapMarkers[key]) {
+          mapMarkers[key].setLatLng([lat, lon]);
+          mapMarkers[key].setPopupContent(popupHtml);
+        } else {
+          const marker = L.circleMarker([lat, lon], {
+            radius: 8,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+          }).addTo(map);
+          marker.bindPopup(popupHtml);
+          mapMarkers[key] = marker;
+        }
+      });
+    }
+
+    function dispatchDirectToDevice(deviceId) {
+      document.getElementById('dir-target-type').value = 'DEVICE';
+      document.getElementById('dir-target-id').value = deviceId;
+      document.getElementById('dir-priority').value = 'URGENT';
+      document.getElementById('dir-msg-type').value = 'ALERT';
+      openDirectiveModal();
+    }
+
     function renderDirectivesTable() {
       const tbody = document.getElementById('directives-table-body');
       if (allDirectives.length === 0) {
@@ -539,7 +694,10 @@ ADMIN_HTML = """<!DOCTYPE html>
         }
 
         const acksDetail = acks.map(a => 
-          `<div class="text-[11px] font-mono text-zinc-500 mt-1">&bull; [${escapeHtml(a.status)}] ${escapeHtml(a.technician_id)} (${escapeHtml(a.device_id)}) @ ${new Date(a.ack_at).toLocaleTimeString()}</div>`
+          `<div class="text-[11px] font-mono text-zinc-600 mt-1 bg-zinc-50 p-1.5 rounded border border-zinc-200">
+             <div class="font-bold text-zinc-800">[${escapeHtml(a.status)}] ${escapeHtml(a.technician_id)} (${escapeHtml(a.device_id)}) @ ${new Date(a.ack_at).toLocaleTimeString()}</div>
+             ${a.client_notes ? '<div class="text-zinc-600 mt-0.5 italic">"' + escapeHtml(a.client_notes) + '"</div>' : ''}
+           </div>`
         ).join('');
 
         return `<tr class="hover:bg-zinc-50 transition">
@@ -628,17 +786,9 @@ ADMIN_HTML = """<!DOCTYPE html>
       document.getElementById('detail-modal').classList.remove('hidden');
     }
 
-    function closeDetailModal() {
-      document.getElementById('detail-modal').classList.add('hidden');
-    }
-
-    function openDirectiveModal() {
-      document.getElementById('directive-modal').classList.remove('hidden');
-    }
-
-    function closeDirectiveModal() {
-      document.getElementById('directive-modal').classList.add('hidden');
-    }
+    function closeDetailModal() { document.getElementById('detail-modal').classList.add('hidden'); }
+    function openDirectiveModal() { document.getElementById('directive-modal').classList.remove('hidden'); }
+    function closeDirectiveModal() { document.getElementById('directive-modal').classList.add('hidden'); }
 
     function updateTargetInput() {
       const type = document.getElementById('dir-target-type').value;
@@ -683,7 +833,42 @@ ADMIN_HTML = """<!DOCTYPE html>
       }
     }
 
-    // Keyboard ESC listener
+    async function confirmResetData() {
+      if (!confirm("Are you sure you want to purge all dummy/test inspection records, messages, and device telemetry?")) return;
+      try {
+        const res = await fetch('/api/v1/admin/reset-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirm: 'RESET_ALL_DATA' })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        alert('All server data reset cleanly!');
+        await refreshAll();
+      } catch (err) {
+        alert('Reset failed: ' + err.message);
+      }
+    }
+
+    // Connect admin WebSocket for real-time fleet & ACK events
+    function setupAdminWebSocket() {
+      try {
+        const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProto}//${location.host}/api/v1/ws/admin`;
+        const socket = new WebSocket(wsUrl);
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'DEVICE_PRESENCE' || data.type === 'DEVICE_UPDATE') {
+              fetchDevices();
+            } else if (data.type === 'MESSAGE_ACK') {
+              fetchDirectives();
+            }
+          } catch(e) {}
+        };
+        socket.onclose = () => { setTimeout(setupAdminWebSocket, 5000); };
+      } catch(e) {}
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeDetailModal();
@@ -691,7 +876,7 @@ ADMIN_HTML = """<!DOCTYPE html>
       }
     });
 
-    // Auto polling
+    setupAdminWebSocket();
     refreshAll();
     setInterval(refreshAll, 5000);
   </script>

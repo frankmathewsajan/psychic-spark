@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
+from app.core.websocket_manager import ws_manager
 from app.models.message import AdminMessage, MessageAck
 from app.schemas.message import (
     AdminMessageCreate,
@@ -23,7 +24,7 @@ router = APIRouter(tags=["Admin-Client Messaging"])
     status_code=status.HTTP_201_CREATED,
     summary="Dispatch new message or directive from admin",
 )
-def create_admin_message(
+async def create_admin_message(
     payload: AdminMessageCreate,
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -41,6 +42,26 @@ def create_admin_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
+
+    # Real-time WebSocket push if target device is online
+    push_payload = {
+        "type": "ADMIN_MESSAGE",
+        "id": msg.id,
+        "target_type": msg.target_type,
+        "target_id": msg.target_id,
+        "message_type": msg.message_type,
+        "priority": msg.priority,
+        "title": msg.title,
+        "body": msg.body,
+        "created_at": msg.created_at.isoformat(),
+    }
+
+    if msg.target_type == "DEVICE":
+        await ws_manager.send_to_device(msg.target_id, push_payload)
+    elif msg.target_type == "BROADCAST":
+        for dev_id in list(ws_manager.device_sockets.keys()):
+            await ws_manager.send_to_device(dev_id, push_payload)
+
     return AdminMessageRead(
         id=msg.id,
         target_type=msg.target_type,

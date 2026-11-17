@@ -211,86 +211,33 @@ export default function DashboardScreen() {
 			{/* HEADER */}
 			<View style={styles.header}>
 				<View style={styles.headerLeft}>
-					<Text style={[styles.title, { color: colors.text }]}>
-						Inspections
-					</Text>
 					<Pressable
 						style={[
-							styles.wsPill,
+							styles.wsDotBtn,
 							{
 								backgroundColor:
 									wsStatus === "CONNECTED"
-										? isDark
-											? "#064e3b"
-											: "#DCFCE7"
+										? "#22c55e"
 										: wsStatus === "CONNECTING"
-											? isDark
-												? "#78350f"
-												: "#FEF3C7"
-											: isDark
-												? "#881337"
-												: "#FEE2E2",
-								borderColor:
-									wsStatus === "CONNECTED"
-										? isDark
-											? "#059669"
-											: "#86EFAC"
-										: wsStatus === "CONNECTING"
-											? isDark
-												? "#d97706"
-												: "#FDE68A"
-											: isDark
-												? "#e11d48"
-												: "#FCA5A5",
+											? "#f59e0b"
+											: "#ef4444",
 							},
 						]}
 						onPress={() => deviceWsClient.reconnect()}
-					>
-						<View
-							style={[
-								styles.wsDot,
-								{
-									backgroundColor:
-										wsStatus === "CONNECTED"
-											? "#22c55e"
-											: wsStatus === "CONNECTING"
-												? "#f59e0b"
-												: "#ef4444",
-								},
-							]}
-						/>
-						<Text
-							style={[
-								styles.wsText,
-								{
-									color:
-										wsStatus === "CONNECTED"
-											? isDark
-												? "#4ade80"
-												: "#15803D"
-											: wsStatus === "CONNECTING"
-												? isDark
-													? "#fbbf24"
-													: "#B45309"
-												: isDark
-													? "#f87171"
-													: "#B91C1C",
-								},
-							]}
-						>
-							{wsStatus === "CONNECTED"
-								? "WS Live"
-								: wsStatus === "CONNECTING"
-									? "Connecting..."
-									: "Offline"}
-						</Text>
-					</Pressable>
+						accessibilityLabel={`WebSocket: ${wsStatus}`}
+					/>
+					<Text style={[styles.title, { color: colors.text }]}>
+						Inspections
+					</Text>
 				</View>
 				<View style={styles.headerRight}>
 					<Pressable
 						style={({ pressed }) => [
 							styles.iconBtn,
-							{ borderColor: colors.border },
+							{
+								backgroundColor: colors.backgroundElement,
+								borderColor: colors.border,
+							},
 							pressed && styles.btnPressed,
 						]}
 						onPress={() => router.push("/settings")}
@@ -356,24 +303,48 @@ export default function DashboardScreen() {
 			)}
 
 			{/* MD3 METRICS ROW */}
-			<View style={styles.metricsCard}>
+			<View
+				style={[
+					styles.metricsCard,
+					{
+						backgroundColor: colors.backgroundElement,
+						borderColor: colors.border,
+					},
+				]}
+			>
 				<View style={styles.metricItem}>
-					<Text style={styles.metricValue}>{metrics.pendingTelemetry}</Text>
-					<Text style={styles.metricLabel}>Queued</Text>
+					<Text style={[styles.metricValue, { color: colors.text }]}>
+						{metrics.pendingTelemetry}
+					</Text>
+					<Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+						Queued
+					</Text>
 				</View>
-				<View style={styles.metricDivider} />
+				<View
+					style={[styles.metricDivider, { backgroundColor: colors.border }]}
+				/>
 				<View style={styles.metricItem}>
 					<Text style={[styles.metricValue, { color: MD3.color.success }]}>
 						{metrics.syncedTelemetry}
 					</Text>
-					<Text style={styles.metricLabel}>Synced</Text>
+					<Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+						Synced
+					</Text>
 				</View>
-				<View style={styles.metricDivider} />
+				<View
+					style={[styles.metricDivider, { backgroundColor: colors.border }]}
+				/>
 				<View style={styles.metricItem}>
-					<Text style={styles.metricValue}>{metrics.pendingImages}</Text>
-					<Text style={styles.metricLabel}>Photos</Text>
+					<Text style={[styles.metricValue, { color: colors.text }]}>
+						{metrics.pendingImages}
+					</Text>
+					<Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+						Photos
+					</Text>
 				</View>
-				<View style={styles.metricDivider} />
+				<View
+					style={[styles.metricDivider, { backgroundColor: colors.border }]}
+				/>
 				<View style={styles.metricItem}>
 					<Text
 						style={[
@@ -382,15 +353,19 @@ export default function DashboardScreen() {
 								color:
 									metrics.pendingMl > 0
 										? MD3.color.primary
-										: MD3.color.onSurfaceVariant,
+										: colors.textSecondary,
 							},
 						]}
 					>
 						{metrics.pendingMl}
 					</Text>
-					<Text style={styles.metricLabel}>ML</Text>
+					<Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+						ML
+					</Text>
 				</View>
-				<View style={styles.metricDivider} />
+				<View
+					style={[styles.metricDivider, { backgroundColor: colors.border }]}
+				/>
 				<View style={styles.metricItem}>
 					<Text
 						style={[
@@ -399,13 +374,15 @@ export default function DashboardScreen() {
 								color:
 									metrics.needsReview > 0
 										? MD3.color.warn
-										: MD3.color.onSurfaceVariant,
+										: colors.textSecondary,
 							},
 						]}
 					>
 						{metrics.needsReview}
 					</Text>
-					<Text style={styles.metricLabel}>Review</Text>
+					<Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+						Review
+					</Text>
 				</View>
 			</View>
 
@@ -417,12 +394,20 @@ export default function DashboardScreen() {
 			) : null}
 
 			{/* SEARCH BAR */}
-			<View style={styles.searchBar}>
-				<AppSymbol name="search" size={16} color={MD3.color.onSurfaceVariant} />
+			<View
+				style={[
+					styles.searchBar,
+					{
+						backgroundColor: colors.backgroundElement,
+						borderColor: colors.border,
+					},
+				]}
+			>
+				<AppSymbol name="search" size={16} color={colors.textSecondary} />
 				<TextInput
-					style={styles.searchInput}
+					style={[styles.searchInput, { color: colors.text }]}
 					placeholder="Search Serial Number"
-					placeholderTextColor={MD3.color.outline}
+					placeholderTextColor={colors.textSecondary}
 					value={search}
 					onChangeText={setSearch}
 				/>
@@ -430,7 +415,9 @@ export default function DashboardScreen() {
 
 			{/* CONTENT LIST */}
 			<ScrollView
+				style={{ flex: 1 }}
 				contentContainerStyle={styles.listArea}
+				keyboardShouldPersistTaps="handled"
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={handleSync} />
 				}
@@ -438,7 +425,9 @@ export default function DashboardScreen() {
 				{/* REVIEW QUEUE */}
 				{reviewQueue.length > 0 && (
 					<View style={styles.section}>
-						<Text style={styles.sectionHeader}>
+						<Text
+							style={[styles.sectionHeader, { color: colors.textSecondary }]}
+						>
 							Needs Review ({reviewQueue.length})
 						</Text>
 						{reviewQueue.map((item) => (
@@ -447,6 +436,10 @@ export default function DashboardScreen() {
 								style={({ pressed }) => [
 									styles.card,
 									styles.reviewCard,
+									{
+										backgroundColor: colors.backgroundElement,
+										borderColor: colors.border,
+									},
 									pressed && styles.cardPressed,
 								]}
 								onPress={() => openInspectionEditor(item)}
@@ -471,17 +464,49 @@ export default function DashboardScreen() {
 
 									<View style={styles.cardDetails}>
 										<View style={styles.cardRow}>
-											<Text style={styles.snText}>
+											<Text style={[styles.snText, { color: colors.text }]}>
 												{item.meter_serial_number || "UNKNOWN"}
 											</Text>
-											<View style={styles.warnChip}>
-												<Text style={styles.warnChipText}>Review</Text>
+											<View
+												style={{
+													flexDirection: "row",
+													gap: 6,
+													alignItems: "center",
+												}}
+											>
+												{item.vlm_kwh != null && (
+													<View
+														style={[
+															styles.aiChip,
+															{
+																backgroundColor: isDark ? "#064e3b" : "#DCFCE7",
+																borderColor: isDark ? "#059669" : "#86EFAC",
+															},
+														]}
+													>
+														<Text
+															style={[
+																styles.aiChipText,
+																{ color: isDark ? "#4ade80" : "#15803D" },
+															]}
+														>
+															AI: {Number(item.vlm_kwh).toFixed(1)} kWh
+														</Text>
+													</View>
+												)}
+												<View style={styles.warnChip}>
+													<Text style={styles.warnChipText}>Review</Text>
+												</View>
 											</View>
 										</View>
-										<Text style={styles.metaText}>
+										<Text
+											style={[styles.metaText, { color: colors.textSecondary }]}
+										>
 											{item.extracted_kwh != null
 												? `${item.extracted_kwh} kWh`
-												: "No reading"}
+												: item.vlm_kwh != null
+													? `Cloud AI: ${item.vlm_kwh} kWh`
+													: "No reading"}
 										</Text>
 									</View>
 								</View>
@@ -492,10 +517,22 @@ export default function DashboardScreen() {
 
 				{/* HISTORY */}
 				<View style={styles.section}>
-					<Text style={styles.sectionHeader}>History ({history.length})</Text>
+					<Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+						History ({history.length})
+					</Text>
 					{history.length === 0 ? (
-						<View style={styles.emptyCard}>
-							<Text style={styles.emptyText}>No records yet</Text>
+						<View
+							style={[
+								styles.emptyCard,
+								{
+									backgroundColor: colors.backgroundElement,
+									borderColor: colors.border,
+								},
+							]}
+						>
+							<Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+								No records yet
+							</Text>
 						</View>
 					) : (
 						history.map((item) => {
@@ -510,6 +547,10 @@ export default function DashboardScreen() {
 									key={item.id}
 									style={({ pressed }) => [
 										styles.card,
+										{
+											backgroundColor: colors.backgroundElement,
+											borderColor: colors.border,
+										},
 										pressed && styles.cardPressed,
 									]}
 									onPress={() => openInspectionEditor(item)}
@@ -534,7 +575,7 @@ export default function DashboardScreen() {
 
 										<View style={styles.cardDetails}>
 											<View style={styles.cardRow}>
-												<Text style={styles.snText}>
+												<Text style={[styles.snText, { color: colors.text }]}>
 													{item.meter_serial_number || "UNKNOWN"}
 												</Text>
 												<View style={styles.badgesCluster}>
@@ -605,11 +646,23 @@ export default function DashboardScreen() {
 			</ScrollView>
 
 			{/* BOTTOM ACTION */}
-			<View style={styles.bottomBar}>
+			<View
+				style={[
+					styles.bottomBar,
+					{
+						backgroundColor: colors.background,
+						borderColor: colors.border,
+					},
+				]}
+			>
 				<Pressable
 					disabled={isSyncing}
 					style={({ pressed }) => [
 						styles.syncBtn,
+						{
+							backgroundColor: colors.backgroundElement,
+							borderColor: colors.border,
+						},
 						isSyncing && styles.btnDisabled,
 						pressed && styles.btnPressed,
 					]}
@@ -620,7 +673,9 @@ export default function DashboardScreen() {
 					) : (
 						<>
 							<AppSymbol name="sync" size={16} color={MD3.color.primary} />
-							<Text style={styles.syncBtnText}>Sync Cloud</Text>
+							<Text style={[styles.syncBtnText, { color: colors.text }]}>
+								Sync Cloud
+							</Text>
 						</>
 					)}
 				</Pressable>
@@ -645,27 +700,25 @@ const styles = StyleSheet.create({
 	headerLeft: {
 		flexDirection: "row",
 		alignItems: "center",
-		gap: 10,
+		gap: 8,
 	},
-	wsPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		paddingHorizontal: 8,
-		paddingVertical: 3,
-		borderRadius: 9999,
+	wsDotBtn: {
+		width: 10,
+		height: 10,
+		borderRadius: 5,
+		borderWidth: 1,
+		borderColor: "rgba(255, 255, 255, 0.2)",
+	},
+	aiChip: {
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 4,
 		borderWidth: 1,
 	},
-	wsDot: {
-		width: 6,
-		height: 6,
-		borderRadius: 3,
-	},
-	wsText: {
+	aiChipText: {
 		fontSize: 10,
 		fontFamily: Fonts.mono,
-		fontWeight: "600",
-		letterSpacing: 0.3,
+		fontWeight: "700",
 	},
 	headerRight: {
 		flexDirection: "row",

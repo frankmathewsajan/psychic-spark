@@ -5,6 +5,7 @@ import {
 	ActivityIndicator,
 	Alert,
 	Pressable,
+	ScrollView,
 	StyleSheet,
 	Text,
 	TextInput,
@@ -153,7 +154,12 @@ export default function SettingsScreen() {
 				<View style={{ width: 60 }} />
 			</View>
 
-			<View style={styles.content}>
+			<ScrollView
+				style={styles.contentScroll}
+				contentContainerStyle={styles.scrollContent}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
+			>
 				{/* THEME & APPEARANCE */}
 				<Text style={[styles.sectionTitle, dynSub]}>Appearance</Text>
 				<View style={[styles.card, dynCard]}>
@@ -404,7 +410,7 @@ export default function SettingsScreen() {
 						<Text style={[styles.infoValue, dynText]}>SQLite SSOT (WAL)</Text>
 					</View>
 				</View>
-			</View>
+			</ScrollView>
 		</SafeAreaView>
 	);
 }
@@ -435,8 +441,12 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontWeight: "600",
 	},
-	content: {
+	contentScroll: {
+		flex: 1,
+	},
+	scrollContent: {
 		padding: 16,
+		paddingBottom: 40,
 		gap: 16,
 	},
 	sectionTitle: {

@@ -4,7 +4,6 @@ import {
 	useCameraPermissions,
 } from "expo-camera";
 import { Directory, File, Paths } from "expo-file-system";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import { StatusBar } from "expo-status-bar";
@@ -101,7 +100,9 @@ export default function CaptureScreen() {
 
 		try {
 			setIsCapturing(true);
-			const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
+			const photo = await cameraRef.current.takePictureAsync({
+				quality: 0.85,
+			});
 
 			if (photo?.uri) {
 				setTorchActive(false);
@@ -109,20 +110,12 @@ export default function CaptureScreen() {
 				const snapTilt = tilt;
 				const snapBarcode = detectedBarcodeRef.current;
 
-				let sourceUri = photo.uri;
-				try {
-					const compressed = await manipulateAsync(photo.uri, [], {
-						format: SaveFormat.PNG,
-					});
-					if (compressed?.uri) sourceUri = compressed.uri;
-				} catch {}
-
-				let persistentPath = sourceUri;
+				let persistentPath = photo.uri;
 				try {
 					const capturesDir = new Directory(Paths.document, "captures");
 					if (!capturesDir.exists) capturesDir.create();
-					const destFile = new File(capturesDir, `${id}.png`);
-					const sourceFile = new File(sourceUri);
+					const destFile = new File(capturesDir, `${id}.jpg`);
+					const sourceFile = new File(photo.uri);
 					await sourceFile.copy(destFile);
 					persistentPath = destFile.uri;
 				} catch {}
@@ -344,7 +337,9 @@ export default function CaptureScreen() {
 							<Text style={styles.doneBtnText}>Done ({queuedCount})</Text>
 						</Pressable>
 					) : (
-						<View style={styles.subBtnPlaceholder} />
+						<Pressable style={styles.subBtn} onPress={() => router.back()}>
+							<Text style={styles.subBtnText}>Close</Text>
+						</Pressable>
 					)}
 				</View>
 			</View>

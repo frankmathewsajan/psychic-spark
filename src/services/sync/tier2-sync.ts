@@ -1,5 +1,4 @@
 import { File, Paths } from "expo-file-system";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { logger } from "../../core/logger";
 
@@ -41,27 +40,17 @@ export async function executeTier2MediaSync(
 			}
 		}
 
-		// Ensure image is losslessly compressed as PNG before upload
-		if (file.exists && !file.name.toLowerCase().endsWith(".png")) {
-			try {
-				const compressed = await manipulateAsync(file.uri, [], {
-					format: SaveFormat.PNG,
-				});
-				if (compressed?.uri) {
-					file = new File(compressed.uri);
-				}
-			} catch (compErr) {
-				logger.warn(
-					"SyncTier2",
-					`Lossless compression fallback to raw image for ${item.id}`,
-					compErr,
-				);
-			}
-		}
+		// Derive MIME type based on file extension (supports fast JPEG and PNG)
+		const isPng = file.name.toLowerCase().endsWith(".png");
+		const mimeType = isPng ? "image/png" : "image/jpeg";
 
 		const formData = new FormData();
 		formData.append("photo_type", "CASING");
-		formData.append("file", file);
+		formData.append("file", {
+			uri: file.uri,
+			name: file.name,
+			type: mimeType,
+		} as unknown as Blob);
 
 		try {
 			const res = await fetch(

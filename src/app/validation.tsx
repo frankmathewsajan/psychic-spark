@@ -46,7 +46,7 @@ export default function ValidationScreen() {
 
 	const [serialNumber, setSerialNumber] = useState(params.sn || "");
 	const [kwhReading, setKwhReading] = useState(
-		params.source === "manual" ? "" : params.kwh || "",
+		params.source === "manual" ? "" : params.kwh || params.vlmKwh || "",
 	);
 	const [selectedStatus, setSelectedStatus] = useState<QAStatus>(
 		(params.status as QAStatus) || "PASS",
@@ -190,7 +190,26 @@ export default function ValidationScreen() {
 							autoCapitalize="characters"
 						/>
 
-						<Text style={[styles.label, { marginTop: 16 }]}>kWh Reading</Text>
+						<View style={styles.kwhHeaderRow}>
+							<Text style={styles.label}>kWh Reading</Text>
+							{params.vlmKwh ? (
+								<Pressable
+									style={styles.autofillPill}
+									onPress={() => {
+										if (params.vlmKwh) {
+											setKwhReading(params.vlmKwh);
+										}
+										if (selectedStatus === "WARNING" && !hazardReason) {
+											setSelectedStatus("PASS");
+										}
+									}}
+								>
+									<Text style={styles.autofillPillText}>
+										Autofill AI: {Number(params.vlmKwh).toFixed(1)} kWh &rarr;
+									</Text>
+								</Pressable>
+							) : null}
+						</View>
 						<TextInput
 							style={[styles.input, styles.kwhInput]}
 							value={kwhReading}
@@ -464,6 +483,27 @@ const styles = StyleSheet.create({
 		textTransform: "uppercase",
 		letterSpacing: 0.5,
 		marginBottom: 6,
+	},
+	kwhHeaderRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginTop: 16,
+		marginBottom: 6,
+	},
+	autofillPill: {
+		backgroundColor: "#DCFCE7",
+		borderColor: "#86EFAC",
+		borderWidth: 1,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: 6,
+	},
+	autofillPillText: {
+		fontSize: 11,
+		fontFamily: Fonts.mono,
+		fontWeight: "700",
+		color: "#15803D",
 	},
 	input: {
 		height: 48,

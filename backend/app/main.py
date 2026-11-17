@@ -170,56 +170,15 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 <body class="bg-[#090a0d] text-zinc-300 antialiased min-h-screen">
 
   <!-- ========================================================================= -->
-  <!-- MINIMAL CALM BOOT OVERLAY                                                 -->
+  <!-- MAIN CONSOLE (RESPONSIVE FULL-WIDTH)                                      -->
   <!-- ========================================================================= -->
-  <div id="boot-overlay" class="fixed inset-0 z-50 bg-[#090a0d] text-zinc-400 font-mono flex flex-col justify-between p-6 sm:p-12 transition-opacity duration-500 select-none overflow-hidden" onclick="dismissBootOverlay()">
-    <div class="flex items-center justify-between z-10">
-      <div class="text-xs text-zinc-300 font-semibold tracking-wider uppercase">Novo Ops</div>
-      <div class="text-[11px] text-zinc-600 font-mono">AP-SOUTH-1</div>
-    </div>
-
-    <!-- WIREFRAME GRID ACCENT -->
-    <div class="absolute top-0 right-0 w-[45%] h-full pointer-events-none opacity-30 hidden md:block">
-      <div class="wireframe-grid">
-        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
-        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
-        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
-        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
-        <div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div><div class="wireframe-cell"></div>
-      </div>
-    </div>
-
-    <!-- TERMINAL LINES -->
-    <div class="max-w-xl z-10 my-auto space-y-2 text-xs font-mono">
-      <div class="text-zinc-500"><span id="boot-ts-1" class="text-zinc-600">--:--:--</span> <span class="text-zinc-300">HTTP REQUEST DETECTED</span></div>
-      <div class="text-zinc-500"><span id="boot-ts-2" class="text-zinc-600">--:--:--</span> <span class="text-zinc-300">SERVICE INITIALIZING</span></div>
-      <div class="text-zinc-500"><span id="boot-ts-3" class="text-zinc-600">--:--:--</span> <span class="text-zinc-300">DATABASE POOL CONNECTED</span></div>
-      <div class="text-zinc-500"><span id="boot-ts-4" class="text-zinc-600">--:--:--</span> <span class="text-zinc-300">VLM AUDIT ENGINE READY</span></div>
-    </div>
-
-    <div class="flex items-center justify-between text-xs font-mono z-10 pt-4 border-t border-zinc-900">
-      <span class="text-zinc-600 hover:text-zinc-400 cursor-pointer">CONTINUE &rarr;</span>
-      <div class="flex items-center gap-2">
-        <div id="boot-spinner" class="w-3 h-3 rounded-full border border-zinc-700 border-t-zinc-300 animate-spin"></div>
-        <span id="boot-status-text" class="text-zinc-400 text-[11px] font-mono tracking-wider">LOADING</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================= -->
-  <!-- MAIN MINIMAL CONSOLE                                                      -->
-  <!-- ========================================================================= -->
-  <div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     
     <!-- HEADER -->
-    <header class="flex items-center justify-between pb-5 border-b border-zinc-800/60">
+    <header class="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-zinc-800/60">
       <div class="flex items-center gap-3">
-        <div class="w-2 h-2 rounded-sm bg-zinc-400"></div>
+        <div class="w-2.5 h-2.5 rounded-sm bg-zinc-400"></div>
         <h1 class="text-base font-semibold text-zinc-100 tracking-tight">Novo Admin</h1>
-        <span id="live-indicator" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Live
-        </span>
       </div>
 
       <div class="flex items-center gap-2 text-xs">
@@ -252,10 +211,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         <button onclick="refreshAll()" class="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:border-zinc-700 rounded transition">
           Refresh
         </button>
-        <button onclick="showBootOverlay()" class="px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 rounded transition" title="Terminal">
-          Terminal
-        </button>
-        <button onclick="confirmResetData()" class="px-2 py-1 text-xs text-zinc-600 hover:text-rose-400 rounded transition" title="Clear test records">
+        <button onclick="confirmResetData()" class="px-2.5 py-1 text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded transition font-medium" title="Clear test records">
           Reset
         </button>
       </div>
@@ -276,8 +232,8 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
     <!-- TAB 1: INSPECTIONS -->
     <div id="tab-inspections">
-      <!-- STAT COUNTERS (CLEAN MONOCHROME) -->
-      <section class="grid grid-cols-5 gap-3 mb-5">
+      <!-- STAT COUNTERS (RESPONSIVE) -->
+      <section class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5">
         <div class="bg-[#0e1014] p-3 rounded border border-zinc-800/60">
           <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Total</div>
           <div id="stat-total" class="text-xl font-mono font-semibold text-zinc-100 mt-1">0</div>
@@ -346,7 +302,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
     <!-- TAB 2: FLEET MAP -->
     <div id="tab-fleet" class="hidden">
-      <section class="grid grid-cols-3 gap-3 mb-4">
+      <section class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div class="bg-[#0e1014] p-3 rounded border border-zinc-800/60">
           <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Devices</div>
           <div id="fleet-stat-total" class="text-xl font-mono font-semibold text-zinc-100 mt-1">0</div>
@@ -363,7 +319,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
       <!-- MAP -->
       <div class="bg-[#0e1014] rounded border border-zinc-800/60 p-2 mb-4">
-        <div id="fleet-map" style="height: 380px; width: 100%; border-radius: 4px;" class="bg-[#090a0d] z-10"></div>
+        <div id="fleet-map" style="height: 420px; width: 100%; border-radius: 4px;" class="bg-[#090a0d] z-10"></div>
       </div>
 
       <!-- DEVICES LIST -->
@@ -630,43 +586,6 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap &copy; CARTO'
       }).addTo(map);
-    }
-
-    function initBootTimestamps() {
-      const now = new Date();
-      function fmt(offsetSec) {
-        const d = new Date(now.getTime() - offsetSec * 1000);
-        return d.toTimeString().split(' ')[0];
-      }
-      const el1 = document.getElementById('boot-ts-1'); if (el1) el1.textContent = fmt(10);
-      const el2 = document.getElementById('boot-ts-2'); if (el2) el2.textContent = fmt(7);
-      const el3 = document.getElementById('boot-ts-3'); if (el3) el3.textContent = fmt(4);
-      const el4 = document.getElementById('boot-ts-4'); if (el4) el4.textContent = fmt(1);
-    }
-
-    function dismissBootOverlay() {
-      const overlay = document.getElementById('boot-overlay');
-      if (!overlay) return;
-      overlay.classList.add('opacity-0', 'pointer-events-none');
-      setTimeout(() => { overlay.style.display = 'none'; }, 400);
-    }
-
-    function showBootOverlay() {
-      const overlay = document.getElementById('boot-overlay');
-      if (!overlay) return;
-      initBootTimestamps();
-      const statusText = document.getElementById('boot-status-text');
-      const spinner = document.getElementById('boot-spinner');
-      if (statusText) statusText.textContent = 'LOADING';
-      if (spinner) spinner.className = 'w-3 h-3 rounded-full border border-zinc-700 border-t-zinc-300 animate-spin';
-      overlay.style.display = 'flex';
-      overlay.classList.remove('opacity-0', 'pointer-events-none');
-
-      setTimeout(() => {
-        if (statusText) statusText.textContent = 'READY';
-        if (spinner) spinner.className = 'w-2 h-2 rounded-full bg-emerald-400';
-      }, 700);
-      setTimeout(dismissBootOverlay, 1100);
     }
 
     function initMap() {
@@ -1275,7 +1194,6 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         closeDetailModal();
         closeDirectiveModal();
         closeExportMenu();
-        dismissBootOverlay();
       }
     });
 
@@ -1286,15 +1204,8 @@ ADMIN_HTML = r"""<!DOCTYPE html>
     });
 
     applyTheme(currentTheme);
-    initBootTimestamps();
     setupAdminWebSocket();
-    refreshAll().then(() => {
-      const statusText = document.getElementById('boot-status-text');
-      const spinner = document.getElementById('boot-spinner');
-      if (statusText) statusText.textContent = 'READY';
-      if (spinner) spinner.className = 'w-2 h-2 rounded-full bg-emerald-400';
-      setTimeout(dismissBootOverlay, 700);
-    });
+    refreshAll();
     setInterval(refreshAll, 5000);
   </script>
 </body>

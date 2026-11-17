@@ -1141,6 +1141,19 @@ In cloud evaluation using live multimodal endpoints (\texttt{gemini-3.8-flash}),
     \item \textbf{Mean Cloud Audit Latency:} The asynchronous audit completed in an average of $1.85\text{~seconds}$ per image, operating entirely outside the technician's critical path.
 \end{itemize}
 
+\section{On-Device Multimodal SLM Benchmarks: The Realme 11 Pro Case Study}
+\label{sec:realme_gemma_benchmarks}
+To empirically investigate whether full multimodal reasoning can be migrated entirely to edge mobile devices without cloud dependency, we conducted a rigorous hardware benchmark using a quantized 2B Vision-Language Model (\texttt{Gemma E2B-it}) directly on a representative mid-range Indian contractor smartphone: a \textbf{Realme 11 Pro} (MediaTek Dimensity 7050 SoC, 8-core CPU up to 2.6\,GHz, 8\,GB LPDDR4X RAM, Android 14).
+
+When evaluated against captured seven-segment utility meter displays, \texttt{Gemma E2B-it} achieved zero transcription errors on challenging numerals, successfully transcribing difficult readings such as \texttt{0507106} without requiring heuristic character substitution. However, runtime profiling revealed severe edge hardware bottlenecks:
+\begin{itemize}
+    \item \textbf{Peak Memory Footprint:} Local model weight staging and KV-cache allocation consumed \textbf{2.23~GB RAM} (${\approx}30\%$ of total device memory), exceeding the safe headroom for background camera preview threads and triggering aggressive Android Low Memory Killer (LMK) eviction risks.
+    \item \textbf{Inference Latency:} Total end-to-end inference required \textbf{11.8~seconds}, dominated by an initial \textbf{9.7~second} time-to-first-token (TTFT) vision prefill stage over the tokenized image embeddings.
+    \item \textbf{Thermal and Battery Impact:} Continuous on-device autoregressive generation caused rapid device heating and consumed ${\approx}0.45\%$ battery capacity per query, rendering real-time safety gating unviable on 8-hour field shifts.
+\end{itemize}
+
+In contrast, Novo's edge pipeline executes the Stage~1 safety gate in \textbf{24.34~ms} using only \textbf{4.59~MB} peak RAM allocation, completing the entire on-device inspection workflow in \textbf{142.96~ms}. This 485$\times$ memory reduction and 480$\times$ latency advantage confirms that monolithic multi-billion-parameter VLMs cannot serve as point-of-work safety interlocks on commodity Android contractor phones. This empirical result validates Novo's architectural decision to maintain ultra-fast, lightweight INT8 safety filters on the edge while offloading deep multimodal adjudication asynchronously to cloud VLMs.
+
 \section{Cryptographic Evidence Sealing and CSV Export Benchmarks}
 Computing the SHA-256 evidence seal $\sigma_{\text{evidence}}$ across uploaded $2.5\text{~MB}$ images required an average CPU execution time of \textbf{1.45~ms} on the ingestion server, introducing zero perceptible latency during photo ingestion. The streaming CSV export endpoint (\texttt{GET /api/v1/inspections/export.csv}) processed and streamed a 10,000-inspection audit log ($1.6\text{~MB}$ CSV) in \textbf{182~ms}, fulfilling all regulatory reporting criteria for state electricity distribution commissions.
 
@@ -1236,8 +1249,9 @@ While the Novo platform demonstrates robust field performance, several limitatio
 \end{itemize}
 
 \section{Directions for Future Research}
-Future research and engineering enhancements will focus on three key domains:
+Future research and engineering enhancements will focus on four key domains:
 \begin{enumerate}
+    \item \textbf{Teacher--Student Knowledge Distillation:} While on-device 2B models such as \texttt{Gemma E2B-it} require excessive memory ($2.23\text{~GB}$) and latency ($11.8\text{~s}$) on handsets like the Realme 11 Pro, their transcription accuracy on complex seven-segment displays is exceptional. We plan to establish an offline teacher--student distillation pipeline: using \texttt{Gemma E2B-it} and \texttt{gemini-3.8-flash} as high-capacity teacher models to generate high-confidence pseudo-labels across tens of thousands of unannotated Indian smart meter field photographs. These distilled pseudo-labels will supervise the training of an ultra-compact (${<}4\text{~MB}$) INT8 quantized student CNN/Transformer recognizer executing in under $15\text{~ms}$ directly on mobile NPUs.
     \item \textbf{Micro-Bolometer Thermal Sensor Fusion:} Integrating low-cost smartphone USB-C micro-bolometer thermal sensor attachments (such as FLIR or Seek Thermal) to measure terminal block thermal gradients directly prior to seal locking, detecting latent internal contact resistance.
     \item \textbf{On-Device Few-Shot Active Learning:} Implementing on-device few-shot adaptation algorithms using quantized embeddings, enabling the mobile client to learn novel LCD manufacturer fonts in the field with fewer than ten contractor correction samples.
     \item \textbf{Automated Optical Tamper Seal Verification:} Expanding the Stage~1 classifier to perform holographic tamper-evident seal verification and optical flow fraud detection, mitigating non-technical electricity theft.

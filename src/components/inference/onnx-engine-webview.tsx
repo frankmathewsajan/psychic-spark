@@ -503,19 +503,7 @@ export function OnnxEngineWebView() {
 			const wasmBase64 = await wasmFile.base64();
 			await sendChunks("wasm", wasmBase64);
 
-			// 2. Stage 1 ONNX Model (12.3 MB)
-			const s1File = await loadAssetFile(
-				require("../../../assets/models/manu_panel_best_640.onnx"),
-			);
-			const s1Base64 = await s1File.base64();
-			await sendChunks("stage1", s1Base64);
-
-			// 3. Stage 2 ONNX Model (12.1 MB)
-			const s2File = await loadAssetFile(
-				require("../../../assets/models/liamm_7seg_best_320.onnx"),
-			);
-			const s2Base64 = await s2File.base64();
-			await sendChunks("stage2", s2Base64);
+			// 2. Archived ONNX Models (moved to models/; superseded by native MobileNetV3 TFLite + MLKit)
 
 			logger.info(
 				"OnnxEngine",

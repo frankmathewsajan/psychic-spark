@@ -32,6 +32,17 @@ export interface MeterInferenceResult {
 	decimalInferred: boolean;
 }
 
+export interface WireSafetyResult {
+	isHazard: boolean;
+	hazardProb: number;
+	reason: string | null;
+}
+
+export interface CroppedLcdOcrResult {
+	kwh: number | null;
+	confidence: number;
+}
+
 // ---------------------------------------------------------------------------
 // Singleton TFLite Model Loader
 // ---------------------------------------------------------------------------
@@ -74,22 +85,79 @@ function sanitize7Segment(raw: string): string {
 		.replace(/[^0-9.]/g, "");
 }
 
+// ---------------------------------------------------------------------------
+// Exported Helper 1: cropLcdReticle
+// ---------------------------------------------------------------------------
 /**
- * Real On-Device Edge Meter Vision Pipeline (Android Native).
- *
- * Stage 1: MobileNetV3 INT8 Wire Hazard Classifier (react-native-fast-tflite)
- * Stage 2: 7-Segment LCD Display OCR (@react-native-ml-kit/text-recognition)
+ * Crops the blue-box region via ImageManipulator.manipulateAsync (SaveFormat.JPEG, compress: 0.9)
+ * and returns the cropped image URI so the UI can render it on screen.
  */
-export async function runEdgeMeterInference(
-	input: MeterInferenceInput,
-): Promise<MeterInferenceResult> {
-	const startTime = performance.now();
-	const { imageUri, scannedBarcode } = input;
+export async function cropLcdReticle(
+	imageUri: string,
+	reticleBounds?: [number, number, number, number] | null,
+): Promise<string> {
+	const probe = await manipulateAsync(imageUri, []);
+	const origW = probe.width;
+	const origH = probe.height;
 
+	// Normalized display crop bounds: [normX, normY, normW, normH]
+	const rawBounds = reticleBounds || [0.18, 0.28, 0.64, 0.22];
+	const normX = Math.max(0, Math.min(0.95, rawBounds[0]));
+	const normY = Math.max(0, Math.min(0.95, rawBounds[1]));
+	const normW = Math.max(0.05, Math.min(1.0 - normX, rawBounds[2]));
+	const normH = Math.max(0.05, Math.min(1.0 - normY, rawBounds[3]));
+
+	const cropOriginX = Math.max(
+		0,
+		Math.min(origW - 1, Math.round(normX * origW)),
+	);
+	const cropOriginY = Math.max(
+		0,
+		Math.min(origH - 1, Math.round(normY * origH)),
+	);
+	const cropW = Math.max(
+		1,
+		Math.min(origW - cropOriginX, Math.round(normW * origW)),
+	);
+	const cropH = Math.max(
+		1,
+		Math.min(origH - cropOriginY, Math.round(normH * origH)),
+	);
+
+	logger.info(
+		"Inference",
+		`Reticle crop bounds [norm=${normX.toFixed(3)},${normY.toFixed(3)},${normW.toFixed(3)},${normH.toFixed(3)} -> px=${cropOriginX},${cropOriginY},${cropW}x${cropH}]`,
+	);
+
+	const lcdCrop = await manipulateAsync(
+		imageUri,
+		[
+			{
+				crop: {
+					originX: cropOriginX,
+					originY: cropOriginY,
+					width: cropW,
+					height: cropH,
+				},
+			},
+		],
+		{ format: SaveFormat.JPEG, compress: 0.9 },
+	);
+
+	return lcdCrop.uri;
+}
+
+// ---------------------------------------------------------------------------
+// Exported Helper 2: runWireSafetyCheck
+// ---------------------------------------------------------------------------
+/**
+ * Runs Stage 1 mobilenetv3_wire_int8.tflite on the full meter photo and returns
+ * { isHazard: boolean, hazardProb: number, reason: string | null }.
+ */
+export async function runWireSafetyCheck(
+	imageUri: string,
+): Promise<WireSafetyResult> {
 	try {
-		// =======================================================================
-		// Gate 0: 224x224 Resize, RGBA Decode, Mean Luminance & RGB Buffer Pack
-		// =======================================================================
 		const manipulated224 = await manipulateAsync(
 			imageUri,
 			[{ resize: { width: 224, height: 224 } }],
@@ -97,7 +165,8 @@ export async function runEdgeMeterInference(
 		);
 
 		if (!manipulated224.base64) {
-			throw new Error("Failed to extract Base64 from 224x224 image");
+			logger.warn("Inference", "Failed to extract Base64 from 224x224 image");
+			return { isHazard: false, hazardProb: 0.0, reason: null };
 		}
 
 		const jpegBuffer = Buffer.from(manipulated224.base64, "base64");
@@ -123,28 +192,17 @@ export async function runEdgeMeterInference(
 
 		// Lighting Gate
 		if (meanLuma < 38 || meanLuma > 248) {
-			const latencyMs = Math.round(performance.now() - startTime);
 			logger.warn(
 				"Inference",
 				`Lighting check failed: meanLuma=${meanLuma.toFixed(1)}`,
 			);
 			return {
-				meterSerialNumber:
-					scannedBarcode?.trim().toUpperCase() ||
-					`EB${(Date.now() % 900000) + 100000}`,
-				extractedKwh: null,
-				ocrConfidence: 0.0,
-				qaStatus: "WARNING",
-				hazardReason: "Poor lighting or glare — retake photo",
-				latencyMs,
-				source: "edge_tflite_mlkit",
-				decimalInferred: false,
+				isHazard: false,
+				hazardProb: 0.0,
+				reason: "Poor lighting or glare — retake photo",
 			};
 		}
 
-		// =======================================================================
-		// Stage 1: Safety Lockout Classifier (TFLite MobileNetV3)
-		// =======================================================================
 		let hazardProb = 0.0;
 		try {
 			const model = await getTfliteModel();
@@ -152,7 +210,6 @@ export async function runEdgeMeterInference(
 
 			if (outputs && outputs.length > 0) {
 				const outBuf = outputs[0];
-				// Handle float or uint8/int8 output tensor
 				let rawProb = 0;
 				if (outBuf.byteLength >= 8) {
 					// 2 classes float32
@@ -174,87 +231,40 @@ export async function runEdgeMeterInference(
 			);
 		}
 
-		// Immediate lockout if exposed wire / unseated cover is detected (>= 0.65)
-		if (hazardProb >= 0.65) {
-			const latencyMs = Math.round(performance.now() - startTime);
-			logger.warn(
-				"Inference",
-				`Safety Lockout: wire hazardProb=${hazardProb.toFixed(3)}`,
-			);
-			return {
-				meterSerialNumber:
-					scannedBarcode?.trim().toUpperCase() ||
-					`EB${(Date.now() % 900000) + 100000}`,
-				extractedKwh: null,
-				ocrConfidence: Number(hazardProb.toFixed(3)),
-				qaStatus: "CRITICAL_HAZARD",
-				hazardReason: "Exposed terminal wiring or unseated cover detected",
-				latencyMs,
-				source: "edge_tflite_mlkit",
-				decimalInferred: false,
-			};
-		}
+		const isHazard = hazardProb >= 0.65;
+		return {
+			isHazard,
+			hazardProb: Number(hazardProb.toFixed(3)),
+			reason: isHazard
+				? "Exposed terminal wiring or unseated cover detected"
+				: null,
+		};
+	} catch (err) {
+		logger.warn("Inference", "Wire safety check failed", err);
+		return { isHazard: false, hazardProb: 0.0, reason: null };
+	}
+}
 
-		// =======================================================================
-		// Stage 2: Central LCD Reticle Crop & ML Kit Text Recognition
-		// =======================================================================
-		// 1. Get original dimensions
-		const probe = await manipulateAsync(imageUri, []);
-		const origW = probe.width;
-		const origH = probe.height;
-
-		// Normalized display crop bounds: [normX, normY, normW, normH]
-		const rawBounds = input.reticleBounds || [0.18, 0.28, 0.64, 0.22];
-		const normX = Math.max(0, Math.min(0.95, rawBounds[0]));
-		const normY = Math.max(0, Math.min(0.95, rawBounds[1]));
-		const normW = Math.max(0.05, Math.min(1.0 - normX, rawBounds[2]));
-		const normH = Math.max(0.05, Math.min(1.0 - normY, rawBounds[3]));
-
-		const cropOriginX = Math.max(
-			0,
-			Math.min(origW - 1, Math.round(normX * origW)),
-		);
-		const cropOriginY = Math.max(
-			0,
-			Math.min(origH - 1, Math.round(normY * origH)),
-		);
-		const cropW = Math.max(
-			1,
-			Math.min(origW - cropOriginX, Math.round(normW * origW)),
-		);
-		const cropH = Math.max(
-			1,
-			Math.min(origH - cropOriginY, Math.round(normH * origH)),
-		);
-
-		logger.info(
-			"Inference",
-			`Reticle crop bounds [norm=${normX.toFixed(3)},${normY.toFixed(3)},${normW.toFixed(3)},${normH.toFixed(3)} -> px=${cropOriginX},${cropOriginY},${cropW}x${cropH}]`,
-		);
-
-		const lcdCrop = await manipulateAsync(
-			imageUri,
-			[
-				{
-					crop: {
-						originX: cropOriginX,
-						originY: cropOriginY,
-						width: cropW,
-						height: cropH,
-					},
-				},
-			],
-			{ format: SaveFormat.JPEG, compress: 0.9 },
-		);
-
-		// ML Kit Reticle Crop Recognition (Line-Level candidate extraction)
+// ---------------------------------------------------------------------------
+// Exported Helper 3: runCroppedLcdOcr
+// ---------------------------------------------------------------------------
+/**
+ * Runs @react-native-ml-kit/text-recognition strictly on croppedUri
+ * (iterating blocks.flatMap(b => b.lines), filtering multi-char unit tokens,
+ * collapsing whitespace, and picking the tallest numeric line).
+ * Returns { kwh: number | null, confidence: number }.
+ */
+export async function runCroppedLcdOcr(
+	croppedUri: string,
+): Promise<CroppedLcdOcrResult> {
+	try {
 		let recognizedLines: Array<{
 			text: string;
 			frame?: { height: number; width: number; top: number; left: number };
 		}> = [];
 
 		try {
-			const mlkitResult = await TextRecognition.recognize(lcdCrop.uri);
+			const mlkitResult = await TextRecognition.recognize(croppedUri);
 			if (mlkitResult.blocks && mlkitResult.blocks.length > 0) {
 				recognizedLines = mlkitResult.blocks.flatMap((b) => b.lines || []);
 			}
@@ -264,6 +274,7 @@ export async function runEdgeMeterInference(
 				"ML Kit reticle crop recognition error",
 				mlkitErr,
 			);
+			return { kwh: null, confidence: 0.0 };
 		}
 
 		// Multi-character faceplate keyword filter (never matches bare 'A' or 'V')
@@ -273,7 +284,6 @@ export async function runEdgeMeterInference(
 
 		let bestCandidate: string | null = null;
 		let bestHeight = 0;
-		const ocrConfidence = 0.9;
 
 		for (const line of recognizedLines) {
 			const rawText = line.text?.trim() || "";
@@ -309,40 +319,115 @@ export async function runEdgeMeterInference(
 			}
 		}
 
+		if (bestCandidate) {
+			const reading = Number.parseFloat(bestCandidate);
+			if (!Number.isNaN(reading) && Number.isFinite(reading)) {
+				return {
+					kwh: reading,
+					confidence: 0.9,
+				};
+			}
+		}
+
+		return {
+			kwh: null,
+			confidence: 0.0,
+		};
+	} catch (err) {
+		logger.warn("Inference", "Cropped LCD OCR failed", err);
+		return { kwh: null, confidence: 0.0 };
+	}
+}
+
+/**
+ * Real On-Device Edge Meter Vision Pipeline (Android Native).
+ *
+ * Stage 1: MobileNetV3 INT8 Wire Hazard Classifier (react-native-fast-tflite)
+ * Stage 2: 7-Segment LCD Display OCR (@react-native-ml-kit/text-recognition)
+ */
+export async function runEdgeMeterInference(
+	input: MeterInferenceInput,
+): Promise<MeterInferenceResult> {
+	const startTime = performance.now();
+	const { imageUri, scannedBarcode } = input;
+
+	try {
+		// Stage 1: Wire Safety & Lighting Check
+		const safetyResult = await runWireSafetyCheck(imageUri);
+
+		// If lighting gate failed (reason provided without hazard)
+		if (safetyResult.reason && !safetyResult.isHazard) {
+			const latencyMs = Math.round(performance.now() - startTime);
+			return {
+				meterSerialNumber:
+					scannedBarcode?.trim().toUpperCase() ||
+					`EB${(Date.now() % 900000) + 100000}`,
+				extractedKwh: null,
+				ocrConfidence: 0.0,
+				qaStatus: "WARNING",
+				hazardReason: safetyResult.reason,
+				latencyMs,
+				source: "edge_tflite_mlkit",
+				decimalInferred: false,
+			};
+		}
+
+		// Immediate lockout if exposed wire / unseated cover is detected
+		if (safetyResult.isHazard) {
+			const latencyMs = Math.round(performance.now() - startTime);
+			logger.warn(
+				"Inference",
+				`Safety Lockout: wire hazardProb=${safetyResult.hazardProb.toFixed(3)}`,
+			);
+			return {
+				meterSerialNumber:
+					scannedBarcode?.trim().toUpperCase() ||
+					`EB${(Date.now() % 900000) + 100000}`,
+				extractedKwh: null,
+				ocrConfidence: safetyResult.hazardProb,
+				qaStatus: "CRITICAL_HAZARD",
+				hazardReason:
+					safetyResult.reason ||
+					"Exposed terminal wiring or unseated cover detected",
+				latencyMs,
+				source: "edge_tflite_mlkit",
+				decimalInferred: false,
+			};
+		}
+
+		// Stage 2: Reticle Crop & Cropped OCR
+		const croppedUri = await cropLcdReticle(imageUri, input.reticleBounds);
+		const ocrResult = await runCroppedLcdOcr(croppedUri);
+
 		// S/N resolution
 		let meterSerialNumber: string;
 		if (scannedBarcode && scannedBarcode.trim().length > 3) {
 			meterSerialNumber = scannedBarcode.trim().toUpperCase();
 		} else {
-			const suffix = bestCandidate
-				? bestCandidate.replace(/\D/g, "").slice(-6)
-				: `${(Date.now() % 900000) + 100000}`;
+			const suffix =
+				ocrResult.kwh !== null
+					? String(ocrResult.kwh).replace(/\D/g, "").slice(-6)
+					: `${(Date.now() % 900000) + 100000}`;
 			meterSerialNumber = `EB${suffix}`;
 		}
 
 		const latencyMs = Math.round(performance.now() - startTime);
 
-		// =======================================================================
-		// Verdict Mapping
-		// =======================================================================
-		if (bestCandidate) {
-			const reading = Number.parseFloat(bestCandidate);
-			if (!Number.isNaN(reading) && Number.isFinite(reading)) {
-				logger.info(
-					"Inference",
-					`Native inference [${latencyMs}ms]: S/N=${meterSerialNumber} kWh=${reading} PASS`,
-				);
-				return {
-					meterSerialNumber,
-					extractedKwh: reading,
-					ocrConfidence,
-					qaStatus: "PASS",
-					hazardReason: null,
-					latencyMs,
-					source: "edge_tflite_mlkit",
-					decimalInferred: false,
-				};
-			}
+		if (ocrResult.kwh !== null) {
+			logger.info(
+				"Inference",
+				`Native inference [${latencyMs}ms]: S/N=${meterSerialNumber} kWh=${ocrResult.kwh} PASS`,
+			);
+			return {
+				meterSerialNumber,
+				extractedKwh: ocrResult.kwh,
+				ocrConfidence: ocrResult.confidence,
+				qaStatus: "PASS",
+				hazardReason: null,
+				latencyMs,
+				source: "edge_tflite_mlkit",
+				decimalInferred: false,
+			};
 		}
 
 		// Safe (hazardProb < 0.65) but no valid reading

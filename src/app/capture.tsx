@@ -3,7 +3,6 @@ import {
 	CameraView,
 	useCameraPermissions,
 } from "expo-camera";
-import { Directory, File, Paths } from "expo-file-system";
 import { useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import { StatusBar } from "expo-status-bar";
@@ -19,10 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
 import { MD3 } from "@/constants/theme";
-import { getDb } from "@/core/db/client";
-import { insertInspection } from "@/core/db/repository";
 import { logger } from "@/core/logger";
-import { subscribeUnreadableCapture } from "@/services/inference/background-ml-worker";
 import { calculateWallTilt } from "@/services/sensor/leveling";
 
 export default function CaptureScreen() {
@@ -30,7 +26,7 @@ export default function CaptureScreen() {
 	const insets = useSafeAreaInsets();
 	const { width: screenW, height: screenH } = useWindowDimensions();
 	const cameraRef = useRef<CameraView>(null);
-	const displayRef = useRef<React.ComponentRef<typeof View>>(null);
+
 	const displayBoundsRef = useRef<{
 		x: number;
 		y: number;
@@ -59,7 +55,8 @@ export default function CaptureScreen() {
 	const updateDisplayBounds = () => {
 		if (
 			displayLayoutRef.current.width > 0 &&
-			casingLayoutRef.current.width > 0
+			casingLayoutRef.current.width > 0 &&
+			reticleAreaLayoutRef.current.width > 0
 		) {
 			const absX =
 				reticleAreaLayoutRef.current.x +
@@ -78,14 +75,8 @@ export default function CaptureScreen() {
 				height: absH,
 			};
 		}
-		displayRef.current?.measureInWindow(
-			(x: number, y: number, width: number, height: number) => {
-				if (width > 0 && height > 0) {
-					displayBoundsRef.current = { x, y, width, height };
-				}
-			},
-		);
 	};
+
 	const [permission, requestPermission] = useCameraPermissions();
 
 	const [torchActive, setTorchActive] = useState(false);
@@ -97,10 +88,6 @@ export default function CaptureScreen() {
 	const [detectedBarcode, setDetectedBarcode] = useState<string | null>(null);
 	const detectedBarcodeRef = useRef<string | null>(null);
 
-	const [queuedCount, setQueuedCount] = useState(0);
-	const [toast, setToast] = useState<string | null>(null);
-	const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
 	useEffect(() => {
 		Accelerometer.setUpdateInterval(100);
 		const subscription = Accelerometer.addListener(({ x, y, z }) => {
@@ -109,18 +96,6 @@ export default function CaptureScreen() {
 			setIsAligned(evaluation.isAligned);
 		});
 		return () => subscription.remove();
-	}, []);
-
-	useEffect(() => {
-		const unsubscribe = subscribeUnreadableCapture((_id, reason) => {
-			setToast(`Unreadable photo: ${reason}`);
-			if (toastTimer.current) clearTimeout(toastTimer.current);
-			toastTimer.current = setTimeout(() => setToast(null), 4000);
-		});
-		return () => {
-			unsubscribe();
-			if (toastTimer.current) clearTimeout(toastTimer.current);
-		};
 	}, []);
 
 	if (!permission) {
@@ -149,25 +124,16 @@ export default function CaptureScreen() {
 
 		try {
 			setIsCapturing(true);
+			// skipProcessing: true returns in < 250ms with zero UI freeze
 			const photo = await cameraRef.current.takePictureAsync({
 				quality: 0.85,
+				skipProcessing: true,
 			});
 
 			if (photo?.uri) {
 				setTorchActive(false);
-				const id = `insp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 				const snapTilt = tilt;
 				const snapBarcode = detectedBarcodeRef.current;
-
-				let persistentPath = photo.uri;
-				try {
-					const capturesDir = new Directory(Paths.document, "captures");
-					if (!capturesDir.exists) capturesDir.create();
-					const destFile = new File(capturesDir, `${id}.jpg`);
-					const sourceFile = new File(photo.uri);
-					await sourceFile.copy(destFile);
-					persistentPath = destFile.uri;
-				} catch {}
 
 				let cropBoundsJson: string | null = null;
 				if (screenW > 0 && screenH > 0) {
@@ -213,34 +179,18 @@ export default function CaptureScreen() {
 					cropBoundsJson = JSON.stringify([normX, normY, normW, normH]);
 				}
 
-				const db = await getDb();
-				await insertInspection(db, {
-					id,
-					technician_id: "field_tech",
-					device_id: "device_01",
-					meter_serial_number: snapBarcode || "",
-					latitude: 0,
-					longitude: 0,
-					timestamp_utc: new Date().toISOString(),
-					qa_status: "WARNING",
-					hazard_reason: null,
-					extracted_kwh: null,
-					ocr_confidence: null,
-					image_local_path: persistentPath,
-					inference_status: "PENDING_ML",
-					sync_tier1_status: "HOLD_ML",
-					tilt_deg: snapTilt,
-					crop_bounds_json: cropBoundsJson,
-				});
-
-				setDetectedBarcode(null);
-				detectedBarcodeRef.current = null;
-				setQueuedCount((c) => {
-					const next = c + 1;
-					setToast(`Queued ✓ (${next})`);
-					if (toastTimer.current) clearTimeout(toastTimer.current);
-					toastTimer.current = setTimeout(() => setToast(null), 2000);
-					return next;
+				// Do NOT insert into SQLite or wake useBackgroundMlWorker here.
+				// Immediately push to /inspect-preview for zero-delay UX.
+				router.push({
+					pathname: "/inspect-preview",
+					params: {
+						photoUri: photo.uri,
+						photoWidth: String(photo.width || screenW),
+						photoHeight: String(photo.height || screenH),
+						tilt: String(snapTilt),
+						barcode: snapBarcode || "",
+						cropBoundsJson: cropBoundsJson || "",
+					},
 				});
 			}
 		} catch (error) {
@@ -297,13 +247,6 @@ export default function CaptureScreen() {
 				</Pressable>
 			</View>
 
-			{/* TOAST NOTIFICATION */}
-			{toast && (
-				<View style={styles.toast}>
-					<Text style={styles.toastText}>{toast}</Text>
-				</View>
-			)}
-
 			{/* BARCODE PILL */}
 			{detectedBarcode && (
 				<View style={styles.barcodePill}>
@@ -312,7 +255,7 @@ export default function CaptureScreen() {
 				</View>
 			)}
 
-			{/* RETICLE OVERLAY */}
+			{/* RETICLE OVERLAY (Pure relative onLayout geometry) */}
 			<View
 				style={styles.reticleArea}
 				onLayout={(e) => {
@@ -328,7 +271,6 @@ export default function CaptureScreen() {
 					}}
 				>
 					<View
-						ref={displayRef}
 						style={styles.displayBox}
 						onLayout={(e) => {
 							displayLayoutRef.current = e.nativeEvent.layout;
@@ -403,15 +345,9 @@ export default function CaptureScreen() {
 						)}
 					</Pressable>
 
-					{queuedCount > 0 ? (
-						<Pressable style={styles.doneBtn} onPress={() => router.back()}>
-							<Text style={styles.doneBtnText}>Done ({queuedCount})</Text>
-						</Pressable>
-					) : (
-						<Pressable style={styles.subBtn} onPress={() => router.back()}>
-							<Text style={styles.subBtnText}>Close</Text>
-						</Pressable>
-					)}
+					<Pressable style={styles.subBtn} onPress={() => router.back()}>
+						<Text style={styles.subBtnText}>Close</Text>
+					</Pressable>
 				</View>
 			</View>
 		</View>
@@ -464,18 +400,6 @@ const styles = StyleSheet.create({
 	tiltOk: { borderColor: MD3.color.success },
 	tiltWarn: { borderColor: MD3.color.warn },
 	tiltText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
-
-	toast: {
-		position: "absolute",
-		top: 100,
-		alignSelf: "center",
-		backgroundColor: "rgba(20,20,20,0.9)",
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: MD3.shape.cornerFull,
-		zIndex: 20,
-	},
-	toastText: { color: "#FFFFFF", fontSize: 12, fontWeight: "500" },
 
 	barcodePill: {
 		position: "absolute",
@@ -577,12 +501,4 @@ const styles = StyleSheet.create({
 		backgroundColor: "rgba(255,255,255,0.2)",
 	},
 	subBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
-	doneBtn: {
-		paddingVertical: 8,
-		paddingHorizontal: 14,
-		borderRadius: MD3.shape.cornerFull,
-		backgroundColor: MD3.color.primary,
-	},
-	doneBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
-	subBtnPlaceholder: { width: 60 },
 });

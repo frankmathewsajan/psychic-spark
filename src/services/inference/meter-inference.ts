@@ -202,10 +202,11 @@ export async function runEdgeMeterInference(
 		const origW = probe.width;
 		const origH = probe.height;
 
-		const cropOriginX = Math.round(0.18 * origW);
-		const cropOriginY = Math.round(0.28 * origH);
-		const cropW = Math.round(0.64 * origW);
-		const cropH = Math.round(0.24 * origH);
+		// Coordinates match the UI reticle display box ([0.18W, 0.28H, 0.64W, 0.24H])
+		const cropOriginX = Math.max(0, Math.round(0.18 * origW));
+		const cropOriginY = Math.max(0, Math.round(0.28 * origH));
+		const cropW = Math.min(origW - cropOriginX, Math.round(0.64 * origW));
+		const cropH = Math.min(origH - cropOriginY, Math.round(0.24 * origH));
 
 		const lcdCrop = await manipulateAsync(
 			imageUri,
@@ -222,26 +223,84 @@ export async function runEdgeMeterInference(
 			{ format: SaveFormat.JPEG, compress: 0.9 },
 		);
 
+		// Helper to extract 4-8 digit numeric candidates from OCR text
+		const numericRegex = /^\d{4,7}(\.\d{1,2})?$/;
+		const extractCandidate = (
+			text: string,
+			isFullFrame: boolean,
+		): string | null => {
+			const rawTokens = text.split(/\s+/);
+			let candidate: string | null = null;
+
+			for (const token of rawTokens) {
+				const trimmed = token.trim();
+				if (!trimmed) continue;
+
+				// Direct match against numeric pattern
+				if (numericRegex.test(trimmed)) {
+					if (!candidate || trimmed.length > candidate.length) {
+						candidate = trimmed;
+					}
+					continue;
+				}
+
+				// 7-segment character sanitization
+				const sanitized = sanitize7Segment(trimmed);
+				if (isFullFrame) {
+					// Full frame fallback: filter specifically for 5-8 digit numeric tokens
+					if (numericRegex.test(sanitized)) {
+						if (!candidate || sanitized.length > candidate.length) {
+							candidate = sanitized;
+						}
+					}
+				} else {
+					// Reticle crop: accept any 4-8 digit numeric reading
+					const digitsOnly = sanitized.replace(/\./g, "");
+					if (digitsOnly.length >= 4 && digitsOnly.length <= 8) {
+						if (!candidate || sanitized.length > candidate.length) {
+							candidate = sanitized;
+						}
+					}
+				}
+			}
+			return candidate;
+		};
+
+		// Pass 1: Reticle crop recognition
 		let recognizedText = "";
 		try {
 			const mlkitResult = await TextRecognition.recognize(lcdCrop.uri);
 			recognizedText = mlkitResult.text || "";
 		} catch (mlkitErr) {
-			logger.warn("Inference", "ML Kit recognition error", mlkitErr);
+			logger.warn(
+				"Inference",
+				"ML Kit reticle crop recognition error",
+				mlkitErr,
+			);
 		}
 
-		// Sanitize 7-segment candidates
-		const rawTokens = recognizedText.split(/\s+/);
-		let bestCandidate: string | null = null;
+		let bestCandidate = extractCandidate(recognizedText, false);
+		let ocrConfidence = 0.9;
 
-		for (const token of rawTokens) {
-			const sanitized = sanitize7Segment(token);
-			// Match 4-8 digit numeric readings, optionally with 1 decimal
-			const digitsOnly = sanitized.replace(/\./g, "");
-			if (digitsOnly.length >= 4 && digitsOnly.length <= 8) {
-				if (!bestCandidate || sanitized.length > bestCandidate.length) {
-					bestCandidate = sanitized;
+		// Pass 2: Dual-Pass Fallback on full image if reticle crop found no candidate
+		if (!bestCandidate) {
+			logger.info(
+				"Inference",
+				"Reticle crop found no 4-8 digit reading; running full-frame fallback pass...",
+			);
+			try {
+				const fullResult = await TextRecognition.recognize(imageUri);
+				const fullText = fullResult.text || "";
+				bestCandidate = extractCandidate(fullText, true);
+				if (bestCandidate) {
+					ocrConfidence = 0.85;
+					logger.info(
+						"Inference",
+						`Full-frame fallback recovered kWh candidate: ${bestCandidate}`,
+					);
 				}
+			} catch (fullErr) {
+				logger.warn("Inference", "Full-frame fallback OCR error", fullErr);
 			}
 		}
 
@@ -271,7 +330,7 @@ export async function runEdgeMeterInference(
 				return {
 					meterSerialNumber,
 					extractedKwh: reading,
-					ocrConfidence: 0.9,
+					ocrConfidence,
 					qaStatus: "PASS",
 					hazardReason: null,
 					latencyMs,

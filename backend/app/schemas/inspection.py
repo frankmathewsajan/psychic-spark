@@ -1,4 +1,5 @@
 # app/schemas/inspection.py
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,3 +47,30 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     timestamp_utc: str
+
+
+class PhotoReadItem(BaseModel):
+    id: str
+    photo_type: str
+    file_path: str
+    uploaded_at: datetime | str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionDetailItem(BaseModel):
+    id: str
+    batch_id: str
+    technician_id: str
+    meter_serial_number: str
+    timestamp_utc: str
+    latitude: float
+    longitude: float
+    qa_status: QAStatus
+    hazard_reason: str | None = None
+    kwh_reading: float | None = None
+    ocr_confidence: float | None = None
+    ingested_at: datetime | str
+    photos: list[PhotoReadItem] = []
+
+    model_config = ConfigDict(from_attributes=True)

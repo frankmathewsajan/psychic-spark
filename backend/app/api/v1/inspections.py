@@ -4,7 +4,7 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -12,11 +12,35 @@ from app.models.inspection import Inspection, InspectionPhoto
 from app.schemas.inspection import (
     BatchIngestResponse,
     ImageUploadResponse,
+    InspectionDetailItem,
     PhotoType,
     Tier1BatchPayload,
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/inspections",
+    response_model=list[InspectionDetailItem],
+    status_code=status.HTTP_200_OK,
+    summary="List Recent Inspections with Photos",
+)
+def list_inspections(
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = 100,
+):
+    """
+    Returns latest inspections with associated photo metadata, ordered by ingested_at DESC.
+    """
+    rows = (
+        db.query(Inspection)
+        .options(joinedload(Inspection.photos))
+        .order_by(Inspection.ingested_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return rows
 
 
 @router.post(

@@ -27,8 +27,11 @@ MOCK_PAYLOAD = {
 @pytest.fixture(autouse=True)
 def setup_and_teardown_db():
     settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    orig_storage = settings.STORAGE_BACKEND
+    settings.STORAGE_BACKEND = "local"
     Base.metadata.create_all(bind=engine)
     yield
+    settings.STORAGE_BACKEND = orig_storage
     Base.metadata.drop_all(bind=engine)
 
 
@@ -144,4 +147,30 @@ async def test_tier2_image_supabase_storage_upload(monkeypatch):
         assert data["path"] == (
             "https://bxnbeatlldxurigjphml.supabase.co/storage/v1/object/public/audit-images/ins_1726918195000_TERMINAL_COVER.jpg"
         )
+
+
+@pytest.mark.asyncio
+async def test_admin_dashboard_and_list_inspections():
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Ingest a record first
+        res_ingest = await client.post("/api/v1/inspections/batch", json=MOCK_PAYLOAD)
+        assert res_ingest.status_code == 200
+
+        # Verify admin dashboard HTML
+        res_admin = await client.get("/admin")
+        assert res_admin.status_code == 200
+        assert "text/html" in res_admin.headers["content-type"]
+        assert "Novo Admin" in res_admin.text
+
+        # Verify inspections listing endpoint
+        res_list = await client.get("/api/v1/inspections")
+        assert res_list.status_code == 200
+        inspections = res_list.json()
+        assert len(inspections) == 1
+        assert inspections[0]["id"] == "ins_1726918195000"
+        assert inspections[0]["meter_serial_number"] == "EB4820194"
+        assert isinstance(inspections[0]["photos"], list)
+
 

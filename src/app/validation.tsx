@@ -1,19 +1,28 @@
-﻿import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image } from "expo-image";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+	KeyboardAvoidingView,
+	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
+	Text,
 	TextInput,
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Fonts, MeterTokens, Spacing } from "@/constants/theme";
+import { AppSymbol } from "@/components/app-symbol";
+import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
-import { insertInspection } from "@/core/db/repository";
+import {
+	commitReviewedInspection,
+	insertInspection,
+} from "@/core/db/repository";
 import type { QAStatus } from "@/core/types/inspection";
+
+const STATUS_OPTIONS: QAStatus[] = ["PASS", "WARNING", "CRITICAL_HAZARD"];
 
 export default function ValidationScreen() {
 	const router = useRouter();
@@ -24,254 +33,315 @@ export default function ValidationScreen() {
 		status?: QAStatus;
 		hazard?: string;
 		imagePath?: string;
+		decimalInferred?: string;
+		source?: string;
+		inspectionId?: string;
 	}>();
 
-	const [serialNumber, setSerialNumber] = useState(params.sn || "EB4820194");
-	const [kwhReading, setKwhReading] = useState(params.kwh || "1428.5");
-	const qaStatus: QAStatus = (params.status as QAStatus) || "PASS";
+	const [serialNumber, setSerialNumber] = useState(params.sn || "");
+	const [kwhReading, setKwhReading] = useState(
+		params.source === "manual" ? "" : params.kwh || "",
+	);
+	const [selectedStatus, setSelectedStatus] = useState<QAStatus>(
+		(params.status as QAStatus) || "PASS",
+	);
 	const hazardReason = params.hazard || null;
 	const ocrConfidence = params.confidence
 		? Number.parseFloat(params.confidence)
-		: 0.962;
+		: 0;
+	const imageUri = params.imagePath || null;
 
-	const isLockout = qaStatus === "CRITICAL_HAZARD";
+	const cleanKwh = kwhReading.trim().replace(/\.$/, ".0");
+	const numericKwh = Number(cleanKwh);
+	const isKwhValid =
+		cleanKwh.length > 0 &&
+		!Number.isNaN(numericKwh) &&
+		Number.isFinite(numericKwh) &&
+		numericKwh >= 0;
+	const isSnValid = serialNumber.trim().length > 0;
+	const isCommitEnabled = isKwhValid && isSnValid;
 
 	const handleCommit = async () => {
-		if (isLockout) return;
+		if (!isCommitEnabled) return;
 
 		const db = await getDb();
-		await insertInspection(db, {
-			id: `ins_${Date.now()}`,
-			technician_id: "TECH_MH_4021",
-			device_id: "DEV_PIXEL_8842",
-			meter_serial_number: serialNumber,
-			latitude: 19.076,
-			longitude: 72.8777,
-			timestamp_utc: new Date().toISOString(),
-			qa_status: qaStatus,
-			hazard_reason: hazardReason,
-			extracted_kwh: Number.parseFloat(kwhReading) || null,
-			ocr_confidence: ocrConfidence,
-			image_local_path:
-				params.imagePath || "/data/user/0/com.novo/files/raw.jpg",
-		});
+		const finalKwh = Number.parseFloat(cleanKwh);
+		const finalHazard = hazardReason;
+
+		if (params.inspectionId) {
+			await commitReviewedInspection(db, params.inspectionId, {
+				meterSerialNumber: serialNumber.trim().toUpperCase() || "UNKNOWN",
+				extractedKwh: finalKwh,
+				ocrConfidence: params.source === "manual" ? 0 : ocrConfidence,
+				qaStatus: selectedStatus,
+				hazardReason: finalHazard,
+			});
+		} else {
+			await insertInspection(db, {
+				id: `ins_${Date.now()}`,
+				technician_id: "field_tech",
+				device_id: "device_01",
+				meter_serial_number: serialNumber.trim().toUpperCase() || "UNKNOWN",
+				latitude: 0,
+				longitude: 0,
+				timestamp_utc: new Date().toISOString(),
+				qa_status: selectedStatus,
+				hazard_reason: finalHazard,
+				extracted_kwh: finalKwh,
+				ocr_confidence: params.source === "manual" ? null : ocrConfidence,
+				image_local_path: params.imagePath || "",
+				inference_status: "DONE",
+			});
+		}
 
 		router.replace("/");
 	};
 
 	return (
-		<SafeAreaView style={styles.safeArea} edges={["top"]}>
-			{/* 1. STATUS BANNER */}
-			<View
-				style={[
-					styles.statusBar,
-					qaStatus === "PASS" && { backgroundColor: MeterTokens.ok },
-					qaStatus === "WARNING" && { backgroundColor: MeterTokens.warn },
-					qaStatus === "CRITICAL_HAZARD" && {
-						backgroundColor: MeterTokens.crit,
-					},
-				]}
+		<SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+			<StatusBar style="dark" />
+			<KeyboardAvoidingView
+				style={styles.keyboardView}
+				behavior={Platform.OS === "ios" ? "padding" : undefined}
 			>
-				<ThemedText style={styles.statusTitle}>
-					QA VERDICT: {qaStatus}
-				</ThemedText>
-				{hazardReason ? (
-					<ThemedText style={styles.statusSub}>{hazardReason}</ThemedText>
-				) : null}
-			</View>
+				{/* APP BAR */}
+				<View style={styles.topBar}>
+					<Pressable style={styles.backBtn} onPress={() => router.back()}>
+						<AppSymbol name="back" size={18} color={MD3.color.onSurface} />
+						<Text style={styles.backText}>Cancel</Text>
+					</Pressable>
+					<Text style={styles.appBarTitle}>Edit Inspection</Text>
+					<View style={{ width: 60 }} />
+				</View>
 
-			<ScrollView contentContainerStyle={styles.container}>
-				<ThemedText style={styles.sectionHeader}>
-					EDGE INFERENCE READOUT
-				</ThemedText>
-				<ThemedView type="backgroundElement" style={styles.readoutCard}>
-					<View style={styles.row}>
-						<View style={styles.col}>
-							<ThemedText style={styles.fieldLabel}>METER SERIAL NO</ThemedText>
-							<TextInput
-								style={styles.monoInput}
-								value={serialNumber}
-								onChangeText={setSerialNumber}
+				<ScrollView contentContainerStyle={styles.content}>
+					{/* CAPTURED AUDIT IMAGE PREVIEW */}
+					{imageUri ? (
+						<View style={styles.imageCard}>
+							<Image
+								source={{ uri: imageUri }}
+								style={styles.previewImage}
+								contentFit="cover"
+								transition={200}
 							/>
 						</View>
-						<View style={[styles.col, styles.borderLeft]}>
-							<ThemedText style={styles.fieldLabel}>OCR CONFIDENCE</ThemedText>
-							<ThemedText style={styles.confValue}>
-								{(ocrConfidence * 100).toFixed(1)}%
-							</ThemedText>
+					) : null}
+
+					{/* STATUS SELECTOR CHIPS */}
+					<View style={styles.section}>
+						<Text style={styles.label}>Inspection Status</Text>
+						<View style={styles.statusChipsRow}>
+							{STATUS_OPTIONS.map((status) => {
+								const isSelected = selectedStatus === status;
+								const isPass = status === "PASS";
+								const isWarn = status === "WARNING";
+								return (
+									<Pressable
+										key={status}
+										style={[
+											styles.selectorChip,
+											isPass && isSelected && styles.selectorPass,
+											isWarn && isSelected && styles.selectorWarn,
+											!isPass && !isWarn && isSelected && styles.selectorCrit,
+										]}
+										onPress={() => setSelectedStatus(status)}
+									>
+										<Text
+											style={[
+												styles.selectorText,
+												isSelected && styles.selectorTextSelected,
+											]}
+										>
+											{status}
+										</Text>
+									</Pressable>
+								);
+							})}
 						</View>
 					</View>
 
-					<View style={styles.kwhBox}>
-						<ThemedText style={styles.fieldLabel}>
-							7-SEGMENT kWh (MANUAL OVERRIDE)
-						</ThemedText>
+					{/* FORM FIELDS */}
+					<View style={styles.card}>
+						<Text style={styles.label}>Serial Number</Text>
 						<TextInput
-							style={styles.kwhInput}
+							style={styles.input}
+							value={serialNumber}
+							onChangeText={setSerialNumber}
+							placeholder="e.g. EB482910"
+							placeholderTextColor={MD3.color.outline}
+							autoCapitalize="characters"
+						/>
+
+						<Text style={[styles.label, { marginTop: 16 }]}>kWh Reading</Text>
+						<TextInput
+							style={[styles.input, styles.kwhInput]}
 							value={kwhReading}
 							onChangeText={setKwhReading}
-							keyboardType="numeric"
+							placeholder="0000.0"
+							placeholderTextColor={MD3.color.outline}
+							keyboardType="decimal-pad"
 						/>
 					</View>
-				</ThemedView>
+				</ScrollView>
 
-				{isLockout && (
-					<View style={styles.lockoutCard}>
-						<ThemedText style={styles.lockoutTitle}>
-							SAFETY LOCKOUT ENFORCED
-						</ThemedText>
-						<ThemedText style={styles.lockoutBody}>
-							Terminal defects cause &gt;30% of field burnouts. Rectify loose
-							conductors or re-seat the cover, then re-inspect to proceed.
-						</ThemedText>
-						<Pressable
-							style={styles.reinspectBtn}
-							onPress={() => router.back()}
-						>
-							<ThemedText style={styles.reinspectBtnText}>
-								RE-TAKE INSPECTION
-							</ThemedText>
-						</Pressable>
-					</View>
-				)}
-			</ScrollView>
-
-			{/* 2. FOOTER */}
-			<View style={styles.footerBar}>
-				<Pressable
-					disabled={isLockout}
-					style={[styles.commitBtn, isLockout && styles.commitBtnDisabled]}
-					onPress={handleCommit}
-				>
-					<ThemedText style={styles.commitBtnText}>
-						{isLockout
-							? "LOCKOUT ACTIVE: RESOLVE DEFECT"
-							: "COMMIT RECORD TO LOCAL SQLITE SSOT →"}
-					</ThemedText>
-				</Pressable>
-			</View>
+				{/* BOTTOM SUBMIT */}
+				<View style={styles.bottomBar}>
+					<Pressable
+						disabled={!isCommitEnabled}
+						style={({ pressed }) => [
+							styles.commitBtn,
+							!isCommitEnabled && styles.commitDisabled,
+							pressed && styles.btnPressed,
+						]}
+						onPress={handleCommit}
+					>
+						<Text style={styles.commitBtnText}>Save Changes</Text>
+					</Pressable>
+				</View>
+			</KeyboardAvoidingView>
 		</SafeAreaView>
 	);
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
-	statusBar: { padding: Spacing.md, alignItems: "center" },
-	statusTitle: {
-		fontFamily: Fonts.mono,
-		fontSize: 13,
-		fontWeight: "700",
-		color: "#FFFFFF",
+	screen: {
+		flex: 1,
+		backgroundColor: MD3.color.surface,
 	},
-	statusSub: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		color: "#FFFFFF",
-		marginTop: 4,
+	keyboardView: {
+		flex: 1,
 	},
-	container: { padding: Spacing.md, gap: Spacing.md },
-	sectionHeader: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		fontWeight: "700",
-		color: "#64748B",
+	topBar: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		borderBottomWidth: 1,
+		borderColor: MD3.color.outlineVariant,
 	},
-	readoutCard: {
-		padding: Spacing.md,
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#E2E8F0",
-		gap: Spacing.md,
+	backBtn: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		width: 60,
 	},
-	row: { flexDirection: "row" },
-	col: { flex: 1, gap: 4 },
-	borderLeft: {
-		paddingLeft: Spacing.md,
-		borderLeftWidth: 1,
-		borderColor: "#CBD5E1",
-	},
-	fieldLabel: {
-		fontFamily: Fonts.mono,
-		fontSize: 10,
-		fontWeight: "700",
-		color: "#64748B",
-	},
-	confValue: {
-		fontFamily: Fonts.mono,
-		fontSize: 16,
-		fontWeight: "700",
-		color: MeterTokens.ok,
-	},
-	monoInput: {
-		fontFamily: Fonts.mono,
+	backText: {
 		fontSize: 14,
-		fontWeight: "700",
-		backgroundColor: "#FFFFFF",
-		borderWidth: 1,
-		borderColor: "#94A3B8",
-		borderRadius: 4,
-		paddingHorizontal: 8,
-		height: 38,
+		color: MD3.color.onSurface,
+		fontWeight: "500",
 	},
-	kwhBox: {
-		backgroundColor: "#FFFFFF",
+	appBarTitle: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: MD3.color.onSurface,
+	},
+	content: {
+		padding: 16,
+		gap: 16,
+	},
+	imageCard: {
+		width: "100%",
+		height: 200,
+		borderRadius: MD3.shape.cornerMedium,
+		overflow: "hidden",
+		backgroundColor: MD3.color.surfaceContainerLow,
 		borderWidth: 1,
-		borderColor: "#E2E8F0",
-		borderRadius: 4,
-		padding: Spacing.md,
+		borderColor: MD3.color.outlineVariant,
+	},
+	previewImage: {
+		width: "100%",
+		height: "100%",
+	},
+	section: {
+		gap: 8,
+	},
+	statusChipsRow: {
+		flexDirection: "row",
+		gap: 8,
+	},
+	selectorChip: {
+		flex: 1,
+		paddingVertical: 8,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: MD3.color.surfaceContainerLow,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+		alignItems: "center",
+	},
+	selectorPass: {
+		backgroundColor: MD3.color.successContainer,
+		borderColor: MD3.color.success,
+	},
+	selectorWarn: {
+		backgroundColor: MD3.color.warnContainer,
+		borderColor: MD3.color.warn,
+	},
+	selectorCrit: {
+		backgroundColor: MD3.color.errorContainer,
+		borderColor: MD3.color.error,
+	},
+	selectorText: {
+		fontSize: 11,
+		fontWeight: "600",
+		color: MD3.color.onSurfaceVariant,
+	},
+	selectorTextSelected: {
+		fontWeight: "700",
+		color: MD3.color.onSurface,
+	},
+	card: {
+		backgroundColor: MD3.color.surfaceContainerLowest,
+		borderRadius: MD3.shape.cornerMedium,
+		padding: 16,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	label: {
+		fontSize: 12,
+		fontWeight: "600",
+		color: MD3.color.onSurfaceVariant,
+		textTransform: "uppercase",
+		letterSpacing: 0.5,
+		marginBottom: 6,
+	},
+	input: {
+		height: 48,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+		borderRadius: MD3.shape.cornerSmall,
+		paddingHorizontal: 12,
+		fontSize: 16,
+		color: MD3.color.onSurface,
+		backgroundColor: MD3.color.surfaceContainerLow,
 	},
 	kwhInput: {
 		fontFamily: Fonts.mono,
-		fontSize: 28,
+		fontSize: 22,
 		fontWeight: "700",
-		color: "#0F172A",
 	},
-	lockoutCard: {
-		backgroundColor: "#FEF2F2",
-		borderWidth: 1,
-		borderColor: MeterTokens.crit,
-		borderRadius: 6,
-		padding: Spacing.md,
-		gap: 8,
-	},
-	lockoutTitle: {
-		fontFamily: Fonts.mono,
-		fontSize: 12,
-		fontWeight: "700",
-		color: MeterTokens.crit,
-	},
-	lockoutBody: { fontSize: 12, color: "#0F172A", lineHeight: 18 },
-	reinspectBtn: {
-		backgroundColor: MeterTokens.crit,
-		height: 48,
-		borderRadius: 6,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	reinspectBtnText: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		fontWeight: "700",
-		color: "#FFFFFF",
-	},
-	footerBar: {
-		padding: Spacing.md,
+	bottomBar: {
+		padding: 16,
 		borderTopWidth: 1,
-		borderColor: "#E2E8F0",
-		backgroundColor: "#FFFFFF",
+		borderColor: MD3.color.outlineVariant,
+		backgroundColor: MD3.color.surface,
 	},
 	commitBtn: {
-		height: 52,
-		backgroundColor: MeterTokens.brand,
-		borderRadius: 6,
+		height: 48,
+		backgroundColor: MD3.color.primary,
+		borderRadius: MD3.shape.cornerFull,
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	commitBtnDisabled: { backgroundColor: "#94A3B8" },
 	commitBtnText: {
-		fontFamily: Fonts.mono,
-		fontSize: 12,
-		fontWeight: "700",
-		color: "#FFFFFF",
+		color: MD3.color.onPrimary,
+		fontSize: 15,
+		fontWeight: "600",
+	},
+	commitDisabled: {
+		opacity: 0.4,
+	},
+	btnPressed: {
+		opacity: 0.85,
 	},
 });

@@ -1,23 +1,27 @@
 ﻿import { Stack } from "expo-router";
+import type { SQLiteDatabase } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Fonts, MeterTokens } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import { logger } from "@/core/logger";
+import { useBackgroundMlWorker } from "@/services/inference/background-ml-worker";
 
 export default function RootLayout() {
-	const [dbReady, setDbReady] = useState(false);
+	const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
 	useEffect(() => {
 		getDb()
-			.then(() => setDbReady(true))
+			.then((database) => setDb(database))
 			.catch((err) =>
 				logger.error("AppInit", "Failed opening SQLite database", err),
 			);
 	}, []);
 
-	if (!dbReady) {
+	useBackgroundMlWorker(db);
+
+	if (!db) {
 		return (
 			<View style={styles.loadingBox}>
 				<ActivityIndicator size="small" color={MeterTokens.brand} />

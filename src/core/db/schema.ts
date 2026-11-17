@@ -18,25 +18,144 @@ CREATE TABLE IF NOT EXISTS inspections (
     extracted_kwh REAL,
     ocr_confidence REAL,
     image_local_path TEXT NOT NULL,
-    sync_tier1_status TEXT CHECK(sync_tier1_status IN ('PENDING', 'SYNCING', 'SYNCED')) DEFAULT 'PENDING',
-    sync_tier2_status TEXT CHECK(sync_tier2_status IN ('PENDING', 'SYNCING', 'SYNCED')) DEFAULT 'PENDING',
+    sync_tier1_status TEXT DEFAULT 'PENDING',
+    sync_tier2_status TEXT DEFAULT 'PENDING',
+    inference_status TEXT CHECK(inference_status IN ('PENDING_ML','PROCESSING','NEEDS_REVIEW','DONE')) DEFAULT 'DONE',
+    tilt_deg REAL DEFAULT 0.0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_inspections_tier1 ON inspections(sync_tier1_status);
 CREATE INDEX IF NOT EXISTS idx_inspections_tier2 ON inspections(sync_tier2_status);
+CREATE INDEX IF NOT EXISTS idx_inspections_ml ON inspections(inference_status);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
 `;
 
 export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 	try {
 		await db.execAsync(DDL_SCHEMA);
+
+		// LIVE MIGRATION 0: Ensure app_settings table exists
+		try {
+			await db.runAsync(
+				`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);`,
+			);
+		} catch {
+			// Already exists
+		}
+
+		// LIVE MIGRATION 1: Add inference_status column if missing
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN inference_status TEXT CHECK(inference_status IN ('PENDING_ML','PROCESSING','NEEDS_REVIEW','DONE')) DEFAULT 'DONE';`,
+			);
+		} catch {
+			// Column exists
+		}
+
+		// LIVE MIGRATION 2: Add tilt_deg column if missing
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN tilt_deg REAL DEFAULT 0.0;`,
+			);
+		} catch {
+			// Column exists
+		}
+
+		// LIVE MIGRATION 3: Check if sync_tier1_status has a restrictive CHECK constraint that blocks 'HOLD_ML'
+		// In SQLite, old tables with CHECK(sync_tier1_status IN ('PENDING', 'SYNCING', 'SYNCED')) will reject 'HOLD_ML'.
+		// We detect this by attempting a test transaction that we immediately rollback, or migrating if needed.
+		try {
+			await db.execAsync(`
+				BEGIN TRANSACTION;
+				INSERT INTO inspections (
+					id, technician_id, device_id, meter_serial_number,
+					latitude, longitude, timestamp_utc, qa_status,
+					image_local_path, sync_tier1_status, sync_tier2_status, inference_status
+				) VALUES (
+					'__migration_test__', 'test', 'test', 'test',
+					0, 0, '2026-01-01', 'PASS',
+					'test', 'HOLD_ML', 'PENDING', 'PENDING_ML'
+				);
+				ROLLBACK;
+			`);
+		} catch {
+			// CHECK constraint failed! Migrate table to remove rigid CHECK on sync statuses
+			logger.info(
+				"DB",
+				"Migrating inspections table to loosen sync_tier1_status CHECK constraint...",
+			);
+			await db.execAsync(`
+				PRAGMA foreign_keys = OFF;
+				BEGIN TRANSACTION;
+
+				CREATE TABLE inspections_new (
+					id TEXT PRIMARY KEY NOT NULL,
+					technician_id TEXT NOT NULL,
+					device_id TEXT NOT NULL,
+					meter_serial_number TEXT NOT NULL,
+					latitude REAL NOT NULL,
+					longitude REAL NOT NULL,
+					timestamp_utc TEXT NOT NULL,
+					qa_status TEXT CHECK(qa_status IN ('PASS', 'WARNING', 'CRITICAL_HAZARD')) NOT NULL,
+					hazard_reason TEXT,
+					extracted_kwh REAL,
+					ocr_confidence REAL,
+					image_local_path TEXT NOT NULL,
+					sync_tier1_status TEXT DEFAULT 'PENDING',
+					sync_tier2_status TEXT DEFAULT 'PENDING',
+					inference_status TEXT CHECK(inference_status IN ('PENDING_ML','PROCESSING','NEEDS_REVIEW','DONE')) DEFAULT 'DONE',
+					tilt_deg REAL DEFAULT 0.0,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				);
+
+				INSERT INTO inspections_new (
+					id, technician_id, device_id, meter_serial_number,
+					latitude, longitude, timestamp_utc, qa_status,
+					hazard_reason, extracted_kwh, ocr_confidence,
+					image_local_path, sync_tier1_status, sync_tier2_status,
+					inference_status, created_at
+				)
+				SELECT 
+					id, technician_id, device_id, meter_serial_number,
+					latitude, longitude, timestamp_utc, qa_status,
+					hazard_reason, extracted_kwh, ocr_confidence,
+					image_local_path, sync_tier1_status, sync_tier2_status,
+					COALESCE(inference_status, 'DONE'), created_at
+				FROM inspections;
+
+				DROP TABLE inspections;
+				ALTER TABLE inspections_new RENAME TO inspections;
+
+				CREATE INDEX IF NOT EXISTS idx_inspections_tier1 ON inspections(sync_tier1_status);
+				CREATE INDEX IF NOT EXISTS idx_inspections_tier2 ON inspections(sync_tier2_status);
+				CREATE INDEX IF NOT EXISTS idx_inspections_ml ON inspections(inference_status);
+
+				COMMIT;
+				PRAGMA foreign_keys = ON;
+			`);
+			logger.info(
+				"DB",
+				"inspections table successfully migrated without strict CHECK constraint",
+			);
+		}
+
 		// CRASH RECOVERY: Reset uncommitted rows left in SYNCING state
 		await db.runAsync(
 			`UPDATE inspections SET sync_tier1_status = 'PENDING' WHERE sync_tier1_status = 'SYNCING';`,
 		);
+		// CRASH RECOVERY: Any row stuck mid-processing was interrupted — re-queue it
+		await db.runAsync(
+			`UPDATE inspections SET inference_status = 'PENDING_ML' WHERE inference_status = 'PROCESSING';`,
+		);
+
 		logger.info(
 			"DB",
-			"Schema initialized & orphan recovery pragma executed successfully",
+			"Schema initialized & orphan recovery executed successfully",
 		);
 	} catch (error) {
 		logger.error("DB", "Failed executing database bootstrap schema", error);

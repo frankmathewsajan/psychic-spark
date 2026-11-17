@@ -1,5 +1,5 @@
 ﻿const RAD_TO_DEG = 180 / Math.PI;
-const WALL_TOLERANCE_DEG = 10;
+const WALL_TOLERANCE_DEG = 20;
 
 export interface TiltEvaluation {
 	tiltFromVertical: number;

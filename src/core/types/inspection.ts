@@ -1,5 +1,10 @@
 ﻿export type QAStatus = "PASS" | "WARNING" | "CRITICAL_HAZARD";
-export type SyncStatus = "PENDING" | "SYNCING" | "SYNCED";
+export type SyncStatus = "HOLD_ML" | "PENDING" | "SYNCING" | "SYNCED";
+export type InferenceStatus =
+	| "PENDING_ML"
+	| "PROCESSING"
+	| "NEEDS_REVIEW"
+	| "DONE";
 
 export interface InspectionRecord {
 	id: string;
@@ -16,6 +21,8 @@ export interface InspectionRecord {
 	image_local_path: string;
 	sync_tier1_status: SyncStatus;
 	sync_tier2_status: SyncStatus;
+	inference_status: InferenceStatus;
+	tilt_deg?: number;
 	created_at?: string;
 }
 
@@ -38,4 +45,6 @@ export interface QueueMetrics {
 	pendingTelemetry: number;
 	syncedTelemetry: number;
 	pendingImages: number;
+	needsReview: number;
+	pendingMl: number;
 }

@@ -1,8 +1,11 @@
 ﻿import type { SQLiteDatabase } from "expo-sqlite";
 import { logger } from "../logger";
 import type {
+	InferenceStatus,
 	InspectionRecord,
+	QAStatus,
 	QueueMetrics,
+	SyncStatus,
 	Tier1BatchPayload,
 } from "../types/inspection";
 
@@ -11,16 +14,25 @@ export async function insertInspection(
 	record: Omit<
 		InspectionRecord,
 		"sync_tier1_status" | "sync_tier2_status" | "created_at"
-	>,
+	> & {
+		sync_tier1_status?: SyncStatus;
+		sync_tier2_status?: SyncStatus;
+	},
 ): Promise<void> {
 	try {
+		const tier1 =
+			record.sync_tier1_status ??
+			(record.inference_status === "PENDING_ML" ? "HOLD_ML" : "PENDING");
+		const tier2 = record.sync_tier2_status ?? "PENDING";
+		const tilt = record.tilt_deg ?? 0.0;
+
 		await db.runAsync(
 			`INSERT INTO inspections (
         id, technician_id, device_id, meter_serial_number,
         latitude, longitude, timestamp_utc, qa_status,
         hazard_reason, extracted_kwh, ocr_confidence,
-        image_local_path, sync_tier1_status, sync_tier2_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'PENDING');`,
+        image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 			[
 				record.id,
 				record.technician_id,
@@ -34,6 +46,10 @@ export async function insertInspection(
 				record.extracted_kwh,
 				record.ocr_confidence,
 				record.image_local_path,
+				tier1,
+				tier2,
+				record.inference_status,
+				tilt,
 			],
 		);
 		logger.info("Repository", `Committed inspection ${record.id} to SQLite`);
@@ -54,11 +70,15 @@ export async function getQueueMetrics(
 		pending_telemetry: number;
 		synced_telemetry: number;
 		pending_images: number;
+		needs_review: number;
+		pending_ml: number;
 	}>(`
     SELECT
-      COUNT(CASE WHEN sync_tier1_status = 'PENDING' THEN 1 END) as pending_telemetry,
+      COUNT(CASE WHEN sync_tier1_status = 'PENDING' AND inference_status = 'DONE' THEN 1 END) as pending_telemetry,
       COUNT(CASE WHEN sync_tier1_status = 'SYNCED' THEN 1 END) as synced_telemetry,
-      COUNT(CASE WHEN sync_tier2_status = 'PENDING' THEN 1 END) as pending_images
+      COUNT(CASE WHEN sync_tier2_status = 'PENDING' THEN 1 END) as pending_images,
+      COUNT(CASE WHEN inference_status = 'NEEDS_REVIEW' THEN 1 END) as needs_review,
+      COUNT(CASE WHEN inference_status IN ('PENDING_ML','PROCESSING') THEN 1 END) as pending_ml
     FROM inspections;
   `);
 
@@ -66,6 +86,8 @@ export async function getQueueMetrics(
 		pendingTelemetry: row?.pending_telemetry ?? 0,
 		syncedTelemetry: row?.synced_telemetry ?? 0,
 		pendingImages: row?.pending_images ?? 0,
+		needsReview: row?.needs_review ?? 0,
+		pendingMl: row?.pending_ml ?? 0,
 	};
 }
 
@@ -89,7 +111,7 @@ export async function prepareTier1Batch(
 	batchLimit = 15,
 ): Promise<{ batch: Tier1BatchPayload; ids: string[] } | null> {
 	const rows = await db.getAllAsync<InspectionRecord>(
-		`SELECT * FROM inspections WHERE sync_tier1_status = 'PENDING' LIMIT ?;`,
+		`SELECT * FROM inspections WHERE sync_tier1_status = 'PENDING' AND inference_status = 'DONE' LIMIT ?;`,
 		[batchLimit],
 	);
 
@@ -135,4 +157,148 @@ export async function resolveTier1Batch(
 		`UPDATE inspections SET sync_tier1_status = '${newStatus}' WHERE id IN (${placeholders});`,
 		ids,
 	);
+}
+
+/**
+ * Atomically claim the next PENDING_ML row for background processing.
+ * Returns null if none available or if another worker is already running.
+ */
+export async function claimNextPendingMlRow(
+	db: SQLiteDatabase,
+): Promise<InspectionRecord | null> {
+	const row = await db.getFirstAsync<InspectionRecord>(
+		`SELECT * FROM inspections WHERE inference_status = 'PENDING_ML' ORDER BY created_at ASC LIMIT 1;`,
+	);
+	if (!row) return null;
+
+	await db.runAsync(
+		`UPDATE inspections SET inference_status = 'PROCESSING' WHERE id = ? AND inference_status = 'PENDING_ML';`,
+		[row.id],
+	);
+	// Confirm we won the CAS race
+	const confirmed = await db.getFirstAsync<{ inference_status: string }>(
+		`SELECT inference_status FROM inspections WHERE id = ?;`,
+		[row.id],
+	);
+	if (confirmed?.inference_status !== "PROCESSING") return null;
+
+	return row;
+}
+
+export interface MlResult {
+	meterSerialNumber: string;
+	extractedKwh: number | null;
+	ocrConfidence: number;
+	qaStatus: QAStatus;
+	hazardReason: string | null;
+	inferenceStatus: InferenceStatus;
+}
+
+export async function updateInspectionWithMlResult(
+	db: SQLiteDatabase,
+	id: string,
+	result: MlResult,
+): Promise<void> {
+	await db.runAsync(
+		`UPDATE inspections SET
+      meter_serial_number = ?,
+      extracted_kwh = ?,
+      ocr_confidence = ?,
+      qa_status = ?,
+      hazard_reason = ?,
+      inference_status = ?,
+      sync_tier1_status = CASE WHEN ? = 'DONE' THEN 'PENDING' ELSE sync_tier1_status END
+    WHERE id = ?;`,
+		[
+			result.meterSerialNumber,
+			result.extractedKwh,
+			result.ocrConfidence,
+			result.qaStatus,
+			result.hazardReason,
+			result.inferenceStatus,
+			result.inferenceStatus,
+			id,
+		],
+	);
+}
+
+export async function getReviewQueue(
+	db: SQLiteDatabase,
+): Promise<InspectionRecord[]> {
+	return await db.getAllAsync<InspectionRecord>(
+		`SELECT * FROM inspections WHERE inference_status = 'NEEDS_REVIEW' ORDER BY created_at ASC;`,
+	);
+}
+
+export async function getInspectionById(
+	db: SQLiteDatabase,
+	id: string,
+): Promise<InspectionRecord | null> {
+	return (
+		(await db.getFirstAsync<InspectionRecord>(
+			`SELECT * FROM inspections WHERE id = ?;`,
+			[id],
+		)) ?? null
+	);
+}
+
+export async function commitReviewedInspection(
+	db: SQLiteDatabase,
+	id: string,
+	data: {
+		meterSerialNumber: string;
+		extractedKwh: number | null;
+		ocrConfidence: number;
+		qaStatus: QAStatus;
+		hazardReason: string | null;
+	},
+): Promise<void> {
+	await db.runAsync(
+		`UPDATE inspections SET
+      meter_serial_number = ?,
+      extracted_kwh = ?,
+      ocr_confidence = ?,
+      qa_status = ?,
+      hazard_reason = ?,
+      inference_status = 'DONE',
+      sync_tier1_status = 'PENDING'
+    WHERE id = ?;`,
+		[
+			data.meterSerialNumber,
+			data.extractedKwh,
+			data.ocrConfidence,
+			data.qaStatus,
+			data.hazardReason,
+			id,
+		],
+	);
+}
+
+export async function clearAllInspections(db: SQLiteDatabase): Promise<void> {
+	await db.runAsync(`DELETE FROM inspections;`);
+	logger.info("Repository", "Cleared all inspection records from SQLite");
+}
+
+export async function getSetting(
+	db: SQLiteDatabase,
+	key: string,
+	defaultValue: string,
+): Promise<string> {
+	const row = await db.getFirstAsync<{ value: string }>(
+		`SELECT value FROM app_settings WHERE key = ?;`,
+		[key],
+	);
+	return row?.value ?? defaultValue;
+}
+
+export async function setSetting(
+	db: SQLiteDatabase,
+	key: string,
+	value: string,
+): Promise<void> {
+	await db.runAsync(
+		`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+		[key, value],
+	);
+	logger.info("Repository", `Saved setting ${key} = ${value}`);
 }

@@ -1,16 +1,47 @@
-import * as FileSystem from "expo-file-system/legacy";
+import {
+	type BarcodeScanningResult,
+	CameraView,
+	useCameraPermissions,
+} from "expo-camera";
+import { Directory, File, Paths } from "expo-file-system";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Fonts, MeterTokens, Spacing } from "@/constants/theme";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef, useState } from "react";
+import {
+	ActivityIndicator,
+	Pressable,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppSymbol } from "@/components/app-symbol";
+import { MD3 } from "@/constants/theme";
+import { getDb } from "@/core/db/client";
+import { insertInspection } from "@/core/db/repository";
+import { logger } from "@/core/logger";
+import { subscribeUnreadableCapture } from "@/services/inference/background-ml-worker";
 import { calculateWallTilt } from "@/services/sensor/leveling";
 
 export default function CaptureScreen() {
 	const router = useRouter();
+	const insets = useSafeAreaInsets();
+	const cameraRef = useRef<CameraView>(null);
+	const [permission, requestPermission] = useCameraPermissions();
+
 	const [torchActive, setTorchActive] = useState(false);
 	const [tilt, setTilt] = useState(0);
 	const [isAligned, setIsAligned] = useState(false);
+	const [isCapturing, setIsCapturing] = useState(false);
+	const [isCameraReady, setIsCameraReady] = useState(false);
+	const [detectedBarcode, setDetectedBarcode] = useState<string | null>(null);
+	const detectedBarcodeRef = useRef<string | null>(null);
+
+	const [queuedCount, setQueuedCount] = useState(0);
+	const [toast, setToast] = useState<string | null>(null);
+	const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		Accelerometer.setUpdateInterval(100);
@@ -22,81 +53,223 @@ export default function CaptureScreen() {
 		return () => subscription.remove();
 	}, []);
 
-	const handleCapture = async () => {
-		const filename = `raw_EB4820194_${Date.now()}.jpg`;
-		const imagePath = `${FileSystem.documentDirectory ?? ""}${filename}`;
-
-		// Write mock JPEG binary header so file exists for Tier 2 multipart upload
-		await FileSystem.writeAsStringAsync(
-			imagePath,
-			"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/",
-			{ encoding: FileSystem.EncodingType.UTF8 },
-		);
-
-		router.push({
-			pathname: "/validation",
-			params: {
-				sn: "EB4820194",
-				kwh: "1428.5",
-				confidence: "0.962",
-				status: "PASS",
-				hazard: "",
-				imagePath: imagePath,
-			},
+	useEffect(() => {
+		const unsubscribe = subscribeUnreadableCapture((_id, reason) => {
+			setToast(`Unreadable photo: ${reason}`);
+			if (toastTimer.current) clearTimeout(toastTimer.current);
+			toastTimer.current = setTimeout(() => setToast(null), 4000);
 		});
+		return () => {
+			unsubscribe();
+			if (toastTimer.current) clearTimeout(toastTimer.current);
+		};
+	}, []);
+
+	if (!permission) {
+		return (
+			<View style={styles.centerBox}>
+				<StatusBar style="dark" />
+				<ActivityIndicator size="small" color={MD3.color.primary} />
+			</View>
+		);
+	}
+
+	if (!permission.granted) {
+		return (
+			<View style={styles.permissionBox}>
+				<StatusBar style="dark" />
+				<Text style={styles.permTitle}>Camera Permission Required</Text>
+				<Pressable style={styles.permBtn} onPress={requestPermission}>
+					<Text style={styles.permBtnText}>Grant Access</Text>
+				</Pressable>
+			</View>
+		);
+	}
+
+	const handleCapture = async () => {
+		if (!cameraRef.current || isCapturing || !isCameraReady) return;
+
+		try {
+			setIsCapturing(true);
+			const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
+
+			if (photo?.uri) {
+				setTorchActive(false);
+				const id = `insp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+				const snapTilt = tilt;
+				const snapBarcode = detectedBarcodeRef.current;
+
+				let sourceUri = photo.uri;
+				try {
+					const compressed = await manipulateAsync(photo.uri, [], {
+						format: SaveFormat.PNG,
+					});
+					if (compressed?.uri) sourceUri = compressed.uri;
+				} catch {}
+
+				let persistentPath = sourceUri;
+				try {
+					const capturesDir = new Directory(Paths.document, "captures");
+					if (!capturesDir.exists) capturesDir.create();
+					const destFile = new File(capturesDir, `${id}.png`);
+					const sourceFile = new File(sourceUri);
+					await sourceFile.copy(destFile);
+					persistentPath = destFile.uri;
+				} catch {}
+
+				const db = await getDb();
+				await insertInspection(db, {
+					id,
+					technician_id: "field_tech",
+					device_id: "device_01",
+					meter_serial_number: snapBarcode || "",
+					latitude: 0,
+					longitude: 0,
+					timestamp_utc: new Date().toISOString(),
+					qa_status: "WARNING",
+					hazard_reason: null,
+					extracted_kwh: null,
+					ocr_confidence: null,
+					image_local_path: persistentPath,
+					inference_status: "PENDING_ML",
+					sync_tier1_status: "HOLD_ML",
+					tilt_deg: snapTilt,
+				});
+
+				setDetectedBarcode(null);
+				detectedBarcodeRef.current = null;
+				setQueuedCount((c) => {
+					const next = c + 1;
+					setToast(`Queued ✓ (${next})`);
+					if (toastTimer.current) clearTimeout(toastTimer.current);
+					toastTimer.current = setTimeout(() => setToast(null), 2000);
+					return next;
+				});
+			}
+		} catch (error) {
+			logger.warn("Capture", "Capture failed", error);
+		} finally {
+			setIsCapturing(false);
+		}
 	};
 
 	return (
 		<View style={styles.container}>
-			{/* 1. TOP HUD */}
-			<View style={styles.topHud}>
+			<StatusBar style="light" />
+			<CameraView
+				ref={cameraRef}
+				style={StyleSheet.absoluteFill}
+				facing="back"
+				enableTorch={torchActive}
+				onCameraReady={() => setIsCameraReady(true)}
+				barcodeScannerSettings={{
+					barcodeTypes: ["qr", "code128", "code39", "ean13"],
+				}}
+				onBarcodeScanned={(result: BarcodeScanningResult) => {
+					if (result.data && result.data !== detectedBarcodeRef.current) {
+						detectedBarcodeRef.current = result.data;
+						setDetectedBarcode(result.data);
+					}
+				}}
+			/>
+
+			{/* TOP APP BAR */}
+			<View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+				<Pressable style={styles.iconBtn} onPress={() => router.back()}>
+					<AppSymbol name="back" size={20} color="#FFFFFF" />
+				</Pressable>
+
 				<View
-					style={[styles.badge, isAligned ? styles.badgeOk : styles.badgeWarn]}
+					style={[styles.tiltPill, isAligned ? styles.tiltOk : styles.tiltWarn]}
 				>
-					<Text style={styles.badgeText}>
-						TILT: {tilt > 0 ? `+${tilt}°` : `${tilt}°`}{" "}
-						{isAligned ? "(PERPENDICULAR)" : "(HOLD 90° TO WALL)"}
+					<Text style={styles.tiltText}>
+						{tilt}° {isAligned ? "Level" : "Tilt"}
 					</Text>
 				</View>
+
 				<Pressable
-					hitSlop={8}
-					style={[styles.torchBtn, torchActive && styles.torchBtnActive]}
+					style={[styles.iconBtn, torchActive && styles.iconBtnActive]}
 					onPress={() => setTorchActive(!torchActive)}
 				>
-					<Text
-						style={[styles.torchText, torchActive && styles.torchTextActive]}
-					>
-						{torchActive ? "TORCH: ON" : "TORCH: OFF"}
-					</Text>
+					<AppSymbol
+						name={torchActive ? "flash-on" : "flash-off"}
+						size={18}
+						color={torchActive ? "#000000" : "#FFFFFF"}
+					/>
 				</Pressable>
 			</View>
 
-			{/* 2. BOUNDING GUIDES */}
-			<View style={styles.reticleContainer}>
+			{/* TOAST NOTIFICATION */}
+			{toast && (
+				<View style={styles.toast}>
+					<Text style={styles.toastText}>{toast}</Text>
+				</View>
+			)}
+
+			{/* BARCODE PILL */}
+			{detectedBarcode && (
+				<View style={styles.barcodePill}>
+					<AppSymbol name="barcode" size={14} color="#FFFFFF" />
+					<Text style={styles.barcodeText}>{detectedBarcode}</Text>
+				</View>
+			)}
+
+			{/* RETICLE OVERLAY */}
+			<View style={styles.reticleArea}>
 				<View style={styles.casingBox}>
-					<Text style={styles.guideText}>METER CASING BOUNDARY</Text>
-					<View style={styles.displayBox}>
-						<Text style={styles.guideTextInner}>7-SEGMENT DISPLAY</Text>
-					</View>
-					<View style={styles.terminalBox}>
-						<Text style={styles.guideTextInner}>TERMINAL COVER & SEALS</Text>
-					</View>
+					<View style={styles.displayBox} />
 				</View>
 			</View>
 
-			{/* 3. CAPTURE TRIGGER */}
-			<View style={styles.bottomBar}>
-				<Pressable
-					disabled={!isAligned}
-					style={[styles.captureBtn, !isAligned && styles.captureBtnDisabled]}
-					onPress={handleCapture}
-				>
-					<Text style={styles.captureText}>
-						{isAligned
-							? "RUN ON-DEVICE INFERENCE (< 250ms)"
-							: "ALIGN DEVICE TO 90° (±10°)"}
-					</Text>
-				</Pressable>
+			{/* BOTTOM CAPTURE BAR */}
+			<View
+				style={[
+					styles.bottomBar,
+					{ paddingBottom: Math.max(insets.bottom, 16) },
+				]}
+			>
+				<View style={styles.controlsRow}>
+					<Pressable
+						style={styles.subBtn}
+						onPress={() =>
+							router.push({
+								pathname: "/validation",
+								params: {
+									sn: detectedBarcodeRef.current || "",
+									kwh: "",
+									confidence: "0.000",
+									status: "WARNING",
+									source: "manual",
+								},
+							})
+						}
+					>
+						<Text style={styles.subBtnText}>Manual</Text>
+					</Pressable>
+
+					<Pressable
+						disabled={isCapturing || !isCameraReady}
+						style={[
+							styles.shutterBtn,
+							(isCapturing || !isCameraReady) && styles.shutterDisabled,
+						]}
+						onPress={handleCapture}
+					>
+						{isCapturing ? (
+							<ActivityIndicator size="small" color="#FFFFFF" />
+						) : (
+							<View style={styles.shutterInner} />
+						)}
+					</Pressable>
+
+					{queuedCount > 0 ? (
+						<Pressable style={styles.doneBtn} onPress={() => router.back()}>
+							<Text style={styles.doneBtnText}>Done ({queuedCount})</Text>
+						</Pressable>
+					) : (
+						<View style={styles.subBtnPlaceholder} />
+					)}
+				</View>
 			</View>
 		</View>
 	);
@@ -104,104 +277,142 @@ export default function CaptureScreen() {
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: "#000000" },
-	topHud: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		paddingHorizontal: Spacing.md,
-		paddingTop: 54,
-		zIndex: 10,
-	},
-	badge: {
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-		borderRadius: 4,
-		justifyContent: "center",
-	},
-	badgeOk: { backgroundColor: MeterTokens.ok },
-	badgeWarn: { backgroundColor: MeterTokens.warn },
-	badgeText: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		fontWeight: "700",
-		color: "#FFFFFF",
-	},
-	torchBtn: {
-		minHeight: 48,
-		paddingHorizontal: 14,
-		borderWidth: 1,
-		borderColor: "#FFFFFF",
-		borderRadius: 4,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	torchBtnActive: { backgroundColor: "#FFFFFF" },
-	torchText: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		fontWeight: "700",
-		color: "#FFFFFF",
-	},
-	torchTextActive: { color: "#000000" },
-	reticleContainer: {
+	centerBox: { flex: 1, justifyContent: "center", alignItems: "center" },
+	permissionBox: {
 		flex: 1,
 		justifyContent: "center",
 		alignItems: "center",
-		padding: Spacing.lg,
+		gap: 16,
+	},
+	permTitle: { fontSize: 16, fontWeight: "600", color: MD3.color.onSurface },
+	permBtn: {
+		backgroundColor: MD3.color.primary,
+		paddingVertical: 10,
+		paddingHorizontal: 20,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	permBtnText: { color: "#FFFFFF", fontWeight: "600" },
+
+	topBar: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		zIndex: 10,
+	},
+	iconBtn: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		backgroundColor: "rgba(0,0,0,0.45)",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	iconBtnActive: {
+		backgroundColor: "#FFFFFF",
+	},
+	tiltPill: {
+		paddingVertical: 6,
+		paddingHorizontal: 14,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "rgba(0,0,0,0.5)",
+		borderWidth: 1,
+	},
+	tiltOk: { borderColor: MD3.color.success },
+	tiltWarn: { borderColor: MD3.color.warn },
+	tiltText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
+
+	toast: {
+		position: "absolute",
+		top: 100,
+		alignSelf: "center",
+		backgroundColor: "rgba(20,20,20,0.9)",
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		borderRadius: MD3.shape.cornerFull,
+		zIndex: 20,
+	},
+	toastText: { color: "#FFFFFF", fontSize: 12, fontWeight: "500" },
+
+	barcodePill: {
+		position: "absolute",
+		top: 140,
+		alignSelf: "center",
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		backgroundColor: "rgba(0,0,0,0.6)",
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: MD3.shape.cornerFull,
+		zIndex: 15,
+	},
+	barcodeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "600" },
+
+	reticleArea: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		padding: 24,
 	},
 	casingBox: {
-		width: "100%",
-		height: "75%",
+		width: "90%",
+		height: "70%",
 		borderWidth: 1.5,
-		borderColor: "rgba(255,255,255,0.6)",
+		borderColor: "rgba(255,255,255,0.4)",
+		borderRadius: 16,
 		borderStyle: "dashed",
-		justifyContent: "space-between",
-		padding: Spacing.md,
+		paddingTop: "25%",
+		alignItems: "center",
 	},
 	displayBox: {
-		height: 70,
+		width: "85%",
+		height: 64,
 		borderWidth: 1.5,
-		borderColor: "#38BDF8",
-		backgroundColor: "rgba(56, 189, 248, 0.08)",
-		justifyContent: "center",
-		alignItems: "center",
+		borderColor: "#60A5FA",
+		borderRadius: 8,
+		backgroundColor: "rgba(96, 165, 250, 0.1)",
 	},
-	terminalBox: {
-		height: 110,
-		borderWidth: 1.5,
-		borderColor: "#FBBF24",
-		backgroundColor: "rgba(251, 191, 36, 0.08)",
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	guideText: {
-		fontFamily: Fonts.mono,
-		fontSize: 10,
-		color: "rgba(255,255,255,0.7)",
-	},
-	guideTextInner: {
-		fontFamily: Fonts.mono,
-		fontSize: 10,
-		color: "#FFFFFF",
-		fontWeight: "700",
-	},
+
 	bottomBar: {
-		padding: Spacing.md,
-		paddingBottom: Spacing.xl,
-		backgroundColor: "#000000",
+		paddingHorizontal: 24,
+		paddingTop: 16,
 	},
-	captureBtn: {
-		height: 52,
-		backgroundColor: MeterTokens.brand,
-		borderRadius: 6,
+	controlsRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+	},
+	shutterBtn: {
+		width: 72,
+		height: 72,
+		borderRadius: 36,
+		borderWidth: 4,
+		borderColor: "#FFFFFF",
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	captureBtnDisabled: { backgroundColor: "#334155" },
-	captureText: {
-		fontFamily: Fonts.mono,
-		fontSize: 12,
-		fontWeight: "700",
-		color: "#FFFFFF",
+	shutterInner: {
+		width: 56,
+		height: 56,
+		borderRadius: 28,
+		backgroundColor: "#FFFFFF",
 	},
+	shutterDisabled: { opacity: 0.4 },
+
+	subBtn: {
+		paddingVertical: 8,
+		paddingHorizontal: 14,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "rgba(255,255,255,0.2)",
+	},
+	subBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+	doneBtn: {
+		paddingVertical: 8,
+		paddingHorizontal: 14,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: MD3.color.primary,
+	},
+	doneBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+	subBtnPlaceholder: { width: 60 },
 });

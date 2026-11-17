@@ -1,0 +1,24 @@
+[project]
+name = "novo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Frank Mathew Sajan", email = "frankmathewsajan@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "huggingface-hub>=2.4.0",
+    "onnx>=1.23.2",
+    "onnxruntime>=1.31.1",
+    "onnxslim>=0.1.99",
+    "opencv-python>=5.0.0.93",
+    "ultralytics>=8.4.211",
+]
+
+[project.scripts]
+novo = "novo:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"

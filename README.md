@@ -109,9 +109,12 @@ sequenceDiagram
 ### Ingestion Gateway (`backend/`)
 - **FastAPI Application** (`backend/app/main.py`): Asynchronous gateway with CORS middleware, lifespan database bootstrapping, and structured API routing under `/api/v1`.
 - **Telemetry Batch Ingestion** (`backend/app/api/v1/inspections.py`): Endpoint `/api/v1/inspections/batch` accepting `Tier1BatchPayload` with idempotent upsert logic.
-- **Audit Image Upload** (`backend/app/api/v1/inspections.py`): Endpoint `/api/v1/inspections/{inspection_id}/image` accepting multipart form data for photo types (`CASING`, `TERMINAL_COVER`, `DISPLAY`, `TAMPER_SEAL`) persisted to `storage/audit_images/`.
-- **Database Layer** (`backend/app/core/database.py`, `backend/app/models/inspection.py`): SQLAlchemy models with cascading foreign keys and unique constraints per photo type.
+- **Audit Image Upload** (`backend/app/api/v1/inspections.py`): Endpoint `/api/v1/inspections/{inspection_id}/image` accepting multipart form data for photo types (`CASING`, `TERMINAL_COVER`, `DISPLAY`, `TAMPER_SEAL`) persisted to local disk or Supabase Storage (`audit-images`).
+- **Tier-3 Cloud VLM Auditor** (`backend/app/services/vlm_auditor.py`): Asynchronous background worker executing multimodal second verification with `gemini-3.8-flash` (and fallback to `gemini-4-hydrogen`). Reconciles OCR readings with physical register values and detects exposed wire hazards.
+- **Web Admin Dashboard** (`GET /admin`): Real-time zero-build dashboard polling every 5 seconds with status badges, audit image modals, and health counters.
+- **Database Layer** (`backend/app/core/database.py`, `backend/app/models/inspection.py`): SQLAlchemy models supporting SQLite for local/offline testing and Supabase PostgreSQL with session pooling for production.
 - **Diagnostics** (`backend/app/api/v1/health.py`): Endpoint `/api/v1/health` providing database connectivity checks with HTTP 503 degraded error responses on connection loss.
+
 
 ## Getting Started
 

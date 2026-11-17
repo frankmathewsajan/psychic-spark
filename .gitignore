@@ -67,6 +67,17 @@ backend/storage/audit_images/*
 !backend/storage/audit_images/.gitkeep
 
 # Datasets and local harvester downloads
-dataset/.venv/
-dataset/adani_meter_dataset/
+dataset/
+outputs/
+repos/
+sample_images/
+context.txt
+
+# Large model binaries (keep reports and scripts)
+models/*.onnx
+models/*.pt
+models/*.tflite
+models/*.bin
+!models/training_report.md
+
 

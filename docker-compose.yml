@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  sqlite-web:
+    image: coleifer/sqlite-web
+    restart: always
+    ports:
+      - "8085:8080"
+    volumes:
+      # Mounts the backend folder containing your database into the container
+      - ./backend:/data
+    environment:
+      # Tells the container exactly which database file to open automatically
+      SQLITE_DATABASE: /data/inspections.db

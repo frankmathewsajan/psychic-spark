@@ -16,19 +16,25 @@ import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import {
 	clearAllInspections,
+	getHardwareFingerprint,
+	getOrCreateDeviceId,
 	getSetting,
 	setSetting,
 } from "@/core/db/repository";
+import { type ThemeMode, useTheme } from "@/core/theme-context";
 
 const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
 
 export default function SettingsScreen() {
 	const router = useRouter();
+	const { themeMode, isDark, colors, setThemeMode } = useTheme();
 	const [clearing, setClearing] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_GATEWAY_URL);
 	const [urlSavedFeedback, setUrlSavedFeedback] = useState<string | null>(null);
 	const [isWaking, setIsWaking] = useState(false);
 	const [wakeFeedback, setWakeFeedback] = useState<string | null>(null);
+	const [deviceId, setDeviceId] = useState<string>("Loading...");
+	const [fingerprintHash, setFingerprintHash] = useState<string>("");
 
 	useEffect(() => {
 		let isMounted = true;
@@ -36,7 +42,13 @@ export default function SettingsScreen() {
 			try {
 				const db = await getDb();
 				const saved = await getSetting(db, "gateway_url", DEFAULT_GATEWAY_URL);
-				if (isMounted) setGatewayUrl(saved);
+				const id = await getOrCreateDeviceId(db);
+				const fp = getHardwareFingerprint();
+				if (isMounted) {
+					setGatewayUrl(saved);
+					setDeviceId(id);
+					setFingerprintHash(fp.fingerprintHash);
+				}
 			} catch {}
 		})();
 		return () => {
@@ -119,36 +131,87 @@ export default function SettingsScreen() {
 		);
 	};
 
+	const dynBg = { backgroundColor: colors.background };
+	const dynCard = {
+		backgroundColor: colors.backgroundElement,
+		borderColor: colors.border,
+	};
+	const dynText = { color: colors.text };
+	const dynSub = { color: colors.textSecondary };
+
 	return (
-		<SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-			<StatusBar style="dark" />
+		<SafeAreaView style={[styles.screen, dynBg]} edges={["top", "bottom"]}>
+			<StatusBar style={isDark ? "light" : "dark"} />
 
 			{/* HEADER */}
-			<View style={styles.header}>
+			<View style={[styles.header, { borderColor: colors.border }]}>
 				<Pressable style={styles.backBtn} onPress={() => router.back()}>
-					<AppSymbol name="back" size={20} color={MD3.color.onSurface} />
-					<Text style={styles.backText}>Back</Text>
+					<AppSymbol name="back" size={20} color={colors.text} />
+					<Text style={[styles.backText, dynText]}>Back</Text>
 				</Pressable>
-				<Text style={styles.title}>Settings</Text>
+				<Text style={[styles.title, dynText]}>Settings</Text>
 				<View style={{ width: 60 }} />
 			</View>
 
 			<View style={styles.content}>
-				{/* CLOUD GATEWAY CONFIG */}
-				<Text style={styles.sectionTitle}>Cloud Gateway</Text>
-				<View style={styles.card}>
+				{/* THEME & APPEARANCE */}
+				<Text style={[styles.sectionTitle, dynSub]}>Appearance</Text>
+				<View style={[styles.card, dynCard]}>
 					<View style={styles.cardInfo}>
-						<Text style={styles.cardItemTitle}>Backend Gateway URL</Text>
-						<Text style={styles.cardItemSub}>
+						<Text style={[styles.cardItemTitle, dynText]}>Theme Mode</Text>
+						<Text style={[styles.cardItemSub, dynSub]}>
+							Switch between Dark Mode, Light Mode, or follow Device System
+						</Text>
+					</View>
+
+					<View style={styles.presetsRow}>
+						{(["system", "dark", "light"] as ThemeMode[]).map((mode) => (
+							<Pressable
+								key={mode}
+								style={[
+									styles.presetChip,
+									{
+										borderColor: colors.border,
+										backgroundColor: colors.background,
+									},
+									themeMode === mode && styles.presetChipActive,
+								]}
+								onPress={() => setThemeMode(mode)}
+							>
+								<Text
+									style={[
+										styles.presetText,
+										dynSub,
+										themeMode === mode && styles.presetTextActive,
+									]}
+								>
+									{mode.toUpperCase()}
+								</Text>
+							</Pressable>
+						))}
+					</View>
+				</View>
+
+				{/* CLOUD GATEWAY CONFIG */}
+				<Text style={[styles.sectionTitle, dynSub]}>Cloud Gateway</Text>
+				<View style={[styles.card, dynCard]}>
+					<View style={styles.cardInfo}>
+						<Text style={[styles.cardItemTitle, dynText]}>
+							Backend Gateway URL
+						</Text>
+						<Text style={[styles.cardItemSub, dynSub]}>
 							Target FastAPI server or Render instance
 						</Text>
 					</View>
 
-					{/* QUICK PRESET SELECTOR (IPv4 / IPv6 / CLOUD) */}
 					<View style={styles.presetsRow}>
 						<Pressable
 							style={[
 								styles.presetChip,
+								{
+									borderColor: colors.border,
+									backgroundColor: colors.background,
+								},
 								gatewayUrl === "http://100.108.9.95:8000" &&
 									styles.presetChipActive,
 							]}
@@ -157,6 +220,7 @@ export default function SettingsScreen() {
 							<Text
 								style={[
 									styles.presetText,
+									dynSub,
 									gatewayUrl === "http://100.108.9.95:8000" &&
 										styles.presetTextActive,
 								]}
@@ -168,6 +232,10 @@ export default function SettingsScreen() {
 						<Pressable
 							style={[
 								styles.presetChip,
+								{
+									borderColor: colors.border,
+									backgroundColor: colors.background,
+								},
 								gatewayUrl.includes("onrender.com") && styles.presetChipActive,
 							]}
 							onPress={() =>
@@ -177,6 +245,7 @@ export default function SettingsScreen() {
 							<Text
 								style={[
 									styles.presetText,
+									dynSub,
 									gatewayUrl.includes("onrender.com") &&
 										styles.presetTextActive,
 								]}
@@ -188,6 +257,10 @@ export default function SettingsScreen() {
 						<Pressable
 							style={[
 								styles.presetChip,
+								{
+									borderColor: colors.border,
+									backgroundColor: colors.background,
+								},
 								gatewayUrl === "http://10.0.2.2:8000" &&
 									styles.presetChipActive,
 							]}
@@ -196,6 +269,7 @@ export default function SettingsScreen() {
 							<Text
 								style={[
 									styles.presetText,
+									dynSub,
 									gatewayUrl === "http://10.0.2.2:8000" &&
 										styles.presetTextActive,
 								]}
@@ -206,11 +280,18 @@ export default function SettingsScreen() {
 					</View>
 
 					<TextInput
-						style={styles.input}
+						style={[
+							styles.input,
+							{
+								borderColor: colors.border,
+								backgroundColor: colors.background,
+								color: colors.text,
+							},
+						]}
 						value={gatewayUrl}
 						onChangeText={setGatewayUrl}
 						placeholder="http://100.108.9.95:8000 or https://..."
-						placeholderTextColor={MD3.color.outline}
+						placeholderTextColor={colors.textSecondary}
 						autoCapitalize="none"
 						autoCorrect={false}
 					/>
@@ -232,6 +313,10 @@ export default function SettingsScreen() {
 							disabled={isWaking}
 							style={({ pressed }) => [
 								styles.secondaryBtn,
+								{
+									borderColor: colors.border,
+									backgroundColor: colors.background,
+								},
 								pressed && styles.btnPressed,
 								isWaking && styles.btnDisabled,
 							]}
@@ -240,7 +325,9 @@ export default function SettingsScreen() {
 							{isWaking ? (
 								<ActivityIndicator size="small" color={MD3.color.primary} />
 							) : (
-								<Text style={styles.secondaryBtnText}>Wake Server</Text>
+								<Text style={[styles.secondaryBtnText, { color: colors.text }]}>
+									Wake Server
+								</Text>
 							)}
 						</Pressable>
 					</View>
@@ -253,12 +340,14 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* DATA STORAGE SECTION */}
-				<Text style={styles.sectionTitle}>Local Storage</Text>
-				<View style={styles.card}>
+				<Text style={[styles.sectionTitle, dynSub]}>Local Storage</Text>
+				<View style={[styles.card, dynCard]}>
 					<View style={styles.cardRow}>
 						<View style={styles.cardInfo}>
-							<Text style={styles.cardItemTitle}>Clear Local Database</Text>
-							<Text style={styles.cardItemSub}>
+							<Text style={[styles.cardItemTitle, dynText]}>
+								Clear Local Database
+							</Text>
+							<Text style={[styles.cardItemSub, dynSub]}>
 								Wipe offline queue, history records, and review items
 							</Text>
 						</View>
@@ -284,22 +373,35 @@ export default function SettingsScreen() {
 					</Pressable>
 				</View>
 
-				{/* ABOUT SECTION */}
-				<Text style={styles.sectionTitle}>App Info</Text>
-				<View style={styles.card}>
+				{/* ABOUT & HARDWARE IDENTITY */}
+				<Text style={[styles.sectionTitle, dynSub]}>Hardware Identity</Text>
+				<View style={[styles.card, dynCard]}>
 					<View style={styles.infoRow}>
-						<Text style={styles.infoLabel}>Engine</Text>
-						<Text style={styles.infoValue}>MobileNetV3 + ML Kit</Text>
+						<Text style={[styles.infoLabel, dynSub]}>Device ID</Text>
+						<Text style={[styles.infoValue, dynText, styles.mono]}>
+							{deviceId}
+						</Text>
 					</View>
-					<View style={styles.divider} />
+					<View style={[styles.divider, { backgroundColor: colors.border }]} />
 					<View style={styles.infoRow}>
-						<Text style={styles.infoLabel}>Database</Text>
-						<Text style={styles.infoValue}>SQLite SSOT (WAL)</Text>
+						<Text style={[styles.infoLabel, dynSub]}>Hardware SHA-256</Text>
+						<Text
+							style={[styles.infoValue, dynSub, styles.mono, { fontSize: 10 }]}
+						>
+							{fingerprintHash ? `${fingerprintHash.substring(0, 16)}...` : "—"}
+						</Text>
 					</View>
-					<View style={styles.divider} />
+					<View style={[styles.divider, { backgroundColor: colors.border }]} />
 					<View style={styles.infoRow}>
-						<Text style={styles.infoLabel}>Backend</Text>
-						<Text style={styles.infoValue}>FastAPI + Supabase</Text>
+						<Text style={[styles.infoLabel, dynSub]}>Engine</Text>
+						<Text style={[styles.infoValue, dynText]}>
+							MobileNetV3 + ML Kit
+						</Text>
+					</View>
+					<View style={[styles.divider, { backgroundColor: colors.border }]} />
+					<View style={styles.infoRow}>
+						<Text style={[styles.infoLabel, dynSub]}>Database</Text>
+						<Text style={[styles.infoValue, dynText]}>SQLite SSOT (WAL)</Text>
 					</View>
 				</View>
 			</View>
@@ -310,7 +412,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
 	screen: {
 		flex: 1,
-		backgroundColor: MD3.color.surface,
 	},
 	header: {
 		flexDirection: "row",
@@ -319,7 +420,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderColor: MD3.color.outlineVariant,
 	},
 	backBtn: {
 		flexDirection: "row",
@@ -329,13 +429,11 @@ const styles = StyleSheet.create({
 	},
 	backText: {
 		fontSize: 14,
-		color: MD3.color.onSurface,
 		fontWeight: "500",
 	},
 	title: {
 		fontSize: 18,
 		fontWeight: "600",
-		color: MD3.color.onSurface,
 	},
 	content: {
 		padding: 16,
@@ -344,17 +442,14 @@ const styles = StyleSheet.create({
 	sectionTitle: {
 		fontSize: 12,
 		fontWeight: "600",
-		color: MD3.color.onSurfaceVariant,
 		textTransform: "uppercase",
 		letterSpacing: 0.5,
 		marginLeft: 4,
 	},
 	card: {
-		backgroundColor: MD3.color.surfaceContainerLowest,
 		borderRadius: MD3.shape.cornerMedium,
-		padding: 16,
 		borderWidth: 1,
-		borderColor: MD3.color.outlineVariant,
+		padding: 16,
 		gap: 12,
 	},
 	cardRow: {
@@ -363,52 +458,44 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	cardInfo: {
-		flex: 1,
 		gap: 2,
 	},
 	cardItemTitle: {
 		fontSize: 15,
 		fontWeight: "600",
-		color: MD3.color.onSurface,
 	},
 	cardItemSub: {
 		fontSize: 12,
-		color: MD3.color.onSurfaceVariant,
 	},
 	presetsRow: {
 		flexDirection: "row",
 		gap: 8,
+		flexWrap: "wrap",
 	},
 	presetChip: {
 		paddingHorizontal: 10,
 		paddingVertical: 6,
 		borderRadius: MD3.shape.cornerFull,
-		backgroundColor: MD3.color.surfaceContainerLow,
 		borderWidth: 1,
-		borderColor: MD3.color.outlineVariant,
 	},
 	presetChipActive: {
-		backgroundColor: MD3.color.primaryContainer,
-		borderColor: MD3.color.primary,
+		backgroundColor: "#0061A4",
+		borderColor: "#0061A4",
 	},
 	presetText: {
 		fontSize: 11,
 		fontWeight: "600",
-		color: MD3.color.onSurfaceVariant,
 	},
 	presetTextActive: {
-		color: MD3.color.onPrimaryContainer,
+		color: "#FFFFFF",
 	},
 	input: {
 		height: 44,
 		borderWidth: 1,
-		borderColor: MD3.color.outlineVariant,
 		borderRadius: MD3.shape.cornerSmall,
 		paddingHorizontal: 12,
 		fontSize: 13,
 		fontFamily: Fonts.mono,
-		color: MD3.color.onSurface,
-		backgroundColor: MD3.color.surface,
 	},
 	rowActions: {
 		flexDirection: "row",
@@ -423,22 +510,19 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	primaryBtnText: {
-		color: MD3.color.onPrimary,
+		color: "#FFFFFF",
 		fontSize: 13,
 		fontWeight: "600",
 	},
 	secondaryBtn: {
 		flex: 1,
 		height: 40,
-		backgroundColor: MD3.color.surfaceContainerLow,
 		borderWidth: 1,
-		borderColor: MD3.color.outlineVariant,
 		borderRadius: MD3.shape.cornerFull,
 		justifyContent: "center",
 		alignItems: "center",
 	},
 	secondaryBtnText: {
-		color: MD3.color.primary,
 		fontSize: 13,
 		fontWeight: "600",
 	},
@@ -476,21 +560,20 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	infoLabel: {
-		fontSize: 14,
-		color: MD3.color.onSurfaceVariant,
+		fontSize: 13,
 	},
 	infoValue: {
-		fontSize: 14,
-		fontWeight: "500",
-		color: MD3.color.onSurface,
+		fontSize: 13,
+		fontWeight: "600",
+	},
+	mono: {
 		fontFamily: Fonts.mono,
 	},
 	divider: {
 		height: 1,
-		backgroundColor: MD3.color.outlineVariant,
 	},
 	btnPressed: {
-		opacity: 0.85,
+		opacity: 0.8,
 	},
 	btnDisabled: {
 		opacity: 0.5,

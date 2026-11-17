@@ -25,6 +25,7 @@ import {
 	getSetting,
 	recordClientAck,
 } from "@/core/db/repository";
+import { useTheme } from "@/core/theme-context";
 import type {
 	ClientMessage,
 	InspectionRecord,
@@ -37,12 +38,17 @@ import {
 	syncClientMessages,
 } from "@/services/sync/tier1-sync";
 import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
-import { deviceWsClient } from "@/services/sync/websocket-client";
+import {
+	deviceWsClient,
+	type WsStatus,
+} from "@/services/sync/websocket-client";
 
 const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
 
 export default function DashboardScreen() {
 	const router = useRouter();
+	const { isDark, colors } = useTheme();
+	const [wsStatus, setWsStatus] = useState<WsStatus>("DISCONNECTED");
 	const [search, setSearch] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
 	const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
@@ -75,6 +81,10 @@ export default function DashboardScreen() {
 		setGatewayUrl(savedUrl);
 		setActiveMessages(msgs);
 	}, [search]);
+
+	useEffect(() => {
+		return deviceWsClient.subscribeStatus((st) => setWsStatus(st));
+	}, []);
 
 	// Initialize real-time WebSocket connection to gateway
 	useEffect(() => {
@@ -192,21 +202,100 @@ export default function DashboardScreen() {
 	};
 
 	return (
-		<SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-			<StatusBar style="dark" />
+		<SafeAreaView
+			style={[styles.screen, { backgroundColor: colors.background }]}
+			edges={["top", "bottom"]}
+		>
+			<StatusBar style={isDark ? "light" : "dark"} />
 
 			{/* HEADER */}
 			<View style={styles.header}>
-				<Text style={styles.title}>Inspections</Text>
+				<View style={styles.headerLeft}>
+					<Text style={[styles.title, { color: colors.text }]}>
+						Inspections
+					</Text>
+					<Pressable
+						style={[
+							styles.wsPill,
+							{
+								backgroundColor:
+									wsStatus === "CONNECTED"
+										? isDark
+											? "#064e3b"
+											: "#DCFCE7"
+										: wsStatus === "CONNECTING"
+											? isDark
+												? "#78350f"
+												: "#FEF3C7"
+											: isDark
+												? "#881337"
+												: "#FEE2E2",
+								borderColor:
+									wsStatus === "CONNECTED"
+										? isDark
+											? "#059669"
+											: "#86EFAC"
+										: wsStatus === "CONNECTING"
+											? isDark
+												? "#d97706"
+												: "#FDE68A"
+											: isDark
+												? "#e11d48"
+												: "#FCA5A5",
+							},
+						]}
+						onPress={() => deviceWsClient.reconnect()}
+					>
+						<View
+							style={[
+								styles.wsDot,
+								{
+									backgroundColor:
+										wsStatus === "CONNECTED"
+											? "#22c55e"
+											: wsStatus === "CONNECTING"
+												? "#f59e0b"
+												: "#ef4444",
+								},
+							]}
+						/>
+						<Text
+							style={[
+								styles.wsText,
+								{
+									color:
+										wsStatus === "CONNECTED"
+											? isDark
+												? "#4ade80"
+												: "#15803D"
+											: wsStatus === "CONNECTING"
+												? isDark
+													? "#fbbf24"
+													: "#B45309"
+												: isDark
+													? "#f87171"
+													: "#B91C1C",
+								},
+							]}
+						>
+							{wsStatus === "CONNECTED"
+								? "WS Live"
+								: wsStatus === "CONNECTING"
+									? "Connecting..."
+									: "Offline"}
+						</Text>
+					</Pressable>
+				</View>
 				<View style={styles.headerRight}>
 					<Pressable
 						style={({ pressed }) => [
 							styles.iconBtn,
+							{ borderColor: colors.border },
 							pressed && styles.btnPressed,
 						]}
 						onPress={() => router.push("/settings")}
 					>
-						<AppSymbol name="settings" size={20} color={MD3.color.onSurface} />
+						<AppSymbol name="settings" size={20} color={colors.text} />
 					</Pressable>
 					<Pressable
 						style={({ pressed }) => [
@@ -552,6 +641,31 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingTop: 8,
 		paddingBottom: 12,
+	},
+	headerLeft: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 10,
+	},
+	wsPill: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: 9999,
+		borderWidth: 1,
+	},
+	wsDot: {
+		width: 6,
+		height: 6,
+		borderRadius: 3,
+	},
+	wsText: {
+		fontSize: 10,
+		fontFamily: Fonts.mono,
+		fontWeight: "600",
+		letterSpacing: 0.3,
 	},
 	headerRight: {
 		flexDirection: "row",

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Fonts, MeterTokens } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import { logger } from "@/core/logger";
+import { ThemeProvider } from "@/core/theme-context";
 import { useBackgroundMlWorker } from "@/services/inference/background-ml-worker";
 
 export default function RootLayout() {
@@ -34,7 +35,9 @@ export default function RootLayout() {
 
 	return (
 		<SafeAreaProvider>
-			<Stack screenOptions={{ headerShown: false }} />
+			<ThemeProvider>
+				<Stack screenOptions={{ headerShown: false }} />
+			</ThemeProvider>
 		</SafeAreaProvider>
 	);
 }

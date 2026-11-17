@@ -1,6 +1,10 @@
 ﻿import Constants from "expo-constants";
 import * as Device from "expo-device";
 import type { SQLiteDatabase } from "expo-sqlite";
+import {
+	generateDeterministicDeviceId,
+	getHardwareFingerprint,
+} from "../device-identity";
 import { logger } from "../logger";
 import type {
 	ClientMessage,
@@ -13,10 +17,12 @@ import type {
 	Tier1BatchPayload,
 } from "../types/inspection";
 
+export { getHardwareFingerprint };
+
 export async function getOrCreateDeviceId(db: SQLiteDatabase): Promise<string> {
 	const existing = await getSetting(db, "device_id", "");
 	if (existing) return existing;
-	const generated = `dev_${(Device.osName ?? "android").toLowerCase()}_${Math.random().toString(36).substring(2, 10)}`;
+	const generated = generateDeterministicDeviceId();
 	await setSetting(db, "device_id", generated);
 	return generated;
 }

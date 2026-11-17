@@ -65,6 +65,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       background-color: #090a0d;
       color: #d4d4d8;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
@@ -95,11 +96,74 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       height: 5px;
     }
     ::-webkit-scrollbar-track {
-      background: #090a0d;
+      background: transparent;
     }
     ::-webkit-scrollbar-thumb {
       background: #27272a;
       border-radius: 2px;
+    }
+
+    /* ======================================================================= */
+    /* CALM, MINIMAL LIGHT MODE                                                */
+    /* ======================================================================= */
+    html.light body {
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    html.light #boot-overlay {
+      background-color: #f8fafc;
+      color: #334155;
+    }
+    html.light .wireframe-cell {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      border-left: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    html.light .bg-\[\#0e1014\] {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+    }
+    html.light .bg-\[\#090a0d\] {
+      background-color: #f1f5f9 !important;
+      border-color: #e2e8f0 !important;
+    }
+    html.light .border-zinc-800,
+    html.light .border-zinc-800\/60,
+    html.light .border-zinc-800\/40,
+    html.light .border-zinc-800\/80,
+    html.light .divide-zinc-800\/40 {
+      border-color: #e2e8f0 !important;
+    }
+    html.light .text-zinc-100 { color: #0f172a !important; }
+    html.light .text-zinc-200 { color: #1e293b !important; }
+    html.light .text-zinc-300 { color: #334155 !important; }
+    html.light .text-zinc-400 { color: #475569 !important; }
+    html.light .text-zinc-500 { color: #64748b !important; }
+    html.light .text-zinc-600 { color: #94a3b8 !important; }
+    html.light .bg-zinc-900 { background-color: #f1f5f9 !important; }
+    html.light .bg-zinc-800 { background-color: #e2e8f0 !important; }
+    html.light .hover\:bg-zinc-800:hover { background-color: #e2e8f0 !important; }
+    html.light tr.hover\:bg-\[\#13161c\]:hover { background-color: #f8fafc !important; }
+    html.light input, html.light select, html.light textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.light #detail-modal > div,
+    html.light #directive-modal > div,
+    html.light #export-menu {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+    }
+    html.light .leaflet-popup-content-wrapper {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+    }
+    html.light .leaflet-popup-tip {
+      background: #ffffff !important;
     }
   </style>
 </head>
@@ -159,9 +223,32 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       </div>
 
       <div class="flex items-center gap-2 text-xs">
-        <a href="/api/v1/inspections/export.csv" target="_blank" download="DISCOM_Installation_QC_Audit.csv" class="px-2.5 py-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded transition">
-          Export CSV
-        </a>
+        <!-- EXPORT AUDIT DROPDOWN -->
+        <div class="relative inline-block text-left">
+          <button onclick="toggleExportMenu(event)" id="export-btn" class="px-2.5 py-1 text-xs text-zinc-300 hover:text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded transition flex items-center gap-1.5">
+            <span>Export Audit</span>
+            <span class="text-[10px] text-zinc-500">&darr;</span>
+          </button>
+          <div id="export-menu" class="hidden absolute right-0 mt-1.5 w-64 bg-[#0e1014] border border-zinc-800 rounded shadow-2xl py-1 z-30 font-mono text-xs">
+            <div class="px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60 font-semibold">
+              DISCOM Audit Artifacts
+            </div>
+            <a href="/api/v1/inspections/report?format=print" target="_blank" onclick="closeExportMenu()" class="block px-3 py-2 text-zinc-200 hover:bg-zinc-800 transition">
+              <div class="font-medium text-xs text-zinc-100">CEA Audit Report (PDF / Print)</div>
+              <div class="text-[10px] text-zinc-400 font-sans mt-0.5">Government certificate with photos, QC scorecards & SHA-256 seals</div>
+            </a>
+            <a href="/api/v1/inspections/export.csv" download="DISCOM_Installation_QC_Audit.csv" onclick="closeExportMenu()" class="block px-3 py-2 text-zinc-200 hover:bg-zinc-800 transition border-t border-zinc-800/40">
+              <div class="font-medium text-xs text-zinc-100">DISCOM Data Sheet (CSV)</div>
+              <div class="text-[10px] text-zinc-400 font-sans mt-0.5">Raw telemetry records for ERP, analytics & spreadsheet ingestion</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- THEME SWITCHER -->
+        <button id="theme-btn" onclick="toggleTheme()" class="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:border-zinc-700 rounded transition" title="Toggle theme">
+          Theme: Dark
+        </button>
+
         <button onclick="refreshAll()" class="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 hover:border-zinc-700 rounded transition">
           Refresh
         </button>
@@ -289,7 +376,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
                 <th class="p-2.5">Device ID</th>
                 <th class="p-2.5">Technician</th>
                 <th class="p-2.5">Hardware</th>
-                <th class="p-2.5">Location</th>
+                <th class="p-2.5">Recent Activity / Reply</th>
                 <th class="p-2.5">Battery</th>
                 <th class="p-2.5 text-right"></th>
               </tr>
@@ -319,7 +406,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
                 <th class="p-2.5">Priority</th>
                 <th class="p-2.5">Target</th>
                 <th class="p-2.5">Message</th>
-                <th class="p-2.5">Replies</th>
+                <th class="p-2.5">Field Acknowledgements & Replies</th>
               </tr>
             </thead>
             <tbody id="directives-table-body" class="divide-y divide-zinc-800/40">
@@ -434,7 +521,11 @@ ADMIN_HTML = r"""<!DOCTYPE html>
               <option value="TECHNICIAN">Tech</option>
               <option value="DEVICE">Device</option>
             </select>
-            <input id="dir-target-id" type="text" value="ALL" placeholder="Target ID" class="col-span-2 px-2.5 py-1.5 bg-[#090a0d] border border-zinc-800 rounded font-mono text-zinc-300">
+            <div class="col-span-2 relative">
+              <select id="dir-target-select" onchange="syncTargetFromSelect()" class="w-full px-2.5 py-1.5 bg-[#090a0d] border border-zinc-800 rounded font-mono text-zinc-300 text-xs hidden">
+              </select>
+              <input id="dir-target-id" type="text" value="ALL" placeholder="Target ID" class="w-full px-2.5 py-1.5 bg-[#090a0d] border border-zinc-800 rounded font-mono text-zinc-300 text-xs">
+            </div>
           </div>
         </div>
 
@@ -483,13 +574,63 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
+    const CARTO_KEY = 'cb1_5as9_1_c576e671f3b866cffdf1ad64';
+    let currentTheme = localStorage.getItem('novo_theme') || 'dark';
     let allData = [];
     let allDirectives = [];
     let allDevices = [];
     let activeFilter = 'ALL';
     let currentTab = 'inspections';
     let map = null;
+    let tileLayer = null;
     let mapMarkers = {};
+
+    function applyTheme(theme) {
+      currentTheme = theme;
+      localStorage.setItem('novo_theme', theme);
+      if (theme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        const btn = document.getElementById('theme-btn');
+        if (btn) btn.textContent = 'Theme: Light';
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+        const btn = document.getElementById('theme-btn');
+        if (btn) btn.textContent = 'Theme: Dark';
+      }
+      updateMapTileLayer();
+    }
+
+    function toggleTheme() {
+      applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    }
+
+    function toggleExportMenu(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    function closeExportMenu() {
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.add('hidden');
+    }
+
+    function getCartoTileUrl(theme) {
+      const variant = theme === 'light' ? 'voyager' : 'dark_all';
+      return `https://basemaps.cartocdn.com/rastertiles/${variant}/{z}/{x}/{y}.png?key=${CARTO_KEY}`;
+    }
+
+    function updateMapTileLayer() {
+      if (!map) return;
+      if (tileLayer) map.removeLayer(tileLayer);
+      tileLayer = L.tileLayer(getCartoTileUrl(currentTheme), {
+        maxZoom: 19,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      }).addTo(map);
+    }
 
     function initBootTimestamps() {
       const now = new Date();
@@ -533,11 +674,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       const el = document.getElementById('fleet-map');
       if (!el) return;
       map = L.map('fleet-map').setView([19.0760, 72.8777], 5);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
-      }).addTo(map);
+      updateMapTileLayer();
     }
 
     function switchTab(tab) {
@@ -701,6 +838,42 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       renderFleetMap();
     }
 
+    function findLatestActivityForDevice(deviceId) {
+      // Check directives ACKs first
+      for (const d of allDirectives) {
+        if (!d.acks) continue;
+        const matchingAck = d.acks.find(a => a.device_id === deviceId);
+        if (matchingAck) {
+          const time = matchingAck.actioned_at || matchingAck.delivered_at;
+          const timeStr = time ? new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          if (matchingAck.reply_note) {
+            return {
+              text: matchingAck.reply_note,
+              time: timeStr,
+              isReply: true
+            };
+          }
+          return {
+            text: 'Acknowledged directive',
+            time: timeStr,
+            isReply: false
+          };
+        }
+      }
+      // Check inspections
+      const insp = allData.find(i => i.device_id === deviceId);
+      if (insp) {
+        const time = insp.ingested_at || insp.timestamp_utc;
+        const timeStr = time ? new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        return {
+          text: `Inspected meter ${insp.meter_serial_number || 'UNKNOWN'}`,
+          time: timeStr,
+          isReply: false
+        };
+      }
+      return null;
+    }
+
     function renderFleetTable() {
       const tbody = document.getElementById('devices-table-body');
       if (allDevices.length === 0) {
@@ -714,16 +887,35 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           ? `<span class="inline-flex items-center gap-1.5 text-zinc-300 font-mono text-xs"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Online</span>`
           : `<span class="text-zinc-600 font-mono text-xs">Offline</span>`;
 
-        const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).toLocaleTimeString() : '—';
-        const latLon = d.latitude && d.longitude ? `${Number(d.latitude).toFixed(3)}, ${Number(d.longitude).toFixed(3)}` : 'Last Known';
+        const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
         const batteryText = d.battery_level != null ? `${Math.round(d.battery_level * 100)}%` : '—';
+        
+        const act = findLatestActivityForDevice(d.device_id);
+        let activityHtml = `<span class="text-zinc-500 font-mono text-[11px]">Last seen @ ${lastSeen}</span>`;
+        if (act) {
+          if (act.isReply) {
+            activityHtml = `
+              <div class="text-zinc-300 font-sans text-xs">
+                <span class="text-emerald-400 font-mono text-[11px] font-semibold">[REPLY]</span> &ldquo;${escapeHtml(act.text)}&rdquo;
+                <span class="text-zinc-500 font-mono text-[10px] ml-1">@ ${act.time}</span>
+              </div>
+            `;
+          } else {
+            activityHtml = `
+              <div class="text-zinc-400 text-xs">
+                ${escapeHtml(act.text)}
+                <span class="text-zinc-500 font-mono text-[10px] ml-1">@ ${act.time}</span>
+              </div>
+            `;
+          }
+        }
 
         return `<tr class="hover:bg-[#13161c] transition">
           <td class="p-2.5">${statusBadge}</td>
           <td class="p-2.5 font-mono text-zinc-200">${escapeHtml(d.device_id)}</td>
           <td class="p-2.5 text-zinc-400 font-mono">${escapeHtml(d.technician_id)}</td>
           <td class="p-2.5 text-zinc-500 text-xs">${escapeHtml(d.device_model || 'Android')}</td>
-          <td class="p-2.5 font-mono text-zinc-500 text-[11px]">${latLon} <span class="text-zinc-600">@ ${lastSeen}</span></td>
+          <td class="p-2.5">${activityHtml}</td>
           <td class="p-2.5 text-zinc-400 font-mono">${batteryText}</td>
           <td class="p-2.5 text-right">
             <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="text-zinc-400 hover:text-zinc-200 text-xs font-mono">Alert &rarr;</button>
@@ -770,7 +962,10 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
     function dispatchDirectToDevice(deviceId) {
       document.getElementById('dir-target-type').value = 'DEVICE';
+      updateTargetInput();
       document.getElementById('dir-target-id').value = deviceId;
+      const select = document.getElementById('dir-target-select');
+      if (select) select.value = deviceId;
       document.getElementById('dir-priority').value = 'URGENT';
       document.getElementById('dir-msg-type').value = 'ALERT';
       openDirectiveModal();
@@ -789,19 +984,43 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         const actionedCount = acks.filter(a => a.status === 'ACTIONED').length;
         const deliveredCount = acks.filter(a => a.status === 'DELIVERED').length;
 
-        let ackText = `<span class="text-zinc-500 font-mono text-xs">Pending</span>`;
-        if (actionedCount > 0) ackText = `<span class="text-emerald-400 font-mono text-xs">Actioned (${actionedCount})</span>`;
-        else if (deliveredCount > 0) ackText = `<span class="text-zinc-300 font-mono text-xs">Delivered (${deliveredCount})</span>`;
+        let statusHeader = `<span class="text-zinc-500 font-mono text-xs">Pending</span>`;
+        if (actionedCount > 0) statusHeader = `<span class="text-emerald-400 font-mono text-xs font-semibold">Actioned (${actionedCount})</span>`;
+        else if (deliveredCount > 0) statusHeader = `<span class="text-zinc-300 font-mono text-xs">Delivered (${deliveredCount})</span>`;
+
+        let repliesList = '';
+        if (acks.length > 0) {
+          repliesList = acks.map(a => {
+            const isAct = a.status === 'ACTIONED';
+            const tagColor = isAct ? 'text-emerald-400' : 'text-zinc-400';
+            const tagText = isAct ? 'ACTIONED' : 'DELIVERED';
+            const timeStr = a.actioned_at || a.delivered_at ? new Date(a.actioned_at || a.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            return `
+              <div class="mt-1.5 pt-1.5 border-t border-zinc-800/40 text-[11px] font-mono">
+                <div class="flex items-center gap-1.5 ${tagColor}">
+                  <span class="font-semibold">[${tagText}]</span>
+                  <span class="text-zinc-200">${escapeHtml(a.technician_id || 'Tech')}</span>
+                  <span class="text-zinc-500 text-[10px]">(${escapeHtml(a.device_id || 'dev')})</span>
+                  ${timeStr ? `<span class="text-zinc-500 text-[10px]">@ ${timeStr}</span>` : ''}
+                </div>
+                ${a.reply_note ? `<div class="mt-1 text-zinc-300 font-sans bg-zinc-900/60 p-1.5 rounded border border-zinc-800/50">&ldquo;${escapeHtml(a.reply_note)}&rdquo;</div>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
 
         return `<tr class="hover:bg-[#13161c] transition">
           <td class="p-2.5 font-mono text-zinc-500 text-[11px]">${createdStr}</td>
           <td class="p-2.5 font-mono text-xs text-zinc-400">${escapeHtml(d.priority)}</td>
           <td class="p-2.5 font-mono text-xs text-zinc-300">${escapeHtml(d.target_type)}: ${escapeHtml(d.target_id)}</td>
           <td class="p-2.5">
-            <div class="text-zinc-200 text-xs">${escapeHtml(d.title)}</div>
-            <div class="text-zinc-500 text-[11px] truncate max-w-sm mt-0.5">${escapeHtml(d.body)}</div>
+            <div class="text-zinc-200 text-xs font-medium">${escapeHtml(d.title)}</div>
+            <div class="text-zinc-400 text-[11px] truncate max-w-sm mt-0.5">${escapeHtml(d.body)}</div>
           </td>
-          <td class="p-2.5">${ackText}</td>
+          <td class="p-2.5">
+            ${statusHeader}
+            ${repliesList}
+          </td>
         </tr>`;
       }).join('');
     }
@@ -915,15 +1134,71 @@ ADMIN_HTML = r"""<!DOCTYPE html>
     }
 
     function closeDetailModal() { document.getElementById('detail-modal').classList.add('hidden'); }
-    function openDirectiveModal() { document.getElementById('directive-modal').classList.remove('hidden'); }
+    function openDirectiveModal() { 
+      updateTargetInput();
+      document.getElementById('directive-modal').classList.remove('hidden'); 
+    }
     function closeDirectiveModal() { document.getElementById('directive-modal').classList.add('hidden'); }
 
     function updateTargetInput() {
       const type = document.getElementById('dir-target-type').value;
       const input = document.getElementById('dir-target-id');
-      if (type === 'BROADCAST') input.value = 'ALL';
-      else if (type === 'TECHNICIAN' && input.value === 'ALL') input.value = 'TECH-01';
-      else if (type === 'DEVICE' && input.value === 'ALL') input.value = 'dev_android_01';
+      const select = document.getElementById('dir-target-select');
+
+      if (type === 'BROADCAST') {
+        select.classList.add('hidden');
+        input.classList.remove('hidden');
+        input.value = 'ALL';
+        input.readOnly = true;
+      } else if (type === 'DEVICE') {
+        input.readOnly = false;
+        // Populate select with connected devices
+        let opts = '';
+        if (allDevices.length > 0) {
+          allDevices.forEach(d => {
+            const label = `${d.device_id} (${d.technician_id || 'Tech'}${d.device_model ? ' - ' + d.device_model : ''})`;
+            opts += `<option value="${escapeHtml(d.device_id)}">${escapeHtml(label)}</option>`;
+          });
+          select.innerHTML = opts;
+          select.classList.remove('hidden');
+          input.classList.add('hidden');
+          input.value = select.value || (allDevices[0] ? allDevices[0].device_id : 'dev_android');
+        } else {
+          select.classList.add('hidden');
+          input.classList.remove('hidden');
+          if (input.value === 'ALL') input.value = 'dev_android';
+        }
+      } else if (type === 'TECHNICIAN') {
+        input.readOnly = false;
+        // Populate select with known technicians
+        const techs = Array.from(new Set([
+          ...allDevices.map(d => d.technician_id),
+          ...allData.map(d => d.technician_id)
+        ].filter(Boolean)));
+
+        if (techs.length > 0) {
+          let opts = '';
+          techs.forEach(t => {
+            opts += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
+          });
+          select.innerHTML = opts;
+          select.classList.remove('hidden');
+          input.classList.add('hidden');
+          input.value = select.value || techs[0];
+        } else {
+          select.classList.add('hidden');
+          input.classList.remove('hidden');
+          if (input.value === 'ALL') input.value = 'TECH-01';
+        }
+      }
+    }
+
+    function syncTargetFromSelect() {
+      const select = document.getElementById('dir-target-select');
+      const input = document.getElementById('dir-target-id');
+      if (select && input) {
+        input.value = select.value;
+      }
     }
 
     async function submitDirective(e) {
@@ -999,10 +1274,18 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       if (e.key === 'Escape') {
         closeDetailModal();
         closeDirectiveModal();
+        closeExportMenu();
         dismissBootOverlay();
       }
     });
 
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#export-btn') && !e.target.closest('#export-menu')) {
+        closeExportMenu();
+      }
+    });
+
+    applyTheme(currentTheme);
     initBootTimestamps();
     setupAdminWebSocket();
     refreshAll().then(() => {

@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import { AppState, type AppStateStatus } from "react-native";
 import {
 	getAppVersion,
 	getDeviceModel,
@@ -7,6 +8,8 @@ import {
 } from "@/core/db/repository";
 import { logger } from "@/core/logger";
 import type { ClientMessage } from "@/core/types/inspection";
+
+export type WsStatus = "CONNECTED" | "CONNECTING" | "DISCONNECTED";
 
 export interface DeviceTelemetry {
 	lat: number;
@@ -18,9 +21,65 @@ export interface DeviceTelemetry {
 class DeviceWebSocketService {
 	private ws: WebSocket | null = null;
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private currentUrl = "";
 	private deviceId = "";
 	private onMessageCallback: ((msg: ClientMessage) => void) | null = null;
+	private cachedDb: SQLiteDatabase | null = null;
+	private cachedGatewayUrl = "";
+	private cachedTechnicianId = "TECH-01";
+	private reconnectAttempts = 0;
+	private isExplicitlyDisconnected = false;
+	private status: WsStatus = "DISCONNECTED";
+	private statusListeners: Set<(s: WsStatus) => void> = new Set();
+	private appStateSubscription: ReturnType<
+		typeof AppState.addEventListener
+	> | null = null;
+
+	constructor() {
+		// Auto-reconnect when app comes back to foreground
+		this.appStateSubscription = AppState.addEventListener(
+			"change",
+			(nextAppState: AppStateStatus) => {
+				if (
+					nextAppState === "active" &&
+					this.status === "DISCONNECTED" &&
+					!this.isExplicitlyDisconnected &&
+					this.cachedDb &&
+					this.cachedGatewayUrl
+				) {
+					logger.info(
+						"DeviceWS",
+						"App became active, triggering instant WS reconnect",
+					);
+					this.reconnect();
+				}
+			},
+		);
+	}
+
+	public getStatus(): WsStatus {
+		return this.status;
+	}
+
+	public subscribeStatus(listener: (s: WsStatus) => void): () => void {
+		this.statusListeners.add(listener);
+		listener(this.status);
+		return () => {
+			this.statusListeners.delete(listener);
+		};
+	}
+
+	private setStatus(newStatus: WsStatus) {
+		if (this.status !== newStatus) {
+			this.status = newStatus;
+			for (const listener of this.statusListeners) {
+				try {
+					listener(newStatus);
+				} catch {}
+			}
+		}
+	}
 
 	public init(
 		db: SQLiteDatabase,
@@ -28,7 +87,12 @@ class DeviceWebSocketService {
 		technicianId = "TECH-01",
 		onMessage?: (msg: ClientMessage) => void,
 	) {
+		this.cachedDb = db;
+		this.cachedGatewayUrl = gatewayUrl;
+		this.cachedTechnicianId = technicianId;
 		this.onMessageCallback = onMessage ?? null;
+		this.isExplicitlyDisconnected = false;
+
 		getOrCreateDeviceId(db).then((id) => {
 			this.deviceId = id;
 			this.connect(db, gatewayUrl, technicianId);
@@ -40,12 +104,31 @@ class DeviceWebSocketService {
 		gatewayUrl: string,
 		technicianId = "TECH-01",
 	) {
+		this.cachedDb = db;
+		this.cachedGatewayUrl = gatewayUrl;
+		this.cachedTechnicianId = technicianId;
+		this.isExplicitlyDisconnected = false;
+
 		const wsBase = gatewayUrl.trim().replace(/^http/, "ws").replace(/\/+$/, "");
 		const targetUrl = `${wsBase}/api/v1/ws/device/${this.deviceId}`;
 
-		if (this.ws && this.currentUrl === targetUrl) return;
-		this.disconnect();
+		if (
+			this.ws &&
+			this.currentUrl === targetUrl &&
+			this.status === "CONNECTED"
+		) {
+			return;
+		}
+
+		if (this.ws) {
+			try {
+				this.ws.close();
+			} catch {}
+			this.ws = null;
+		}
+
 		this.currentUrl = targetUrl;
+		this.setStatus("CONNECTING");
 
 		try {
 			const socket = new WebSocket(targetUrl);
@@ -53,7 +136,10 @@ class DeviceWebSocketService {
 
 			socket.onopen = () => {
 				logger.info("DeviceWS", `Connected to ${targetUrl}`);
+				this.reconnectAttempts = 0;
+				this.setStatus("CONNECTED");
 				this.sendTelemetry(technicianId);
+
 				if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
 				this.heartbeatTimer = setInterval(
 					() => this.sendTelemetry(technicianId),
@@ -92,14 +178,63 @@ class DeviceWebSocketService {
 			};
 
 			socket.onclose = () => {
-				if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+				this.handleSocketDrop();
 			};
 
 			socket.onerror = () => {
-				if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+				this.handleSocketDrop();
 			};
 		} catch (e) {
 			logger.warn("DeviceWS", "Connection failed", e);
+			this.handleSocketDrop();
+		}
+	}
+
+	private handleSocketDrop() {
+		if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+		this.setStatus("DISCONNECTED");
+
+		if (
+			!this.isExplicitlyDisconnected &&
+			this.cachedDb &&
+			this.cachedGatewayUrl
+		) {
+			this.reconnectAttempts++;
+			const delay = Math.min(
+				15000,
+				2000 * 1.5 ** Math.min(this.reconnectAttempts, 5),
+			);
+			if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = setTimeout(() => {
+				if (
+					!this.isExplicitlyDisconnected &&
+					this.cachedDb &&
+					this.cachedGatewayUrl
+				) {
+					logger.info(
+						"DeviceWS",
+						`Auto-reconnecting attempt #${this.reconnectAttempts}...`,
+					);
+					this.connect(
+						this.cachedDb,
+						this.cachedGatewayUrl,
+						this.cachedTechnicianId,
+					);
+				}
+			}, delay);
+		}
+	}
+
+	public reconnect() {
+		if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+		if (this.cachedDb && this.cachedGatewayUrl) {
+			this.reconnectAttempts = 0;
+			this.isExplicitlyDisconnected = false;
+			this.connect(
+				this.cachedDb,
+				this.cachedGatewayUrl,
+				this.cachedTechnicianId,
+			);
 		}
 	}
 
@@ -146,13 +281,20 @@ class DeviceWebSocketService {
 	}
 
 	public disconnect() {
+		this.isExplicitlyDisconnected = true;
+		if (this.appStateSubscription) {
+			this.appStateSubscription.remove();
+			this.appStateSubscription = null;
+		}
 		if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+		if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
 		if (this.ws) {
 			try {
 				this.ws.close();
 			} catch {}
 			this.ws = null;
 		}
+		this.setStatus("DISCONNECTED");
 	}
 }
 

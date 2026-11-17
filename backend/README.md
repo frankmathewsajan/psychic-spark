@@ -8,8 +8,8 @@ FastAPI ingestion gateway for smart meter inspections, telemetry syncing, audit 
 2. Configure settings:
    - **Environment:** `Python 3`
    - **Root Directory:** `backend/`
-   - **Build Command:** `pip install -r requirements.txt` (or `pip install uv && uv sync`)
-   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
+   - **Build Command:** `uv sync`
+   - **Start Command:** `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`
    - **Instance Type:** Free (0.1 CPU, 512 MB RAM)
 3. Add **Environment Variables** (see `render.env.example`):
    - `DATABASE_URL`: `postgresql://postgres.bxnbeatlldxurigjphml:<PASSWORD>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres` (Supabase IPv4 Session Pooler)

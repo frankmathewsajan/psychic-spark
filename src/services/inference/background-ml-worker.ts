@@ -71,6 +71,10 @@ export function useBackgroundMlWorker(db: SQLiteDatabase | null): void {
 						const parsed = JSON.parse(row.crop_bounds_json);
 						if (Array.isArray(parsed) && parsed.length === 4) {
 							reticleBounds = parsed as [number, number, number, number];
+							logger.info(
+								"BackgroundML",
+								`Using stored crop_bounds_json: ${JSON.stringify(reticleBounds)}`,
+							);
 						}
 					} catch {}
 				}

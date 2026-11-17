@@ -579,6 +579,28 @@ export default function DashboardScreen() {
 													{item.meter_serial_number || "UNKNOWN"}
 												</Text>
 												<View style={styles.badgesCluster}>
+													{item.vlm_kwh != null && (
+														<View
+															style={[
+																styles.aiChip,
+																{
+																	backgroundColor: isDark
+																		? "#064e3b"
+																		: "#DCFCE7",
+																	borderColor: isDark ? "#059669" : "#86EFAC",
+																},
+															]}
+														>
+															<Text
+																style={[
+																	styles.aiChipText,
+																	{ color: isDark ? "#4ade80" : "#15803D" },
+																]}
+															>
+																AI: {Number(item.vlm_kwh).toFixed(1)} kWh
+															</Text>
+														</View>
+													)}
 													{isPendingMl ? (
 														<View style={styles.processChip}>
 															<Text style={styles.processChipText}>

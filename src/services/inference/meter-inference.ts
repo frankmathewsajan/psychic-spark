@@ -204,8 +204,11 @@ export async function runEdgeMeterInference(
 		const origH = probe.height;
 
 		// Normalized display crop bounds: [normX, normY, normW, normH]
-		const bounds = input.reticleBounds || [0.18, 0.28, 0.64, 0.24];
-		const [normX, normY, normW, normH] = bounds;
+		const rawBounds = input.reticleBounds || [0.18, 0.28, 0.64, 0.22];
+		const normX = Math.max(0, Math.min(0.95, rawBounds[0]));
+		const normY = Math.max(0, Math.min(0.95, rawBounds[1]));
+		const normW = Math.max(0.05, Math.min(1.0 - normX, rawBounds[2]));
+		const normH = Math.max(0.05, Math.min(1.0 - normY, rawBounds[3]));
 
 		const cropOriginX = Math.max(
 			0,
@@ -224,6 +227,11 @@ export async function runEdgeMeterInference(
 			Math.min(origH - cropOriginY, Math.round(normH * origH)),
 		);
 
+		logger.info(
+			"Inference",
+			`Reticle crop bounds [norm=${normX.toFixed(3)},${normY.toFixed(3)},${normW.toFixed(3)},${normH.toFixed(3)} -> px=${cropOriginX},${cropOriginY},${cropW}x${cropH}]`,
+		);
+
 		const lcdCrop = await manipulateAsync(
 			imageUri,
 			[
@@ -239,54 +247,17 @@ export async function runEdgeMeterInference(
 			{ format: SaveFormat.JPEG, compress: 0.9 },
 		);
 
-		// Helper to extract 4-8 digit numeric candidates from OCR text
-		const numericRegex = /^\d{4,7}(\.\d{1,2})?$/;
-		const extractCandidate = (
-			text: string,
-			isFullFrame: boolean,
-		): string | null => {
-			const rawTokens = text.split(/\s+/);
-			let candidate: string | null = null;
+		// ML Kit Reticle Crop Recognition (Line-Level candidate extraction)
+		let recognizedLines: Array<{
+			text: string;
+			frame?: { height: number; width: number; top: number; left: number };
+		}> = [];
 
-			for (const token of rawTokens) {
-				const trimmed = token.trim();
-				if (!trimmed) continue;
-
-				// Direct match against numeric pattern
-				if (numericRegex.test(trimmed)) {
-					if (!candidate || trimmed.length > candidate.length) {
-						candidate = trimmed;
-					}
-					continue;
-				}
-
-				// 7-segment character sanitization
-				const sanitized = sanitize7Segment(trimmed);
-				if (isFullFrame) {
-					// Full frame fallback: filter specifically for 5-8 digit numeric tokens
-					if (numericRegex.test(sanitized)) {
-						if (!candidate || sanitized.length > candidate.length) {
-							candidate = sanitized;
-						}
-					}
-				} else {
-					// Reticle crop: accept any 4-8 digit numeric reading
-					const digitsOnly = sanitized.replace(/\./g, "");
-					if (digitsOnly.length >= 4 && digitsOnly.length <= 8) {
-						if (!candidate || sanitized.length > candidate.length) {
-							candidate = sanitized;
-						}
-					}
-				}
-			}
-			return candidate;
-		};
-
-		// Pass 1: Reticle crop recognition
-		let recognizedText = "";
 		try {
 			const mlkitResult = await TextRecognition.recognize(lcdCrop.uri);
-			recognizedText = mlkitResult.text || "";
+			if (mlkitResult.blocks && mlkitResult.blocks.length > 0) {
+				recognizedLines = mlkitResult.blocks.flatMap((b) => b.lines || []);
+			}
 		} catch (mlkitErr) {
 			logger.warn(
 				"Inference",
@@ -295,28 +266,46 @@ export async function runEdgeMeterInference(
 			);
 		}
 
-		let bestCandidate = extractCandidate(recognizedText, false);
-		let ocrConfidence = 0.9;
+		// Multi-character faceplate keyword filter (never matches bare 'A' or 'V')
+		const faceplateSpecRegex =
+			/\b(230V|240V|50Hz|60Hz|TYPE|PE1|imp|kWh|kVAh|IEC)\b/i;
+		const numericRegex = /^\d{4,8}(\.\d{1,2})?$/;
 
-		// Pass 2: Dual-Pass Fallback on full image if reticle crop found no candidate
-		if (!bestCandidate) {
-			logger.info(
-				"Inference",
-				"Reticle crop found no 4-8 digit reading; running full-frame fallback pass...",
-			);
-			try {
-				const fullResult = await TextRecognition.recognize(imageUri);
-				const fullText = fullResult.text || "";
-				bestCandidate = extractCandidate(fullText, true);
-				if (bestCandidate) {
-					ocrConfidence = 0.85;
-					logger.info(
-						"Inference",
-						`Full-frame fallback recovered kWh candidate: ${bestCandidate}`,
-					);
+		let bestCandidate: string | null = null;
+		let bestHeight = 0;
+		const ocrConfidence = 0.9;
+
+		for (const line of recognizedLines) {
+			const rawText = line.text?.trim() || "";
+			if (!rawText) continue;
+
+			// Discard line if it contains faceplate electrical specs or standards
+			if (faceplateSpecRegex.test(rawText)) {
+				continue;
+			}
+
+			// Collapse internal whitespace so e.g. "0507 106" -> "0507106"
+			const collapsed = rawText.replace(/\s+/g, "");
+
+			let candidateNum: string | null = null;
+			if (numericRegex.test(collapsed)) {
+				candidateNum = collapsed;
+			} else {
+				// Sanitize 7-segment character misreads (A->4, S->5, O->0, B->8)
+				const sanitized = sanitize7Segment(collapsed);
+				const digitsOnly = sanitized.replace(/\./g, "");
+				if (digitsOnly.length >= 4 && digitsOnly.length <= 8) {
+					candidateNum = sanitized;
 				}
-			} catch (fullErr) {
-				logger.warn("Inference", "Full-frame fallback OCR error", fullErr);
+			}
+
+			if (candidateNum) {
+				const lineHeight = line.frame?.height ?? 0;
+				// Select line with largest bounding-box height (LCD digits are larger than faceplate print)
+				if (lineHeight > bestHeight || !bestCandidate) {
+					bestCandidate = candidateNum;
+					bestHeight = lineHeight;
+				}
 			}
 		}
 

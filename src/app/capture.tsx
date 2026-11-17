@@ -37,6 +37,55 @@ export default function CaptureScreen() {
 		width: number;
 		height: number;
 	} | null>(null);
+	const reticleAreaLayoutRef = useRef<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	}>({ x: 0, y: 0, width: 0, height: 0 });
+	const casingLayoutRef = useRef<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	}>({ x: 0, y: 0, width: 0, height: 0 });
+	const displayLayoutRef = useRef<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	}>({ x: 0, y: 0, width: 0, height: 0 });
+
+	const updateDisplayBounds = () => {
+		if (
+			displayLayoutRef.current.width > 0 &&
+			casingLayoutRef.current.width > 0
+		) {
+			const absX =
+				reticleAreaLayoutRef.current.x +
+				casingLayoutRef.current.x +
+				displayLayoutRef.current.x;
+			const absY =
+				reticleAreaLayoutRef.current.y +
+				casingLayoutRef.current.y +
+				displayLayoutRef.current.y;
+			const absW = displayLayoutRef.current.width;
+			const absH = displayLayoutRef.current.height;
+			displayBoundsRef.current = {
+				x: absX,
+				y: absY,
+				width: absW,
+				height: absH,
+			};
+		}
+		displayRef.current?.measureInWindow(
+			(x: number, y: number, width: number, height: number) => {
+				if (width > 0 && height > 0) {
+					displayBoundsRef.current = { x, y, width, height };
+				}
+			},
+		);
+	};
 	const [permission, requestPermission] = useCameraPermissions();
 
 	const [torchActive, setTorchActive] = useState(false);
@@ -121,16 +170,18 @@ export default function CaptureScreen() {
 				} catch {}
 
 				let cropBoundsJson: string | null = null;
-				if (displayBoundsRef.current && screenW > 0 && screenH > 0) {
-					const photoW = photo.width || screenW;
-					const photoH = photo.height || screenH;
+				if (screenW > 0 && screenH > 0) {
 					const isPortrait = screenH >= screenW;
+					const rawPhotoW = photo.width || screenW;
+					const rawPhotoH = photo.height || screenH;
+
+					// Normalize photo dimensions to match screen orientation
 					const sensorW = isPortrait
-						? Math.min(photoW, photoH)
-						: Math.max(photoW, photoH);
+						? Math.min(rawPhotoW, rawPhotoH)
+						: Math.max(rawPhotoW, rawPhotoH);
 					const sensorH = isPortrait
-						? Math.max(photoW, photoH)
-						: Math.min(photoW, photoH);
+						? Math.max(rawPhotoW, rawPhotoH)
+						: Math.min(rawPhotoW, rawPhotoH);
 
 					const scale = Math.max(screenW / sensorW, screenH / sensorH);
 					const renderedW = sensorW * scale;
@@ -138,7 +189,13 @@ export default function CaptureScreen() {
 					const offsetX = (renderedW - screenW) / 2;
 					const offsetY = (renderedH - screenH) / 2;
 
-					const box = displayBoundsRef.current;
+					const box = displayBoundsRef.current || {
+						x: screenW * 0.18,
+						y: screenH * 0.28,
+						width: screenW * 0.64,
+						height: screenH * 0.22,
+					};
+
 					const cropX = Math.max(0, (box.x + offsetX) / scale);
 					const cropY = Math.max(0, (box.y + offsetY) / scale);
 					const cropW = Math.min(sensorW - cropX, box.width / scale);
@@ -146,8 +203,13 @@ export default function CaptureScreen() {
 
 					const normX = Math.max(0, Math.min(0.95, cropX / sensorW));
 					const normY = Math.max(0, Math.min(0.95, cropY / sensorH));
-					const normW = Math.max(0.05, Math.min(1 - normX, cropW / sensorW));
-					const normH = Math.max(0.05, Math.min(1 - normY, cropH / sensorH));
+					let normW = Math.max(0.05, Math.min(1.0 - normX, cropW / sensorW));
+					let normH = Math.max(0.05, Math.min(1.0 - normY, cropH / sensorH));
+
+					// Clamping safeguards: normX + normW <= 1, normY + normH <= 1
+					if (normX + normW > 1.0) normW = Math.max(0.05, 1.0 - normX);
+					if (normY + normH > 1.0) normH = Math.max(0.05, 1.0 - normY);
+
 					cropBoundsJson = JSON.stringify([normX, normY, normW, normH]);
 				}
 
@@ -251,17 +313,26 @@ export default function CaptureScreen() {
 			)}
 
 			{/* RETICLE OVERLAY */}
-			<View style={styles.reticleArea}>
-				<View style={styles.casingBox}>
+			<View
+				style={styles.reticleArea}
+				onLayout={(e) => {
+					reticleAreaLayoutRef.current = e.nativeEvent.layout;
+					updateDisplayBounds();
+				}}
+			>
+				<View
+					style={styles.casingBox}
+					onLayout={(e) => {
+						casingLayoutRef.current = e.nativeEvent.layout;
+						updateDisplayBounds();
+					}}
+				>
 					<View
 						ref={displayRef}
 						style={styles.displayBox}
-						onLayout={() => {
-							displayRef.current?.measureInWindow(
-								(x: number, y: number, width: number, height: number) => {
-									displayBoundsRef.current = { x, y, width, height };
-								},
-							);
+						onLayout={(e) => {
+							displayLayoutRef.current = e.nativeEvent.layout;
+							updateDisplayBounds();
 						}}
 					/>
 				</View>
@@ -439,7 +510,7 @@ const styles = StyleSheet.create({
 	},
 	displayBox: {
 		width: "74%",
-		height: "33%",
+		height: "22%",
 		borderWidth: 1.5,
 		borderColor: "#60A5FA",
 		borderRadius: 8,

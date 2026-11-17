@@ -64,6 +64,9 @@ def ingest_telemetry_batch(
         if existing:
             existing.batch_id = payload.batch_id
             existing.technician_id = item.technician_id
+            existing.device_id = item.device_id
+            existing.device_model = item.device_model
+            existing.app_version = item.app_version
             existing.meter_serial_number = item.meter_serial_number
             existing.timestamp_utc = item.timestamp_utc
             existing.latitude = item.geo[0]
@@ -77,6 +80,9 @@ def ingest_telemetry_batch(
                 id=item.id,
                 batch_id=payload.batch_id,
                 technician_id=item.technician_id,
+                device_id=item.device_id,
+                device_model=item.device_model,
+                app_version=item.app_version,
                 meter_serial_number=item.meter_serial_number,
                 timestamp_utc=item.timestamp_utc,
                 latitude=item.geo[0],

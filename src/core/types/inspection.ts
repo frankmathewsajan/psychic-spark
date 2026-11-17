@@ -10,6 +10,8 @@ export interface InspectionRecord {
 	id: string;
 	technician_id: string;
 	device_id: string;
+	device_model?: string | null;
+	app_version?: string | null;
 	meter_serial_number: string;
 	latitude: number;
 	longitude: number;
@@ -36,6 +38,9 @@ export interface Tier1BatchPayload {
 	inspections: Array<{
 		id: string;
 		technician_id: string;
+		device_id: string;
+		device_model?: string;
+		app_version?: string;
 		meter_serial_number: string;
 		timestamp_utc: string;
 		geo: [number, number];
@@ -44,6 +49,30 @@ export interface Tier1BatchPayload {
 		kwh_reading: number | null;
 		ocr_confidence: number | null;
 	}>;
+}
+
+export interface ClientMessage {
+	id: string;
+	target_type: string;
+	target_id: string;
+	message_type: string;
+	priority: string;
+	title: string;
+	body: string;
+	payload_json?: string | null;
+	created_at: string;
+	ack_status: "DELIVERED" | "READ" | "ACTIONED";
+	received_at?: string;
+}
+
+export interface PendingAck {
+	id: string;
+	message_id: string;
+	device_id: string;
+	technician_id: string;
+	status: "DELIVERED" | "READ" | "ACTIONED";
+	client_notes?: string | null;
+	created_at?: string;
 }
 
 export interface QueueMetrics {

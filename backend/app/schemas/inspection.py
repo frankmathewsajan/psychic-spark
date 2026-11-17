@@ -13,6 +13,9 @@ class InspectionTelemetryItem(BaseModel):
         ..., description="Unique client inspection ID (e.g., ins_1726918195000)"
     )
     technician_id: str
+    device_id: str = "UNKNOWN"
+    device_model: str | None = None
+    app_version: str | None = None
     meter_serial_number: str
     timestamp_utc: str
     geo: tuple[float, float] = Field(..., description="[Latitude, Longitude]")
@@ -62,6 +65,9 @@ class InspectionDetailItem(BaseModel):
     id: str
     batch_id: str
     technician_id: str
+    device_id: str = "UNKNOWN"
+    device_model: str | None = None
+    app_version: str | None = None
     meter_serial_number: str
     timestamp_utc: str
     latitude: float

@@ -17,16 +17,24 @@ import { AppSymbol } from "@/components/app-symbol";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import {
+	getActiveClientMessages,
 	getInspections,
+	getOrCreateDeviceId,
 	getQueueMetrics,
 	getReviewQueue,
 	getSetting,
+	recordClientAck,
 } from "@/core/db/repository";
-import type { InspectionRecord, QueueMetrics } from "@/core/types/inspection";
+import type {
+	ClientMessage,
+	InspectionRecord,
+	QueueMetrics,
+} from "@/core/types/inspection";
 import {
 	executeTier1Sync,
 	getTier1BackoffInfo,
 	reconcileCloudAuditStatus,
+	syncClientMessages,
 } from "@/services/sync/tier1-sync";
 import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
 
@@ -48,19 +56,22 @@ export default function DashboardScreen() {
 	});
 	const [history, setHistory] = useState<InspectionRecord[]>([]);
 	const [reviewQueue, setReviewQueue] = useState<InspectionRecord[]>([]);
+	const [activeMessages, setActiveMessages] = useState<ClientMessage[]>([]);
 
 	const loadData = useCallback(async () => {
 		const db = await getDb();
-		const [m, rows, review, savedUrl] = await Promise.all([
+		const [m, rows, review, savedUrl, msgs] = await Promise.all([
 			getQueueMetrics(db),
 			getInspections(db, search),
 			getReviewQueue(db),
 			getSetting(db, "gateway_url", DEFAULT_GATEWAY_URL),
+			getActiveClientMessages(db),
 		]);
 		setMetrics(m);
 		setHistory(rows);
 		setReviewQueue(review);
 		setGatewayUrl(savedUrl);
+		setActiveMessages(msgs);
 	}, [search]);
 
 	useFocusEffect(
@@ -69,12 +80,29 @@ export default function DashboardScreen() {
 		}, [loadData]),
 	);
 
+	const handleAcknowledgeMessage = async (msgId: string) => {
+		const db = await getDb();
+		const devId = await getOrCreateDeviceId(db);
+		await recordClientAck(
+			db,
+			msgId,
+			devId,
+			"TECH-01",
+			"ACTIONED",
+			"Acknowledged in field app",
+		);
+		await loadData();
+		// Flush ack to server if online
+		await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
+	};
+
 	const handleSync = async () => {
 		if (isSyncing) return;
 		setIsSyncing(true);
 		setRefreshing(true);
 		setSyncFeedback("Ping (1/4)...");
 		const db = await getDb();
+		const devId = await getOrCreateDeviceId(db);
 
 		const tier1Success = await executeTier1Sync(db, gatewayUrl, {
 			force: true,
@@ -88,6 +116,8 @@ export default function DashboardScreen() {
 			await executeTier2MediaSync(db, gatewayUrl);
 			// Reconcile Cloud VLM audit stage & verified reading back to local SQLite
 			await reconcileCloudAuditStatus(db, gatewayUrl);
+			// Poll new admin directives & flush offline acks
+			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
 		} else {
 			const backoff = getTier1BackoffInfo();
 			if (backoff.lastError === "Server not reachable") {
@@ -152,6 +182,42 @@ export default function DashboardScreen() {
 					</Pressable>
 				</View>
 			</View>
+
+			{/* ACTIVE ADMIN DIRECTIVES & ALERTS */}
+			{activeMessages.length > 0 && (
+				<View style={styles.alertContainer}>
+					{activeMessages.slice(0, 2).map((msg) => (
+						<View
+							key={msg.id}
+							style={[
+								styles.alertCard,
+								msg.priority === "URGENT" || msg.priority === "CRITICAL"
+									? styles.alertCardUrgent
+									: styles.alertCardNormal,
+							]}
+						>
+							<View style={styles.alertContent}>
+								<View style={styles.alertHeader}>
+									<Text style={styles.alertBadge}>
+										{msg.priority} &bull; {msg.message_type}
+									</Text>
+								</View>
+								<Text style={styles.alertTitle}>{msg.title}</Text>
+								<Text style={styles.alertBody}>{msg.body}</Text>
+							</View>
+							<Pressable
+								style={({ pressed }) => [
+									styles.ackBtn,
+									pressed && styles.btnPressed,
+								]}
+								onPress={() => handleAcknowledgeMessage(msg.id)}
+							>
+								<Text style={styles.ackBtnText}>ACK</Text>
+							</Pressable>
+						</View>
+					))}
+				</View>
+			)}
 
 			{/* MD3 METRICS ROW */}
 			<View style={styles.metricsCard}>
@@ -444,6 +510,63 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 8,
+	},
+	alertContainer: {
+		paddingHorizontal: 16,
+		gap: 8,
+		marginBottom: 10,
+	},
+	alertCard: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 12,
+		borderRadius: 10,
+		borderWidth: 1,
+	},
+	alertCardUrgent: {
+		backgroundColor: "#FEF2F2",
+		borderColor: "#FCA5A5",
+	},
+	alertCardNormal: {
+		backgroundColor: "#EFF6FF",
+		borderColor: "#BFDBFE",
+	},
+	alertContent: {
+		flex: 1,
+	},
+	alertHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 2,
+	},
+	alertBadge: {
+		fontSize: 10,
+		fontWeight: "700",
+		textTransform: "uppercase",
+		color: "#B91C1C",
+		letterSpacing: 0.5,
+	},
+	alertTitle: {
+		fontSize: 13,
+		fontWeight: "700",
+		color: MD3.color.onSurface,
+	},
+	alertBody: {
+		fontSize: 11,
+		color: MD3.color.onSurfaceVariant,
+		marginTop: 2,
+	},
+	ackBtn: {
+		backgroundColor: "#18181B",
+		paddingVertical: 6,
+		paddingHorizontal: 10,
+		borderRadius: 6,
+		marginLeft: 8,
+	},
+	ackBtnText: {
+		color: "#FFFFFF",
+		fontSize: 11,
+		fontWeight: "700",
 	},
 	title: {
 		fontSize: 24,

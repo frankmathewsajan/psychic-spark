@@ -1,10 +1,15 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import {
+	getPendingMessageAcks,
 	prepareTier1Batch,
+	recordClientAck,
+	removePendingMessageAck,
 	resolveTier1Batch,
 	updateInspectionAuditStage,
+	upsertClientMessage,
 } from "../../core/db/repository";
 import { logger } from "../../core/logger";
+import type { ClientMessage } from "../../core/types/inspection";
 
 export interface Tier1SyncOptions {
 	maxRetries?: number;
@@ -310,6 +315,109 @@ export async function reconcileCloudAuditStatus(
 		return updatedCount;
 	} catch (err) {
 		logger.warn("SyncTier1", "Cloud audit status reconciliation skipped", err);
+		return 0;
+	}
+}
+
+/**
+ * Flushes all locally queued message ACKs to the cloud gateway.
+ */
+export async function syncPendingMessageAcks(
+	db: SQLiteDatabase,
+	gatewayUrl: string,
+): Promise<number> {
+	try {
+		const pending = await getPendingMessageAcks(db);
+		if (pending.length === 0) return 0;
+
+		let flushedCount = 0;
+		const base = gatewayUrl.trim().replace(/\/+$/, "");
+
+		for (const ack of pending) {
+			try {
+				const res = await fetch(
+					`${base}/api/v1/devices/${ack.device_id}/messages/${ack.message_id}/ack`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							technician_id: ack.technician_id,
+							status: ack.status,
+							client_notes: ack.client_notes ?? null,
+						}),
+					},
+				);
+				if (res.ok) {
+					await removePendingMessageAck(db, ack.id);
+					flushedCount++;
+				}
+			} catch (ackErr) {
+				logger.warn("SyncTier1", `Failed to flush ack ${ack.id}`, ackErr);
+			}
+		}
+		return flushedCount;
+	} catch (err) {
+		logger.warn("SyncTier1", "Error checking pending message acks", err);
+		return 0;
+	}
+}
+
+/**
+ * Polls unread admin messages/alerts for this device and technician,
+ * saves them to local SQLite, and dispatches DELIVERED ACKs.
+ */
+export async function syncClientMessages(
+	db: SQLiteDatabase,
+	gatewayUrl: string,
+	deviceId: string,
+	technicianId: string,
+): Promise<number> {
+	try {
+		// 1. Flush any queued offline ACKs first
+		await syncPendingMessageAcks(db, gatewayUrl);
+
+		// 2. Fetch active messages targeted to ALL or this device/tech
+		const base = gatewayUrl.trim().replace(/\/+$/, "");
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 8000);
+
+		const res = await fetch(
+			`${base}/api/v1/devices/${deviceId}/messages?technician_id=${encodeURIComponent(technicianId)}`,
+			{
+				method: "GET",
+				signal: controller.signal,
+			},
+		);
+		clearTimeout(timer);
+
+		if (!res.ok) return 0;
+		const messages = (await res.json()) as ClientMessage[];
+
+		let newCount = 0;
+		for (const msg of messages) {
+			await upsertClientMessage(db, msg);
+			// Submit immediate DELIVERED ack
+			try {
+				await fetch(
+					`${base}/api/v1/devices/${deviceId}/messages/${msg.id}/ack`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							technician_id: technicianId,
+							status: "DELIVERED",
+						}),
+					},
+				);
+			} catch {
+				// If offline/interrupted, record in pending_message_acks for next retry
+				await recordClientAck(db, msg.id, deviceId, technicianId, "DELIVERED");
+			}
+			newCount++;
+		}
+		return newCount;
+	} catch (err) {
+		logger.warn("SyncTier1", "Message synchronization skipped", err);
 		return 0;
 	}
 }

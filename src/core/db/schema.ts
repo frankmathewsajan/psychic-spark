@@ -36,6 +36,30 @@ CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS client_messages (
+    id TEXT PRIMARY KEY NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    message_type TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    payload_json TEXT,
+    created_at TEXT NOT NULL,
+    ack_status TEXT DEFAULT 'DELIVERED',
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pending_message_acks (
+    id TEXT PRIMARY KEY NOT NULL,
+    message_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    technician_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    client_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
@@ -50,6 +74,48 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 		} catch {
 			// Already exists
 		}
+
+		// LIVE MIGRATION 0b: Ensure messaging tables exist
+		try {
+			await db.runAsync(`
+				CREATE TABLE IF NOT EXISTS client_messages (
+					id TEXT PRIMARY KEY NOT NULL,
+					target_type TEXT NOT NULL,
+					target_id TEXT NOT NULL,
+					message_type TEXT NOT NULL,
+					priority TEXT NOT NULL,
+					title TEXT NOT NULL,
+					body TEXT NOT NULL,
+					payload_json TEXT,
+					created_at TEXT NOT NULL,
+					ack_status TEXT DEFAULT 'DELIVERED',
+					received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				);
+			`);
+			await db.runAsync(`
+				CREATE TABLE IF NOT EXISTS pending_message_acks (
+					id TEXT PRIMARY KEY NOT NULL,
+					message_id TEXT NOT NULL,
+					device_id TEXT NOT NULL,
+					technician_id TEXT NOT NULL,
+					status TEXT NOT NULL,
+					client_notes TEXT,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				);
+			`);
+		} catch {
+			// Already exists
+		}
+
+		// LIVE MIGRATION 0c: Add device attribution columns
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN device_model TEXT;`,
+			);
+		} catch {}
+		try {
+			await db.runAsync(`ALTER TABLE inspections ADD COLUMN app_version TEXT;`);
+		} catch {}
 
 		// LIVE MIGRATION 1: Add inference_status column if missing
 		try {

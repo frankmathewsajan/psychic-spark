@@ -181,6 +181,12 @@ export default function DashboardScreen() {
 				imagePath: item.image_local_path,
 				decimalInferred: "0",
 				source: "vision_ocr",
+				auditStage: item.audit_stage || "",
+				vlmKwh: item.vlm_kwh != null ? String(item.vlm_kwh) : "",
+				vlmNotes: item.vlm_notes || "",
+				vlmSummary: item.vlm_summary || "",
+				vlmTags: item.vlm_tags || "",
+				qcChecklist: item.qc_checklist_json || "",
 			},
 		});
 	};

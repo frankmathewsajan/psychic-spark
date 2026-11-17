@@ -83,6 +83,8 @@ class InspectionDetailItem(BaseModel):
     vlm_notes: str | None = None
     vlm_summary: str | None = None
     vlm_tags: str | None = None
+    qc_checklist_json: str | None = None
+    evidence_sha256: str | None = None
     photos: list[PhotoReadItem] = []
 
     model_config = ConfigDict(from_attributes=True)

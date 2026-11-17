@@ -291,6 +291,9 @@ export async function reconcileCloudAuditStatus(
 			audit_stage?: string;
 			vlm_kwh?: number | null;
 			vlm_notes?: string | null;
+			vlm_summary?: string | null;
+			vlm_tags?: string | null;
+			qc_checklist_json?: string | null;
 		}>;
 
 		let updatedCount = 0;
@@ -302,6 +305,9 @@ export async function reconcileCloudAuditStatus(
 					item.audit_stage,
 					item.vlm_kwh ?? null,
 					item.vlm_notes ?? null,
+					item.vlm_summary ?? null,
+					item.vlm_tags ?? null,
+					item.qc_checklist_json ?? null,
 				);
 				updatedCount++;
 			}

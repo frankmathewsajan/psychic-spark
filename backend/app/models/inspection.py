@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -41,6 +41,8 @@ class Inspection(Base):
     vlm_notes: Mapped[str | None] = mapped_column(String, nullable=True)
     vlm_summary: Mapped[str | None] = mapped_column(String, nullable=True)
     vlm_tags: Mapped[str | None] = mapped_column(String, nullable=True)
+    qc_checklist_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     photos: Mapped[list["InspectionPhoto"]] = relationship(
         "InspectionPhoto", back_populates="inspection", cascade="all, delete-orphan"

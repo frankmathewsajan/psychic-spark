@@ -65,10 +65,21 @@ export function useBackgroundMlWorker(db: SQLiteDatabase | null): void {
 					Boolean(row.meter_serial_number) &&
 					!row.meter_serial_number.startsWith("UNKNOWN_");
 
+				let reticleBounds: [number, number, number, number] | undefined;
+				if (row.crop_bounds_json) {
+					try {
+						const parsed = JSON.parse(row.crop_bounds_json);
+						if (Array.isArray(parsed) && parsed.length === 4) {
+							reticleBounds = parsed as [number, number, number, number];
+						}
+					} catch {}
+				}
+
 				const result = await runEdgeMeterInference({
 					imageUri: row.image_local_path,
 					scannedBarcode: hasScannedBarcode ? row.meter_serial_number : null,
 					tilt: row.tilt_deg ?? 0,
+					reticleBounds,
 				});
 
 				// PASS with no decimal guess → auto-promote to sync queue

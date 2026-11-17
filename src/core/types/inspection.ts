@@ -30,6 +30,8 @@ export interface InspectionRecord {
 	vlm_notes?: string | null;
 	vlm_summary?: string | null;
 	vlm_tags?: string | null;
+	qc_checklist_json?: string | null;
+	crop_bounds_json?: string | null;
 	created_at?: string;
 }
 

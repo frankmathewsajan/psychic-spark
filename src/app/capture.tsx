@@ -14,6 +14,7 @@ import {
 	Pressable,
 	StyleSheet,
 	Text,
+	useWindowDimensions,
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,10 +29,19 @@ import { calculateWallTilt } from "@/services/sensor/leveling";
 export default function CaptureScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
+	const { width: screenW, height: screenH } = useWindowDimensions();
 	const cameraRef = useRef<CameraView>(null);
+	const displayRef = useRef<React.ComponentRef<typeof View>>(null);
+	const displayBoundsRef = useRef<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
 	const [permission, requestPermission] = useCameraPermissions();
 
 	const [torchActive, setTorchActive] = useState(false);
+	const [zoom, setZoom] = useState(0);
 	const [tilt, setTilt] = useState(0);
 	const [isAligned, setIsAligned] = useState(false);
 	const [isCapturing, setIsCapturing] = useState(false);
@@ -117,6 +127,37 @@ export default function CaptureScreen() {
 					persistentPath = destFile.uri;
 				} catch {}
 
+				let cropBoundsJson: string | null = null;
+				if (displayBoundsRef.current && screenW > 0 && screenH > 0) {
+					const photoW = photo.width || screenW;
+					const photoH = photo.height || screenH;
+					const isPortrait = screenH >= screenW;
+					const sensorW = isPortrait
+						? Math.min(photoW, photoH)
+						: Math.max(photoW, photoH);
+					const sensorH = isPortrait
+						? Math.max(photoW, photoH)
+						: Math.min(photoW, photoH);
+
+					const scale = Math.max(screenW / sensorW, screenH / sensorH);
+					const renderedW = sensorW * scale;
+					const renderedH = sensorH * scale;
+					const offsetX = (renderedW - screenW) / 2;
+					const offsetY = (renderedH - screenH) / 2;
+
+					const box = displayBoundsRef.current;
+					const cropX = Math.max(0, (box.x + offsetX) / scale);
+					const cropY = Math.max(0, (box.y + offsetY) / scale);
+					const cropW = Math.min(sensorW - cropX, box.width / scale);
+					const cropH = Math.min(sensorH - cropY, box.height / scale);
+
+					const normX = Math.max(0, Math.min(0.95, cropX / sensorW));
+					const normY = Math.max(0, Math.min(0.95, cropY / sensorH));
+					const normW = Math.max(0.05, Math.min(1 - normX, cropW / sensorW));
+					const normH = Math.max(0.05, Math.min(1 - normY, cropH / sensorH));
+					cropBoundsJson = JSON.stringify([normX, normY, normW, normH]);
+				}
+
 				const db = await getDb();
 				await insertInspection(db, {
 					id,
@@ -134,6 +175,7 @@ export default function CaptureScreen() {
 					inference_status: "PENDING_ML",
 					sync_tier1_status: "HOLD_ML",
 					tilt_deg: snapTilt,
+					crop_bounds_json: cropBoundsJson,
 				});
 
 				setDetectedBarcode(null);
@@ -160,6 +202,7 @@ export default function CaptureScreen() {
 				ref={cameraRef}
 				style={StyleSheet.absoluteFill}
 				facing="back"
+				zoom={zoom}
 				enableTorch={torchActive}
 				onCameraReady={() => setIsCameraReady(true)}
 				barcodeScannerSettings={{
@@ -217,7 +260,17 @@ export default function CaptureScreen() {
 			{/* RETICLE OVERLAY */}
 			<View style={styles.reticleArea}>
 				<View style={styles.casingBox}>
-					<View style={styles.displayBox} />
+					<View
+						ref={displayRef}
+						style={styles.displayBox}
+						onLayout={() => {
+							displayRef.current?.measureInWindow(
+								(x: number, y: number, width: number, height: number) => {
+									displayBoundsRef.current = { x, y, width, height };
+								},
+							);
+						}}
+					/>
 				</View>
 			</View>
 
@@ -228,6 +281,30 @@ export default function CaptureScreen() {
 					{ paddingBottom: Math.max(insets.bottom, 16) },
 				]}
 			>
+				{/* ZOOM PRESET SELECTOR */}
+				<View style={styles.zoomRow}>
+					{[
+						{ label: "1x", val: 0 },
+						{ label: "1.5x", val: 0.15 },
+						{ label: "2x", val: 0.3 },
+					].map((z) => (
+						<Pressable
+							key={z.label}
+							style={[styles.zoomPill, zoom === z.val && styles.zoomPillActive]}
+							onPress={() => setZoom(z.val)}
+						>
+							<Text
+								style={[
+									styles.zoomText,
+									zoom === z.val && styles.zoomTextActive,
+								]}
+							>
+								{z.label}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+
 				<View style={styles.controlsRow}>
 					<Pressable
 						style={styles.subBtn}
@@ -377,6 +454,33 @@ const styles = StyleSheet.create({
 	bottomBar: {
 		paddingHorizontal: 24,
 		paddingTop: 16,
+	},
+	zoomRow: {
+		flexDirection: "row",
+		justifyContent: "center",
+		alignItems: "center",
+		gap: 12,
+		marginBottom: 16,
+	},
+	zoomPill: {
+		paddingVertical: 4,
+		paddingHorizontal: 12,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "rgba(0,0,0,0.5)",
+		borderWidth: 1,
+		borderColor: "rgba(255,255,255,0.3)",
+	},
+	zoomPillActive: {
+		backgroundColor: "#FFFFFF",
+		borderColor: "#FFFFFF",
+	},
+	zoomText: {
+		color: "rgba(255,255,255,0.8)",
+		fontSize: 12,
+		fontWeight: "600",
+	},
+	zoomTextActive: {
+		color: "#000000",
 	},
 	controlsRow: {
 		flexDirection: "row",

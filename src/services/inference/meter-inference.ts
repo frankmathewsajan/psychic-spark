@@ -13,6 +13,7 @@ export interface MeterInferenceInput {
 	imageUri: string;
 	scannedBarcode?: string | null;
 	tilt?: number;
+	reticleBounds?: [number, number, number, number];
 }
 
 export interface MeterInferenceResult {
@@ -202,11 +203,26 @@ export async function runEdgeMeterInference(
 		const origW = probe.width;
 		const origH = probe.height;
 
-		// Coordinates match the UI reticle display box ([0.18W, 0.28H, 0.64W, 0.24H])
-		const cropOriginX = Math.max(0, Math.round(0.18 * origW));
-		const cropOriginY = Math.max(0, Math.round(0.28 * origH));
-		const cropW = Math.min(origW - cropOriginX, Math.round(0.64 * origW));
-		const cropH = Math.min(origH - cropOriginY, Math.round(0.24 * origH));
+		// Normalized display crop bounds: [normX, normY, normW, normH]
+		const bounds = input.reticleBounds || [0.18, 0.28, 0.64, 0.24];
+		const [normX, normY, normW, normH] = bounds;
+
+		const cropOriginX = Math.max(
+			0,
+			Math.min(origW - 1, Math.round(normX * origW)),
+		);
+		const cropOriginY = Math.max(
+			0,
+			Math.min(origH - 1, Math.round(normY * origH)),
+		);
+		const cropW = Math.max(
+			1,
+			Math.min(origW - cropOriginX, Math.round(normW * origW)),
+		);
+		const cropH = Math.max(
+			1,
+			Math.min(origH - cropOriginY, Math.round(normH * origH)),
+		);
 
 		const lcdCrop = await manipulateAsync(
 			imageUri,

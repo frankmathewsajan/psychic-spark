@@ -36,6 +36,12 @@ export default function ValidationScreen() {
 		decimalInferred?: string;
 		source?: string;
 		inspectionId?: string;
+		auditStage?: string;
+		vlmKwh?: string;
+		vlmNotes?: string;
+		vlmSummary?: string;
+		vlmTags?: string;
+		qcChecklist?: string;
 	}>();
 
 	const [serialNumber, setSerialNumber] = useState(params.sn || "");
@@ -60,6 +66,18 @@ export default function ValidationScreen() {
 		numericKwh >= 0;
 	const isSnValid = serialNumber.trim().length > 0;
 	const isCommitEnabled = isKwhValid && isSnValid;
+
+	let qcParsed: {
+		terminal_cover_seated?: boolean;
+		tamper_seal_intact?: boolean;
+		casing_undamaged?: boolean;
+		wire_hazard_visible?: boolean;
+	} | null = null;
+	if (params.qcChecklist) {
+		try {
+			qcParsed = JSON.parse(params.qcChecklist);
+		} catch {}
+	}
 
 	const handleCommit = async () => {
 		if (!isCommitEnabled) return;
@@ -182,6 +200,148 @@ export default function ValidationScreen() {
 							keyboardType="decimal-pad"
 						/>
 					</View>
+
+					{/* TIER-3 CLOUD VLM & 4-POINT QC CARD */}
+					{(params.auditStage || params.vlmKwh || qcParsed) && (
+						<View style={[styles.card, { marginTop: 16 }]}>
+							<View style={styles.vlmHeader}>
+								<Text style={styles.label}>Cloud VLM Verification & QC</Text>
+								{params.auditStage === "VLM_VERIFIED" ? (
+									<View style={styles.vlmBadgeVerified}>
+										<Text style={styles.vlmBadgeVerifiedText}>✓✓ Verified</Text>
+									</View>
+								) : params.auditStage === "MISMATCH_FLAGGED" ? (
+									<View style={styles.vlmBadgeMismatch}>
+										<Text style={styles.vlmBadgeMismatchText}>⚠ Mismatch</Text>
+									</View>
+								) : (
+									<View style={styles.vlmBadgePending}>
+										<Text style={styles.vlmBadgePendingText}>Processing</Text>
+									</View>
+								)}
+							</View>
+
+							{params.vlmKwh ? (
+								<Text style={styles.vlmKwhText}>
+									VLM Reading:{" "}
+									<Text style={styles.vlmKwhVal}>{params.vlmKwh} kWh</Text>
+								</Text>
+							) : null}
+
+							{params.vlmSummary ? (
+								<Text style={styles.vlmSummaryText}>"{params.vlmSummary}"</Text>
+							) : null}
+
+							{params.vlmTags ? (
+								<View style={styles.tagWrap}>
+									{params.vlmTags
+										.split(",")
+										.map((t) => t.trim())
+										.filter(Boolean)
+										.map((tag) => (
+											<View key={tag} style={styles.tagPill}>
+												<Text style={styles.tagPillText}>{tag}</Text>
+											</View>
+										))}
+								</View>
+							) : null}
+
+							{/* 4-POINT PHYSICAL QC SCORECARD */}
+							{qcParsed && (
+								<View style={styles.qcGrid}>
+									<View
+										style={[
+											styles.qcCell,
+											!qcParsed.wire_hazard_visible
+												? styles.qcCellPass
+												: styles.qcCellHazard,
+										]}
+									>
+										<Text style={styles.qcLabel}>Wire Safety</Text>
+										<Text
+											style={[
+												styles.qcVal,
+												!qcParsed.wire_hazard_visible
+													? styles.qcValPass
+													: styles.qcValHazard,
+											]}
+										>
+											{!qcParsed.wire_hazard_visible ? "SAFE" : "HAZARD"}
+										</Text>
+									</View>
+
+									<View
+										style={[
+											styles.qcCell,
+											qcParsed.terminal_cover_seated !== false
+												? styles.qcCellPass
+												: styles.qcCellWarn,
+										]}
+									>
+										<Text style={styles.qcLabel}>Terminal Cover</Text>
+										<Text
+											style={[
+												styles.qcVal,
+												qcParsed.terminal_cover_seated !== false
+													? styles.qcValPass
+													: styles.qcValWarn,
+											]}
+										>
+											{qcParsed.terminal_cover_seated !== false
+												? "SEATED"
+												: "UNSEATED"}
+										</Text>
+									</View>
+
+									<View
+										style={[
+											styles.qcCell,
+											qcParsed.tamper_seal_intact !== false
+												? styles.qcCellPass
+												: styles.qcCellWarn,
+										]}
+									>
+										<Text style={styles.qcLabel}>Tamper Seal</Text>
+										<Text
+											style={[
+												styles.qcVal,
+												qcParsed.tamper_seal_intact !== false
+													? styles.qcValPass
+													: styles.qcValWarn,
+											]}
+										>
+											{qcParsed.tamper_seal_intact !== false
+												? "INTACT"
+												: "MISSING"}
+										</Text>
+									</View>
+
+									<View
+										style={[
+											styles.qcCell,
+											qcParsed.casing_undamaged !== false
+												? styles.qcCellPass
+												: styles.qcCellHazard,
+										]}
+									>
+										<Text style={styles.qcLabel}>Casing</Text>
+										<Text
+											style={[
+												styles.qcVal,
+												qcParsed.casing_undamaged !== false
+													? styles.qcValPass
+													: styles.qcValHazard,
+											]}
+										>
+											{qcParsed.casing_undamaged !== false
+												? "UNDAMAGED"
+												: "DAMAGED"}
+										</Text>
+									</View>
+								</View>
+							)}
+						</View>
+					)}
 				</ScrollView>
 
 				{/* BOTTOM SUBMIT */}
@@ -343,5 +503,135 @@ const styles = StyleSheet.create({
 	},
 	btnPressed: {
 		opacity: 0.85,
+	},
+
+	vlmHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 8,
+	},
+	vlmBadgeVerified: {
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "#ECFDF5",
+		borderWidth: 1,
+		borderColor: "#A7F3D0",
+	},
+	vlmBadgeVerifiedText: {
+		fontSize: 11,
+		fontWeight: "700",
+		color: "#047857",
+	},
+	vlmBadgeMismatch: {
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "#FEF3C7",
+		borderWidth: 1,
+		borderColor: "#FDE68A",
+	},
+	vlmBadgeMismatchText: {
+		fontSize: 11,
+		fontWeight: "700",
+		color: "#B45309",
+	},
+	vlmBadgePending: {
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: "#F3F4F6",
+		borderWidth: 1,
+		borderColor: "#E5E7EB",
+	},
+	vlmBadgePendingText: {
+		fontSize: 11,
+		fontWeight: "600",
+		color: "#6B7280",
+	},
+	vlmKwhText: {
+		fontSize: 13,
+		fontWeight: "500",
+		color: MD3.color.onSurfaceVariant,
+		marginBottom: 4,
+	},
+	vlmKwhVal: {
+		fontFamily: Fonts.mono,
+		fontWeight: "700",
+		color: "#0F766E",
+	},
+	vlmSummaryText: {
+		fontSize: 12,
+		fontStyle: "italic",
+		color: MD3.color.onSurface,
+		lineHeight: 18,
+		marginVertical: 4,
+	},
+	tagWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 6,
+		marginTop: 6,
+		marginBottom: 8,
+	},
+	tagPill: {
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: MD3.color.surfaceContainerHigh,
+	},
+	tagPillText: {
+		fontSize: 10,
+		fontWeight: "500",
+		color: MD3.color.onSurfaceVariant,
+	},
+	qcGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+		marginTop: 8,
+		paddingTop: 8,
+		borderTopWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	qcCell: {
+		flexBasis: "48%",
+		flexGrow: 1,
+		padding: 8,
+		borderRadius: 8,
+		borderWidth: 1,
+	},
+	qcCellPass: {
+		backgroundColor: "#F0FDF4",
+		borderColor: "#BBF7D0",
+	},
+	qcCellWarn: {
+		backgroundColor: "#FEFCE8",
+		borderColor: "#FEF08A",
+	},
+	qcCellHazard: {
+		backgroundColor: "#FEF2F2",
+		borderColor: "#FECACA",
+	},
+	qcLabel: {
+		fontSize: 9,
+		fontWeight: "600",
+		color: "#6B7280",
+		textTransform: "uppercase",
+		marginBottom: 2,
+	},
+	qcVal: {
+		fontSize: 11,
+		fontWeight: "700",
+	},
+	qcValPass: {
+		color: "#15803D",
+	},
+	qcValWarn: {
+		color: "#A16207",
+	},
+	qcValHazard: {
+		color: "#B91C1C",
 	},
 });

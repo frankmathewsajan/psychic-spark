@@ -53,8 +53,9 @@ export async function insertInspection(
         id, technician_id, device_id, device_model, app_version, meter_serial_number,
         latitude, longitude, timestamp_utc, qa_status,
         hazard_reason, extracted_kwh, ocr_confidence,
-        image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg,
+        crop_bounds_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 			[
 				record.id,
 				record.technician_id,
@@ -74,6 +75,7 @@ export async function insertInspection(
 				tier2,
 				record.inference_status,
 				tilt,
+				record.crop_bounds_json ?? null,
 			],
 		);
 		logger.info("Repository", `Committed inspection ${record.id} to SQLite`);
@@ -307,14 +309,28 @@ export async function updateInspectionAuditStage(
 	auditStage: string,
 	vlmKwh: number | null,
 	vlmNotes: string | null,
+	vlmSummary?: string | null,
+	vlmTags?: string | null,
+	qcChecklist?: string | null,
 ): Promise<void> {
 	await db.runAsync(
 		`UPDATE inspections SET
 			audit_stage = ?,
 			vlm_kwh = COALESCE(?, vlm_kwh),
-			vlm_notes = ?
+			vlm_notes = ?,
+			vlm_summary = COALESCE(?, vlm_summary),
+			vlm_tags = COALESCE(?, vlm_tags),
+			qc_checklist_json = COALESCE(?, qc_checklist_json)
 		WHERE id = ?;`,
-		[auditStage, vlmKwh, vlmNotes, id],
+		[
+			auditStage,
+			vlmKwh,
+			vlmNotes,
+			vlmSummary ?? null,
+			vlmTags ?? null,
+			qcChecklist ?? null,
+			id,
+		],
 	);
 }
 

@@ -16,12 +16,15 @@ FALLBACK_MODEL = "gemini-4-hydrogen"
 
 PROMPT_TEXT = """
 You are an expert electric utility meter quality assurance inspector.
-Analyze this meter inspection photo.
+Analyze this meter inspection photo for Physical Installation Quality Control (QC).
 Return strict JSON with this exact schema:
 {
   "kwh_reading": float or null,
   "register_unit": "kWh" or "kVAh" or "OTHER",
   "serial_number": string or null,
+  "terminal_cover_seated": boolean,
+  "tamper_seal_intact": boolean,
+  "casing_undamaged": boolean,
   "wire_hazard_visible": boolean,
   "confidence": float between 0.0 and 1.0,
   "summary": string,
@@ -33,7 +36,10 @@ Rules:
 2. If the display shows a decimal point (for example: 1428.5), keep it.
 3. If the reading is not legible or missing, set kwh_reading to null.
 4. Set wire_hazard_visible to true if loose, bare, damaged wires or missing covers appear.
-5. Provide a short factual summary in simple English.
+5. Set terminal_cover_seated to true if the bottom terminal cover is flush and closed.
+6. Set tamper_seal_intact to true if utility lead/wire security seal is visible and intact.
+7. Set casing_undamaged to true if the outer meter polycarbonate enclosure has no cracks or burns.
+8. Provide a short factual summary in simple English.
 """
 
 
@@ -124,6 +130,22 @@ async def run_vlm_meter_audit(
         summary = str(data.get("summary", ""))
         tags_list = data.get("tags", [])
         tags_str = ", ".join(tags_list) if isinstance(tags_list, list) else ""
+
+        qc_checklist = {
+            "terminal_cover_seated": bool(data.get("terminal_cover_seated", True)),
+            "tamper_seal_intact": bool(data.get("tamper_seal_intact", True)),
+            "casing_undamaged": bool(data.get("casing_undamaged", True)),
+            "wire_hazard_visible": bool(data.get("wire_hazard_visible", False)),
+        }
+        inspection.qc_checklist_json = json.dumps(qc_checklist)
+
+        if not inspection.evidence_sha256:
+            import hashlib
+            inspection.evidence_sha256 = hashlib.sha256(
+                image_bytes
+                + (inspection.meter_serial_number or "").encode()
+                + (inspection.timestamp_utc or "").encode()
+            ).hexdigest()
 
         inspection.vlm_kwh = vlm_kwh
         inspection.vlm_confidence = confidence

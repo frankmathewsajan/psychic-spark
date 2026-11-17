@@ -84,6 +84,9 @@ ADMIN_HTML = """<!DOCTYPE html>
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           Live (5s)
         </span>
+        <a href="/api/v1/inspections/export.csv" target="_blank" download="DISCOM_Installation_QC_Audit.csv" class="px-3 py-1.5 text-xs font-semibold bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition inline-flex items-center gap-1.5">
+          <span>Export QC CSV</span>
+        </a>
         <button onclick="refreshAll()" class="px-3 py-1.5 text-xs font-medium bg-white hover:bg-zinc-100 text-zinc-800 rounded-md border border-zinc-200 transition">
           Refresh
         </button>
@@ -307,6 +310,21 @@ ADMIN_HTML = """<!DOCTYPE html>
               <p id="detail-vlm-summary" class="text-zinc-700 leading-relaxed italic">No AI summary generated.</p>
               <div id="detail-vlm-tags" class="flex flex-wrap gap-1 mt-2"></div>
               <p id="detail-vlm-notes" class="text-zinc-500 text-[11px] mt-1 pt-1 border-t border-zinc-200 font-mono"></p>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">4-Point Physical Installation QC</h4>
+            <div id="detail-qc-scorecard" class="bg-zinc-50 p-3 rounded-lg border border-zinc-200 grid grid-cols-2 gap-2 text-xs">
+              <!-- Populated via openDetailModal -->
+            </div>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Evidence Integrity Seal</h4>
+            <div class="bg-zinc-50 p-3 rounded-lg border border-zinc-200 text-xs">
+              <span class="text-zinc-400 text-[10px] block font-mono">SHA-256 EVIDENCE DIGEST</span>
+              <div id="detail-evidence-seal" class="mt-1 font-mono text-zinc-700 break-all text-[11px]">—</div>
             </div>
           </div>
 
@@ -768,6 +786,53 @@ ADMIN_HTML = """<!DOCTYPE html>
           span.textContent = tag;
           tagsElem.appendChild(span);
         });
+      }
+
+      // 4-Point Physical Installation QC Scorecard
+      let qc = null;
+      if (item.qc_checklist_json) {
+        try { qc = JSON.parse(item.qc_checklist_json); } catch(e) {}
+      }
+      const qcElem = document.getElementById('detail-qc-scorecard');
+      if (qc) {
+        const wireSafe = !qc.wire_hazard_visible && item.qa_status !== 'CRITICAL_HAZARD';
+        const coverSeated = qc.terminal_cover_seated !== false;
+        const sealIntact = qc.tamper_seal_intact !== false;
+        const casingOk = qc.casing_undamaged !== false;
+
+        qcElem.innerHTML = `
+          <div class="p-2 rounded ${wireSafe ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}">
+            <span class="text-[10px] text-zinc-500 block uppercase">Wire Safety</span>
+            <span class="font-bold text-xs ${wireSafe ? 'text-emerald-700' : 'text-red-700'}">${wireSafe ? 'SAFE' : 'CRITICAL HAZARD'}</span>
+          </div>
+          <div class="p-2 rounded ${coverSeated ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}">
+            <span class="text-[10px] text-zinc-500 block uppercase">Terminal Cover</span>
+            <span class="font-bold text-xs ${coverSeated ? 'text-emerald-700' : 'text-amber-700'}">${coverSeated ? 'SEATED' : 'UNSEATED'}</span>
+          </div>
+          <div class="p-2 rounded ${sealIntact ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}">
+            <span class="text-[10px] text-zinc-500 block uppercase">Tamper Seal</span>
+            <span class="font-bold text-xs ${sealIntact ? 'text-emerald-700' : 'text-amber-700'}">${sealIntact ? 'INTACT' : 'TAMPERED / MISSING'}</span>
+          </div>
+          <div class="p-2 rounded ${casingOk ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}">
+            <span class="text-[10px] text-zinc-500 block uppercase">Casing Integrity</span>
+            <span class="font-bold text-xs ${casingOk ? 'text-emerald-700' : 'text-red-700'}">${casingOk ? 'UNDAMAGED' : 'DAMAGED'}</span>
+          </div>
+        `;
+      } else {
+        qcElem.innerHTML = `<div class="col-span-2 text-zinc-400 italic py-1 text-center">QC checklist pending VLM analysis</div>`;
+      }
+
+      // Evidence Integrity Seal (SHA-256)
+      const sealElem = document.getElementById('detail-evidence-seal');
+      if (item.evidence_sha256) {
+        sealElem.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-zinc-800 break-all select-all">${escapeHtml(item.evidence_sha256)}</span>
+            <button onclick="navigator.clipboard.writeText('${escapeHtml(item.evidence_sha256)}')" class="px-2 py-1 text-[10px] font-semibold bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded flex-shrink-0">Copy</button>
+          </div>
+        `;
+      } else {
+        sealElem.innerHTML = '<span class="text-zinc-400 italic">No evidence seal recorded</span>';
       }
 
       document.getElementById('detail-attr-tech').textContent = item.technician_id || 'UNKNOWN';

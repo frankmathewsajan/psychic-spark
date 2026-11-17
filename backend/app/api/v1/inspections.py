@@ -1,9 +1,13 @@
+import csv
+import hashlib
+import io
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
@@ -42,6 +46,88 @@ def list_inspections(
         .all()
     )
     return rows
+
+
+@router.get(
+    "/inspections/export.csv",
+    status_code=status.HTTP_200_OK,
+    summary="Export DISCOM Installation QC Audit CSV",
+)
+def export_qc_audit_csv(
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Generates and streams a standardized DISCOM Installation QC Audit CSV.
+    """
+    rows = (
+        db.query(Inspection)
+        .order_by(Inspection.ingested_at.desc())
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Inspection ID",
+        "Timestamp UTC",
+        "Technician ID",
+        "Device ID",
+        "Device Model",
+        "Meter S/N",
+        "QA Verdict",
+        "Wire Hazard Visible",
+        "Terminal Cover Seated",
+        "Tamper Seal Intact",
+        "Casing Undamaged",
+        "Edge Reading (kWh)",
+        "VLM Reading (kWh)",
+        "VLM Audit Stage",
+        "Latitude",
+        "Longitude",
+        "SHA-256 Evidence Seal",
+    ])
+
+    for r in rows:
+        qc_data = {}
+        if r.qc_checklist_json:
+            try:
+                qc_data = json.loads(r.qc_checklist_json)
+            except Exception:
+                qc_data = {}
+
+        terminal_cover = qc_data.get("terminal_cover_seated", "N/A")
+        tamper_seal = qc_data.get("tamper_seal_intact", "N/A")
+        casing = qc_data.get("casing_undamaged", "N/A")
+        wire_hazard = qc_data.get("wire_hazard_visible", True if r.qa_status == "CRITICAL_HAZARD" else "N/A")
+
+        writer.writerow([
+            r.id,
+            r.timestamp_utc,
+            r.technician_id,
+            r.device_id,
+            r.device_model or "Android",
+            r.meter_serial_number,
+            r.qa_status,
+            wire_hazard,
+            terminal_cover,
+            tamper_seal,
+            casing,
+            f"{r.kwh_reading:.1f}" if r.kwh_reading is not None else "N/A",
+            f"{r.vlm_kwh:.1f}" if r.vlm_kwh is not None else "N/A",
+            r.audit_stage,
+            f"{r.latitude:.6f}",
+            f"{r.longitude:.6f}",
+            r.evidence_sha256 or "N/A",
+        ])
+
+    csv_data = output.getvalue()
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=DISCOM_Installation_QC_Audit.csv",
+        },
+    )
 
 
 @router.post(
@@ -196,6 +282,14 @@ def upload_audit_image(
             file_path=stored_path,
         )
         db.add(new_photo)
+
+    # Synchronously compute cryptographic SHA-256 evidence seal
+    evidence_sha256 = hashlib.sha256(
+        file_bytes
+        + (inspection.meter_serial_number or "").encode()
+        + (inspection.timestamp_utc or "").encode()
+    ).hexdigest()
+    inspection.evidence_sha256 = evidence_sha256
 
     # Acknowledgment 1: Mark photo received
     inspection.audit_stage = "IMAGE_RECEIVED"

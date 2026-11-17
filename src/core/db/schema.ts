@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS inspections (
     audit_stage TEXT DEFAULT 'IMAGE_RECEIVED',
     vlm_kwh REAL,
     vlm_notes TEXT,
+    vlm_summary TEXT,
+    vlm_tags TEXT,
+    qc_checklist_json TEXT,
+    crop_bounds_json TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -146,6 +150,22 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 		} catch {}
 		try {
 			await db.runAsync(`ALTER TABLE inspections ADD COLUMN vlm_notes TEXT;`);
+		} catch {}
+		try {
+			await db.runAsync(`ALTER TABLE inspections ADD COLUMN vlm_summary TEXT;`);
+		} catch {}
+		try {
+			await db.runAsync(`ALTER TABLE inspections ADD COLUMN vlm_tags TEXT;`);
+		} catch {}
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN qc_checklist_json TEXT;`,
+			);
+		} catch {}
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN crop_bounds_json TEXT;`,
+			);
 		} catch {}
 
 		// LIVE MIGRATION 3: Check if sync_tier1_status has a restrictive CHECK constraint that blocks 'HOLD_ML'

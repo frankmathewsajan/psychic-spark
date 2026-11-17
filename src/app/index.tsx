@@ -1,54 +1,67 @@
+import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
 import {
+	ActivityIndicator,
 	Pressable,
 	RefreshControl,
 	ScrollView,
 	StyleSheet,
+	Text,
 	TextInput,
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Fonts, MeterTokens, Spacing } from "@/constants/theme";
+import { AppSymbol } from "@/components/app-symbol";
+import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
-import { getInspections, getQueueMetrics } from "@/core/db/repository";
+import {
+	getInspections,
+	getQueueMetrics,
+	getReviewQueue,
+	getSetting,
+} from "@/core/db/repository";
 import type { InspectionRecord, QueueMetrics } from "@/core/types/inspection";
-import { executeTier1Sync } from "@/services/sync/tier1-sync";
+import {
+	executeTier1Sync,
+	getTier1BackoffInfo,
+} from "@/services/sync/tier1-sync";
 import { executeTier2MediaSync } from "@/services/sync/tier2-sync";
 
-// Android emulator uses 10.0.2.2 to reach host machine; Web/iOS uses localhost.
-// Replace with your computer's local LAN IP (e.g., http://192.168.1.15:8000) when testing on physical devices.
-// const GATEWAY_URL = Platform.select({
-// 	android: "http://10.0.2.2:8000",
-// 	default: "http://localhost:8000",
-// });
-
-const GATEWAY_URL = "http://10.243.48.157:8000"; // Tailscale / LAN IP pointing to FastAPI backend
+const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
 
 export default function DashboardScreen() {
 	const router = useRouter();
 	const [search, setSearch] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
+	const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+	const [isSyncing, setIsSyncing] = useState(false);
+	const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_GATEWAY_URL);
 	const [metrics, setMetrics] = useState<QueueMetrics>({
 		pendingTelemetry: 0,
 		syncedTelemetry: 0,
 		pendingImages: 0,
+		needsReview: 0,
+		pendingMl: 0,
 	});
 	const [history, setHistory] = useState<InspectionRecord[]>([]);
+	const [reviewQueue, setReviewQueue] = useState<InspectionRecord[]>([]);
 
 	const loadData = useCallback(async () => {
 		const db = await getDb();
-		const [m, rows] = await Promise.all([
+		const [m, rows, review, savedUrl] = await Promise.all([
 			getQueueMetrics(db),
 			getInspections(db, search),
+			getReviewQueue(db),
+			getSetting(db, "gateway_url", DEFAULT_GATEWAY_URL),
 		]);
 		setMetrics(m);
 		setHistory(rows);
+		setReviewQueue(review);
+		setGatewayUrl(savedUrl);
 	}, [search]);
 
-	// Automatically re-query SQLite SSOT whenever screen gains focus
 	useFocusEffect(
 		useCallback(() => {
 			loadData();
@@ -56,124 +69,332 @@ export default function DashboardScreen() {
 	);
 
 	const handleSync = async () => {
+		if (isSyncing) return;
+		setIsSyncing(true);
 		setRefreshing(true);
+		setSyncFeedback("Ping (1/4)...");
 		const db = await getDb();
 
-		// 1. Dispatch Tier-1 JSON Telemetry (< 2 KB Batch)
-		await executeTier1Sync(db, GATEWAY_URL);
+		const tier1Success = await executeTier1Sync(db, gatewayUrl, {
+			force: true,
+			onPingAttempt: (attempt, max) => {
+				setSyncFeedback(`Ping (${attempt}/${max})...`);
+			},
+		});
 
-		// 2. Dispatch Tier-2 Wi-Fi Deferred Photos
-		await executeTier2MediaSync(db, GATEWAY_URL);
+		if (tier1Success) {
+			setSyncFeedback("Synced ✓");
+			await executeTier2MediaSync(db, gatewayUrl);
+		} else {
+			const backoff = getTier1BackoffInfo();
+			if (backoff.lastError === "Server not reachable") {
+				setSyncFeedback("Server not there");
+			} else {
+				setSyncFeedback(`Offline (${backoff.cooldownSecondsRemaining}s)`);
+			}
+		}
 
 		await loadData();
 		setRefreshing(false);
+		setIsSyncing(false);
+		setTimeout(() => setSyncFeedback(null), 3500);
+	};
+
+	const openInspectionEditor = (item: InspectionRecord) => {
+		router.push({
+			pathname: "/validation",
+			params: {
+				inspectionId: item.id,
+				sn: item.meter_serial_number,
+				kwh: item.extracted_kwh != null ? String(item.extracted_kwh) : "",
+				confidence:
+					item.ocr_confidence != null
+						? item.ocr_confidence.toFixed(3)
+						: "0.000",
+				status: item.qa_status,
+				hazard: item.hazard_reason || "",
+				imagePath: item.image_local_path,
+				decimalInferred: "0",
+				source: "vision_ocr",
+			},
+		});
 	};
 
 	return (
-		<SafeAreaView style={styles.safeArea} edges={["top"]}>
-			{/* 1. SYNC STATUS HUD */}
-			<ThemedView type="backgroundElement" style={styles.hudCard}>
-				<View style={styles.hudCol}>
-					<ThemedText style={styles.hudLabel}>QUEUED OFFLINE</ThemedText>
-					<ThemedText style={[styles.hudValue, { color: MeterTokens.warn }]}>
-						{metrics.pendingTelemetry}
-					</ThemedText>
-				</View>
-				<View style={styles.divider} />
-				<View style={styles.hudCol}>
-					<ThemedText style={styles.hudLabel}>TIER-1 SYNCED</ThemedText>
-					<ThemedText style={[styles.hudValue, { color: MeterTokens.ok }]}>
-						{metrics.syncedTelemetry}
-					</ThemedText>
-				</View>
-				<View style={styles.divider} />
-				<View style={styles.hudCol}>
-					<ThemedText style={styles.hudLabel}>PHOTOS (WI-FI)</ThemedText>
-					<ThemedText style={styles.hudValue}>
-						{metrics.pendingImages}
-					</ThemedText>
-				</View>
-			</ThemedView>
+		<SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+			<StatusBar style="dark" />
 
-			{/* 2. SEARCH & ACTION */}
-			<View style={styles.actionRow}>
-				<TextInput
-					style={styles.input}
-					placeholder="SEARCH METER S/N"
-					placeholderTextColor="#94A3B8"
-					value={search}
-					onChangeText={setSearch}
-					autoCapitalize="characters"
-				/>
-				<Pressable
-					style={styles.scanBtn}
-					onPress={() => router.push("/capture")}
-				>
-					<ThemedText style={styles.scanBtnText}>+ NEW SCAN</ThemedText>
-				</Pressable>
+			{/* HEADER */}
+			<View style={styles.header}>
+				<Text style={styles.title}>Inspections</Text>
+				<View style={styles.headerRight}>
+					<Pressable
+						style={({ pressed }) => [
+							styles.iconBtn,
+							pressed && styles.btnPressed,
+						]}
+						onPress={() => router.push("/settings")}
+					>
+						<AppSymbol name="settings" size={20} color={MD3.color.onSurface} />
+					</Pressable>
+					<Pressable
+						style={({ pressed }) => [
+							styles.primaryFab,
+							pressed && styles.fabPressed,
+						]}
+						onPress={() => router.push("/capture")}
+					>
+						<AppSymbol name="camera" size={18} color="#FFFFFF" />
+						<Text style={styles.primaryFabText}>Scan</Text>
+					</Pressable>
+				</View>
 			</View>
 
-			{/* 3. SHIFT HISTORY */}
+			{/* MD3 METRICS ROW */}
+			<View style={styles.metricsCard}>
+				<View style={styles.metricItem}>
+					<Text style={styles.metricValue}>{metrics.pendingTelemetry}</Text>
+					<Text style={styles.metricLabel}>Queued</Text>
+				</View>
+				<View style={styles.metricDivider} />
+				<View style={styles.metricItem}>
+					<Text style={[styles.metricValue, { color: MD3.color.success }]}>
+						{metrics.syncedTelemetry}
+					</Text>
+					<Text style={styles.metricLabel}>Synced</Text>
+				</View>
+				<View style={styles.metricDivider} />
+				<View style={styles.metricItem}>
+					<Text style={styles.metricValue}>{metrics.pendingImages}</Text>
+					<Text style={styles.metricLabel}>Photos</Text>
+				</View>
+				<View style={styles.metricDivider} />
+				<View style={styles.metricItem}>
+					<Text
+						style={[
+							styles.metricValue,
+							{
+								color:
+									metrics.pendingMl > 0
+										? MD3.color.primary
+										: MD3.color.onSurfaceVariant,
+							},
+						]}
+					>
+						{metrics.pendingMl}
+					</Text>
+					<Text style={styles.metricLabel}>ML</Text>
+				</View>
+				<View style={styles.metricDivider} />
+				<View style={styles.metricItem}>
+					<Text
+						style={[
+							styles.metricValue,
+							{
+								color:
+									metrics.needsReview > 0
+										? MD3.color.warn
+										: MD3.color.onSurfaceVariant,
+							},
+						]}
+					>
+						{metrics.needsReview}
+					</Text>
+					<Text style={styles.metricLabel}>Review</Text>
+				</View>
+			</View>
+
+			{/* SYNC STATUS TOAST */}
+			{syncFeedback ? (
+				<View style={styles.syncBar}>
+					<Text style={styles.syncBarText}>{syncFeedback}</Text>
+				</View>
+			) : null}
+
+			{/* SEARCH BAR */}
+			<View style={styles.searchBar}>
+				<AppSymbol name="search" size={16} color={MD3.color.onSurfaceVariant} />
+				<TextInput
+					style={styles.searchInput}
+					placeholder="Search Serial Number"
+					placeholderTextColor={MD3.color.outline}
+					value={search}
+					onChangeText={setSearch}
+				/>
+			</View>
+
+			{/* CONTENT LIST */}
 			<ScrollView
-				contentContainerStyle={styles.scrollArea}
+				contentContainerStyle={styles.listArea}
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={handleSync} />
 				}
 			>
-				<ThemedText style={styles.sectionTitle}>
-					SHIFT INSPECTIONS ({history.length})
-				</ThemedText>
+				{/* REVIEW QUEUE */}
+				{reviewQueue.length > 0 && (
+					<View style={styles.section}>
+						<Text style={styles.sectionHeader}>
+							Needs Review ({reviewQueue.length})
+						</Text>
+						{reviewQueue.map((item) => (
+							<Pressable
+								key={item.id}
+								style={({ pressed }) => [
+									styles.card,
+									styles.reviewCard,
+									pressed && styles.cardPressed,
+								]}
+								onPress={() => openInspectionEditor(item)}
+							>
+								<View style={styles.cardContentRow}>
+									{item.image_local_path ? (
+										<Image
+											source={{ uri: item.image_local_path }}
+											style={styles.thumbImage}
+											contentFit="cover"
+											transition={200}
+										/>
+									) : (
+										<View style={styles.thumbPlaceholder}>
+											<AppSymbol
+												name="meter"
+												size={20}
+												color={MD3.color.outline}
+											/>
+										</View>
+									)}
 
-				{history.length === 0 ? (
-					<ThemedView type="backgroundElement" style={styles.emptyContainer}>
-						<ThemedText style={styles.emptyText}>
-							NO INSPECTIONS COMMITTED TO SQLITE
-						</ThemedText>
-						<ThemedText style={styles.emptySub}>
-							All offline records will appear here after edge validation.
-						</ThemedText>
-					</ThemedView>
-				) : (
-					history.map((item) => (
-						<ThemedView key={item.id} style={styles.recordCard}>
-							<View style={styles.recordHeader}>
-								<ThemedText style={styles.recordSn}>
-									{item.meter_serial_number}
-								</ThemedText>
-								<View
-									style={[
-										styles.qaBadge,
-										item.qa_status === "PASS" && { backgroundColor: "#DCFCE7" },
-										item.qa_status === "WARNING" && {
-											backgroundColor: "#FEF3C7",
-										},
-										item.qa_status === "CRITICAL_HAZARD" && {
-											backgroundColor: "#FEE2E2",
-										},
-									]}
-								>
-									<ThemedText style={styles.qaBadgeText}>
-										{item.qa_status}
-									</ThemedText>
+									<View style={styles.cardDetails}>
+										<View style={styles.cardRow}>
+											<Text style={styles.snText}>
+												{item.meter_serial_number || "UNKNOWN"}
+											</Text>
+											<View style={styles.warnChip}>
+												<Text style={styles.warnChipText}>Review</Text>
+											</View>
+										</View>
+										<Text style={styles.metaText}>
+											{item.extracted_kwh != null
+												? `${item.extracted_kwh} kWh`
+												: "No reading"}
+										</Text>
+									</View>
 								</View>
-							</View>
-							<ThemedText style={styles.recordMeta}>
-								kWh: {item.extracted_kwh ?? "OVERRIDDEN"} • Conf:{" "}
-								{item.ocr_confidence
-									? `${(item.ocr_confidence * 100).toFixed(0)}%`
-									: "N/A"}
-							</ThemedText>
-						</ThemedView>
-					))
+							</Pressable>
+						))}
+					</View>
 				)}
+
+				{/* HISTORY */}
+				<View style={styles.section}>
+					<Text style={styles.sectionHeader}>History ({history.length})</Text>
+					{history.length === 0 ? (
+						<View style={styles.emptyCard}>
+							<Text style={styles.emptyText}>No records yet</Text>
+						</View>
+					) : (
+						history.map((item) => {
+							const isPendingMl =
+								item.inference_status === "PENDING_ML" ||
+								item.inference_status === "PROCESSING";
+							const isPass = item.qa_status === "PASS";
+							const isWarn = item.qa_status === "WARNING";
+
+							return (
+								<Pressable
+									key={item.id}
+									style={({ pressed }) => [
+										styles.card,
+										pressed && styles.cardPressed,
+									]}
+									onPress={() => openInspectionEditor(item)}
+								>
+									<View style={styles.cardContentRow}>
+										{item.image_local_path ? (
+											<Image
+												source={{ uri: item.image_local_path }}
+												style={styles.thumbImage}
+												contentFit="cover"
+												transition={200}
+											/>
+										) : (
+											<View style={styles.thumbPlaceholder}>
+												<AppSymbol
+													name="meter"
+													size={20}
+													color={MD3.color.outline}
+												/>
+											</View>
+										)}
+
+										<View style={styles.cardDetails}>
+											<View style={styles.cardRow}>
+												<Text style={styles.snText}>
+													{item.meter_serial_number || "UNKNOWN"}
+												</Text>
+												{isPendingMl ? (
+													<View style={styles.processChip}>
+														<Text style={styles.processChipText}>
+															In Process
+														</Text>
+													</View>
+												) : (
+													<View
+														style={[
+															styles.chip,
+															isPass && styles.chipSuccess,
+															isWarn && styles.chipWarn,
+															!isPass && !isWarn && styles.chipError,
+														]}
+													>
+														<Text
+															style={[
+																styles.chipText,
+																isPass && styles.chipTextSuccess,
+																isWarn && styles.chipTextWarn,
+																!isPass && !isWarn && styles.chipTextError,
+															]}
+														>
+															{item.qa_status}
+														</Text>
+													</View>
+												)}
+											</View>
+											<Text style={styles.metaText}>
+												{isPendingMl
+													? "Running model on device..."
+													: item.extracted_kwh != null
+														? `${item.extracted_kwh} kWh`
+														: "Tap to enter reading"}
+											</Text>
+										</View>
+									</View>
+								</Pressable>
+							);
+						})
+					)}
+				</View>
 			</ScrollView>
 
-			{/* 4. FOOTER SYNC TRIGGER */}
-			<View style={styles.footerBar}>
-				<Pressable style={styles.syncButton} onPress={handleSync}>
-					<ThemedText style={styles.syncButtonText}>
-						DISPATCH TIER-1 BATCH (CELLULAR)
-					</ThemedText>
+			{/* BOTTOM ACTION */}
+			<View style={styles.bottomBar}>
+				<Pressable
+					disabled={isSyncing}
+					style={({ pressed }) => [
+						styles.syncBtn,
+						isSyncing && styles.btnDisabled,
+						pressed && styles.btnPressed,
+					]}
+					onPress={handleSync}
+				>
+					{isSyncing ? (
+						<ActivityIndicator size="small" color={MD3.color.primary} />
+					) : (
+						<>
+							<AppSymbol name="sync" size={16} color={MD3.color.primary} />
+							<Text style={styles.syncBtnText}>Sync Cloud</Text>
+						</>
+					)}
 				</Pressable>
 			</View>
 		</SafeAreaView>
@@ -181,122 +402,274 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
-	hudCard: {
-		flexDirection: "row",
-		marginHorizontal: Spacing.md,
-		marginTop: Spacing.sm,
-		paddingVertical: Spacing.md,
-		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: "#E2E8F0",
-	},
-	hudCol: { flex: 1, alignItems: "center" },
-	divider: {
-		width: 1,
-		height: "70%",
-		backgroundColor: "#CBD5E1",
-		alignSelf: "center",
-	},
-	hudLabel: {
-		fontFamily: Fonts.mono,
-		fontSize: 10,
-		fontWeight: "700",
-		color: "#64748B",
-	},
-	hudValue: {
-		fontFamily: Fonts.mono,
-		fontSize: 20,
-		fontWeight: "700",
-		marginTop: 4,
-	},
-	actionRow: {
-		flexDirection: "row",
-		paddingHorizontal: Spacing.md,
-		paddingVertical: Spacing.md,
-		gap: Spacing.sm,
-	},
-	input: {
+	screen: {
 		flex: 1,
-		height: 48,
-		borderWidth: 1,
-		borderColor: "#94A3B8",
-		borderRadius: 6,
-		paddingHorizontal: Spacing.md,
-		fontFamily: Fonts.mono,
-		fontSize: 13,
-		backgroundColor: "#FFFFFF",
+		backgroundColor: MD3.color.surface,
 	},
-	scanBtn: {
-		backgroundColor: MeterTokens.brand,
-		height: 48,
-		paddingHorizontal: Spacing.md,
-		borderRadius: 6,
+	header: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		paddingTop: 8,
+		paddingBottom: 12,
+	},
+	headerRight: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	title: {
+		fontSize: 24,
+		fontWeight: "700",
+		color: MD3.color.onSurface,
+		letterSpacing: -0.3,
+	},
+	iconBtn: {
+		width: 40,
+		height: 40,
+		borderRadius: MD3.shape.cornerFull,
+		backgroundColor: MD3.color.surfaceContainerLow,
+		justifyContent: "center",
+		alignItems: "center",
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	primaryFab: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		backgroundColor: MD3.color.primary,
+		paddingVertical: 10,
+		paddingHorizontal: 18,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	fabPressed: {
+		opacity: 0.85,
+	},
+	primaryFabText: {
+		color: MD3.color.onPrimary,
+		fontWeight: "600",
+		fontSize: 14,
+	},
+	metricsCard: {
+		flexDirection: "row",
+		marginHorizontal: 16,
+		backgroundColor: MD3.color.surfaceContainerLow,
+		borderRadius: MD3.shape.cornerLarge,
+		paddingVertical: 12,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	metricItem: {
+		flex: 1,
+		alignItems: "center",
+	},
+	metricDivider: {
+		width: 1,
+		backgroundColor: MD3.color.outlineVariant,
+		marginVertical: 4,
+	},
+	metricValue: {
+		fontSize: 18,
+		fontWeight: "700",
+		color: MD3.color.onSurface,
+	},
+	metricLabel: {
+		fontSize: 11,
+		color: MD3.color.onSurfaceVariant,
+		marginTop: 2,
+	},
+	syncBar: {
+		marginHorizontal: 16,
+		marginTop: 8,
+		paddingVertical: 6,
+		paddingHorizontal: 12,
+		backgroundColor: MD3.color.surfaceContainerHighest,
+		borderRadius: MD3.shape.cornerSmall,
+		alignItems: "center",
+	},
+	syncBarText: {
+		fontSize: 12,
+		color: MD3.color.onSurfaceVariant,
+		fontWeight: "500",
+	},
+	searchBar: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: MD3.color.surfaceContainerLow,
+		marginHorizontal: 16,
+		marginTop: 10,
+		paddingHorizontal: 12,
+		height: 44,
+		borderRadius: MD3.shape.cornerFull,
+		gap: 8,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	searchInput: {
+		flex: 1,
+		fontSize: 14,
+		color: MD3.color.onSurface,
+	},
+	listArea: {
+		paddingHorizontal: 16,
+		paddingTop: 12,
+		paddingBottom: 20,
+		gap: 16,
+	},
+	section: {
+		gap: 8,
+	},
+	sectionHeader: {
+		fontSize: 12,
+		fontWeight: "600",
+		color: MD3.color.onSurfaceVariant,
+		textTransform: "uppercase",
+		letterSpacing: 0.5,
+		marginLeft: 4,
+	},
+	card: {
+		backgroundColor: MD3.color.surfaceContainerLowest,
+		borderRadius: MD3.shape.cornerMedium,
+		padding: 12,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+	},
+	cardContentRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 12,
+	},
+	thumbImage: {
+		width: 54,
+		height: 54,
+		borderRadius: MD3.shape.cornerSmall,
+		backgroundColor: MD3.color.surfaceContainerLow,
+	},
+	thumbPlaceholder: {
+		width: 54,
+		height: 54,
+		borderRadius: MD3.shape.cornerSmall,
+		backgroundColor: MD3.color.surfaceContainerLow,
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	scanBtnText: {
-		fontFamily: Fonts.mono,
-		fontSize: 12,
-		fontWeight: "700",
-		color: "#FFFFFF",
-	},
-	scrollArea: {
-		paddingHorizontal: Spacing.md,
-		paddingBottom: Spacing.xl,
-		gap: Spacing.sm,
-	},
-	sectionTitle: {
-		fontFamily: Fonts.mono,
-		fontSize: 11,
-		fontWeight: "700",
-		color: "#64748B",
-	},
-	emptyContainer: {
-		padding: Spacing.xl,
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#E2E8F0",
-		borderStyle: "dashed",
-		alignItems: "center",
-		gap: 6,
-	},
-	emptyText: { fontFamily: Fonts.mono, fontSize: 12, fontWeight: "700" },
-	emptySub: { fontSize: 12, color: "#64748B", textAlign: "center" },
-	recordCard: {
-		padding: Spacing.md,
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#E2E8F0",
+	cardDetails: {
+		flex: 1,
 		gap: 4,
 	},
-	recordHeader: {
+	reviewCard: {
+		backgroundColor: MD3.color.warnContainer,
+		borderColor: "#FDE68A",
+	},
+	cardPressed: {
+		opacity: 0.85,
+	},
+	cardRow: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
 	},
-	recordSn: { fontFamily: Fonts.mono, fontSize: 14, fontWeight: "700" },
-	qaBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-	qaBadgeText: {
+	snText: {
 		fontFamily: Fonts.mono,
+		fontSize: 15,
+		fontWeight: "600",
+		color: MD3.color.onSurface,
+	},
+	metaText: {
+		fontSize: 13,
+		color: MD3.color.onSurfaceVariant,
+	},
+	chip: {
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	chipSuccess: {
+		backgroundColor: MD3.color.successContainer,
+	},
+	chipWarn: {
+		backgroundColor: MD3.color.warnContainer,
+	},
+	chipError: {
+		backgroundColor: MD3.color.errorContainer,
+	},
+	chipText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: "#0F172A",
 	},
-	recordMeta: { fontFamily: Fonts.mono, fontSize: 12, color: "#64748B" },
-	footerBar: {
-		padding: Spacing.md,
-		borderTopWidth: 1,
-		borderColor: "#E2E8F0",
-		backgroundColor: "#FFFFFF",
+	chipTextSuccess: {
+		color: MD3.color.onSuccessContainer,
 	},
-	syncButton: {
-		height: 48,
+	chipTextWarn: {
+		color: MD3.color.onWarnContainer,
+	},
+	chipTextError: {
+		color: MD3.color.onErrorContainer,
+	},
+	warnChip: {
+		backgroundColor: "#FDE68A",
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	warnChipText: {
+		fontSize: 11,
+		fontWeight: "700",
+		color: "#78350F",
+	},
+	processChip: {
+		backgroundColor: MD3.color.surfaceContainerHighest,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+		borderRadius: MD3.shape.cornerFull,
+	},
+	processChipText: {
+		fontSize: 10,
+		fontWeight: "700",
+		color: MD3.color.primary,
+	},
+	emptyCard: {
+		backgroundColor: MD3.color.surfaceContainerLow,
+		borderRadius: MD3.shape.cornerMedium,
+		padding: 24,
+		alignItems: "center",
 		borderWidth: 1,
-		borderColor: "#94A3B8",
-		borderRadius: 6,
+		borderColor: MD3.color.outlineVariant,
+		borderStyle: "dashed",
+	},
+	emptyText: {
+		fontSize: 13,
+		color: MD3.color.onSurfaceVariant,
+	},
+	bottomBar: {
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+		borderTopWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+		backgroundColor: MD3.color.surface,
+	},
+	syncBtn: {
+		height: 44,
+		borderRadius: MD3.shape.cornerFull,
+		flexDirection: "row",
 		justifyContent: "center",
 		alignItems: "center",
+		gap: 8,
+		borderWidth: 1,
+		borderColor: MD3.color.outlineVariant,
+		backgroundColor: MD3.color.surfaceContainerLow,
 	},
-	syncButtonText: { fontFamily: Fonts.mono, fontSize: 12, fontWeight: "700" },
+	syncBtnText: {
+		color: MD3.color.primary,
+		fontSize: 14,
+		fontWeight: "600",
+	},
+	btnDisabled: {
+		opacity: 0.5,
+	},
+	btnPressed: {
+		backgroundColor: MD3.color.surfaceContainerHighest,
+	},
 });

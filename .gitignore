@@ -65,3 +65,8 @@ storage/audit_images/*
 !storage/audit_images/.gitkeep
 backend/storage/audit_images/*
 !backend/storage/audit_images/.gitkeep
+
+# Datasets and local harvester downloads
+dataset/.venv/
+dataset/adani_meter_dataset/
+

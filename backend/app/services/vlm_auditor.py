@@ -1,9 +1,9 @@
-import base64
 import json
 import logging
 from typing import Any
 
-import httpx
+from google import genai
+from google.genai import types
 
 from app.core.config import settings
 from app.core.database import SessionLocal
@@ -11,11 +11,13 @@ from app.models.inspection import Inspection
 
 logger = logging.getLogger("vlm_auditor")
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+PRIMARY_MODEL = "gemini-3.8-flash"
+FALLBACK_MODEL = "gemini-4-hydrogen"
 
 PROMPT_TEXT = """
-Analyze this electric utility meter inspection photo.
-Return JSON with this exact schema:
+You are an expert electric utility meter quality assurance inspector.
+Analyze this meter inspection photo.
+Return strict JSON with this exact schema:
 {
   "kwh_reading": float or null,
   "register_unit": "kWh" or "kVAh" or "OTHER",
@@ -25,7 +27,13 @@ Return JSON with this exact schema:
   "summary": string,
   "tags": list of strings
 }
-Only extract the active cumulative consumption reading. If the reading is obscured or absent, use null.
+
+Rules:
+1. Extract the active cumulative kilowatt-hour numeric reading from the display.
+2. If the display shows a decimal point (for example: 1428.5), keep it.
+3. If the reading is not legible or missing, set kwh_reading to null.
+4. Set wire_hazard_visible to true if loose, bare, damaged wires or missing covers appear.
+5. Provide a short factual summary in simple English.
 """
 
 
@@ -37,6 +45,40 @@ def detect_mime_type(image_bytes: bytes, fallback_mime: str | None = None) -> st
     if fallback_mime and "png" in fallback_mime.lower():
         return "image/png"
     return "image/jpeg"
+
+
+def execute_vlm_generation(
+    api_key: str,
+    image_bytes: bytes,
+    mime_type: str,
+) -> dict[str, Any]:
+    client = genai.Client(api_key=api_key)
+    image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        temperature=0.0,
+    )
+
+    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
+    last_error: Exception | None = None
+
+    for model in models_to_try:
+        try:
+            logger.info("Calling Gemini model %s for meter audit...", model)
+            response = client.models.generate_content(
+                model=model,
+                contents=[image_part, PROMPT_TEXT],
+                config=config,
+            )
+            raw_text = response.text or ""
+            return json.loads(raw_text) if raw_text else {}
+        except Exception as exc:
+            logger.warning("Gemini model %s failed: %s", model, exc)
+            last_error = exc
+
+    if last_error:
+        raise last_error
+    return {}
 
 
 async def run_vlm_meter_audit(
@@ -68,55 +110,7 @@ async def run_vlm_meter_audit(
             return
 
         actual_mime = detect_mime_type(image_bytes, mime_type)
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "inline_data": {
-                                "mime_type": actual_mime,
-                                "data": b64_image,
-                            }
-                        },
-                        {"text": PROMPT_TEXT},
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "response_mime_type": "application/json",
-                "temperature": 0.1,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            res = await client.post(
-                f"{GEMINI_API_URL}?key={api_key}",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-            )
-
-        if res.status_code != 200:
-            inspection.audit_stage = "VLM_SKIPPED"
-            inspection.vlm_notes = f"Gemini API HTTP {res.status_code}"
-            db.commit()
-            logger.warning(
-                "Gemini audit failed with HTTP %s: %s",
-                res.status_code,
-                res.text[:200],
-            )
-            return
-
-        body = res.json()
-        raw_text = (
-            body.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-        )
-
-        data: dict[str, Any] = json.loads(raw_text) if raw_text else {}
+        data = execute_vlm_generation(api_key, image_bytes, actual_mime)
 
         vlm_kwh = data.get("kwh_reading")
         if vlm_kwh is not None:
@@ -148,7 +142,7 @@ async def run_vlm_meter_audit(
                 )
             else:
                 inspection.audit_stage = "VLM_VERIFIED"
-                inspection.vlm_notes = "Confirmed unreadable or absent LCD"
+                inspection.vlm_notes = "Confirmed unreadable or absent display"
         else:
             if vlm_kwh is not None:
                 diff = abs(edge_kwh - vlm_kwh)
@@ -163,7 +157,7 @@ async def run_vlm_meter_audit(
             else:
                 inspection.audit_stage = "VLM_VERIFIED"
                 inspection.vlm_notes = (
-                    "VLM LCD detection unclear; retained Edge OCR"
+                    "VLM display detection unclear; retained Edge OCR"
                 )
 
         db.commit()

@@ -6,11 +6,11 @@ import {
 	Modal,
 	PanResponder,
 	Pressable,
-	SafeAreaView,
 	StyleSheet,
 	Text,
 	View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
 import { Fonts } from "@/constants/theme";
 
@@ -43,10 +43,14 @@ type DragTarget =
 	| "CENTER"
 	| null;
 
-const PIN_SIZE = 30;
-const EDGE_HANDLE_SIZE = 18;
+const VISUAL_PIN_SIZE = 16;
+const TOUCH_PIN_SIZE = 48;
+const VISUAL_EDGE_SIZE = 10;
+const TOUCH_EDGE_SIZE = 36;
+const LOUPE_SIZE = 100;
+const LOUPE_ZOOM = 2.8;
 
-// Hardware-accelerated connecting vector line component
+// Precision thin vector connecting line component (1.5px)
 function VectorLine({
 	x1,
 	y1,
@@ -72,13 +76,68 @@ function VectorLine({
 				styles.vectorLine,
 				{
 					left: midX - length / 2,
-					top: midY - 1.25,
+					top: midY - 0.75,
 					width: length,
 					transform: [{ rotate: `${angle}rad` }],
 				},
 			]}
 			pointerEvents="none"
 		/>
+	);
+}
+
+// Floating Magnifying Loupe (CamScanner style)
+function MagnifyingLoupe({
+	imageUri,
+	targetPoint,
+	screenX,
+	screenY,
+	dispW,
+	dispH,
+	layoutW,
+}: {
+	imageUri: string;
+	targetPoint: Point;
+	screenX: number;
+	screenY: number;
+	dispW: number;
+	dispH: number;
+	layoutW: number;
+}) {
+	const radius = LOUPE_SIZE / 2;
+	// Float 85px above the touch coordinate, or below if near top
+	let top = screenY - LOUPE_SIZE - 25;
+	if (top < 10) {
+		top = screenY + 40;
+	}
+	let left = screenX - radius;
+	if (left < 10) left = 10;
+	if (left > layoutW - LOUPE_SIZE - 10) left = layoutW - LOUPE_SIZE - 10;
+
+	// Image coordinates inside loupe centered on the pin
+	const imgW = dispW * LOUPE_ZOOM;
+	const imgH = dispH * LOUPE_ZOOM;
+	const imgLeft = -(targetPoint.x * dispW * LOUPE_ZOOM) + radius;
+	const imgTop = -(targetPoint.y * dispH * LOUPE_ZOOM) + radius;
+
+	return (
+		<View style={[styles.loupeContainer, { top, left }]} pointerEvents="none">
+			<Image
+				source={{ uri: imageUri }}
+				style={{
+					position: "absolute",
+					width: imgW,
+					height: imgH,
+					left: imgLeft,
+					top: imgTop,
+				}}
+				contentFit="fill"
+			/>
+			{/* Crosshair Overlay */}
+			<View style={styles.loupeCrosshairH} />
+			<View style={styles.loupeCrosshairV} />
+			<View style={styles.loupeCenterDot} />
+		</View>
 	);
 }
 
@@ -96,6 +155,7 @@ export function CamScannerCropperModal({
 	const [layoutDims, setLayoutDims] = useState<{ w: number; h: number } | null>(
 		null,
 	);
+	const [zoomLevel, setZoomLevel] = useState<1 | 2>(1);
 
 	// 4 independent normalized points: P0=TL, P1=TR, P2=BR, P3=BL (0..1 range)
 	const [points, setPoints] = useState<[Point, Point, Point, Point]>(() => {
@@ -175,6 +235,7 @@ export function CamScannerCropperModal({
 			}
 			setPoints(pts);
 			dragRef.current.points = pts;
+			setZoomLevel(1);
 		}
 	}, [visible, initialBounds, initialPoints]);
 
@@ -182,19 +243,35 @@ export function CamScannerCropperModal({
 		dragRef.current.points = points;
 	}, [points]);
 
-	// Geometry calculations
+	// Geometry calculations with zoom support
 	const getGeometry = () => {
 		if (!imageDims || !layoutDims || layoutDims.w === 0 || layoutDims.h === 0) {
 			return { dispX: 0, dispY: 0, dispW: 1, dispH: 1 };
 		}
-		const scale = Math.min(
+		const baseScale = Math.min(
 			layoutDims.w / imageDims.w,
 			layoutDims.h / imageDims.h,
 		);
-		const dispW = imageDims.w * scale;
-		const dispH = imageDims.h * scale;
-		const dispX = (layoutDims.w - dispW) / 2;
-		const dispY = (layoutDims.h - dispH) / 2;
+		const baseW = imageDims.w * baseScale;
+		const baseH = imageDims.h * baseScale;
+
+		if (zoomLevel === 1) {
+			const dispX = (layoutDims.w - baseW) / 2;
+			const dispY = (layoutDims.h - baseH) / 2;
+			return { dispX, dispY, dispW: baseW, dispH: baseH };
+		}
+
+		// In 2x zoom mode, center on the centroid of the current 4 points
+		const normCenterX =
+			(points[0].x + points[1].x + points[2].x + points[3].x) / 4;
+		const normCenterY =
+			(points[0].y + points[1].y + points[2].y + points[3].y) / 4;
+
+		const dispW = baseW * 2;
+		const dispH = baseH * 2;
+		const dispX = layoutDims.w / 2 - normCenterX * dispW;
+		const dispY = layoutDims.h / 2 - normCenterY * dispH;
+
 		return { dispX, dispY, dispW, dispH };
 	};
 
@@ -234,6 +311,22 @@ export function CamScannerCropperModal({
 		y: (sP0.y + sP1.y + sP2.y + sP3.y) / 4,
 	};
 
+	// Active drag point info for the magnifying loupe
+	let activeLoupeData: {
+		point: Point;
+		screenX: number;
+		screenY: number;
+	} | null = null;
+	if (activeTarget === "P0") {
+		activeLoupeData = { point: points[0], screenX: sP0.x, screenY: sP0.y };
+	} else if (activeTarget === "P1") {
+		activeLoupeData = { point: points[1], screenX: sP1.x, screenY: sP1.y };
+	} else if (activeTarget === "P2") {
+		activeLoupeData = { point: points[2], screenX: sP2.x, screenY: sP2.y };
+	} else if (activeTarget === "P3") {
+		activeLoupeData = { point: points[3], screenX: sP3.x, screenY: sP3.y };
+	}
+
 	// Universal PanResponder factory for independent corner and edge dragging
 	const createTargetResponder = (target: DragTarget) => {
 		return PanResponder.create({
@@ -268,31 +361,26 @@ export function CamScannerCropperModal({
 				const clamp = (v: number) => Math.max(0, Math.min(1.0, v));
 
 				if (target === "P0") {
-					// Free movement of Top-Left dot
 					next[0] = {
 						x: clamp(startPts[0].x + normDx),
 						y: clamp(startPts[0].y + normDy),
 					};
 				} else if (target === "P1") {
-					// Free movement of Top-Right dot
 					next[1] = {
 						x: clamp(startPts[1].x + normDx),
 						y: clamp(startPts[1].y + normDy),
 					};
 				} else if (target === "P2") {
-					// Free movement of Bottom-Right dot
 					next[2] = {
 						x: clamp(startPts[2].x + normDx),
 						y: clamp(startPts[2].y + normDy),
 					};
 				} else if (target === "P3") {
-					// Free movement of Bottom-Left dot
 					next[3] = {
 						x: clamp(startPts[3].x + normDx),
 						y: clamp(startPts[3].y + normDy),
 					};
 				} else if (target === "M01") {
-					// Move top edge (P0 and P1 in parallel)
 					next[0] = {
 						x: clamp(startPts[0].x + normDx),
 						y: clamp(startPts[0].y + normDy),
@@ -302,7 +390,6 @@ export function CamScannerCropperModal({
 						y: clamp(startPts[1].y + normDy),
 					};
 				} else if (target === "M12") {
-					// Move right edge (P1 and P2 in parallel)
 					next[1] = {
 						x: clamp(startPts[1].x + normDx),
 						y: clamp(startPts[1].y + normDy),
@@ -312,7 +399,6 @@ export function CamScannerCropperModal({
 						y: clamp(startPts[2].y + normDy),
 					};
 				} else if (target === "M23") {
-					// Move bottom edge (P2 and P3 in parallel)
 					next[2] = {
 						x: clamp(startPts[2].x + normDx),
 						y: clamp(startPts[2].y + normDy),
@@ -322,7 +408,6 @@ export function CamScannerCropperModal({
 						y: clamp(startPts[3].y + normDy),
 					};
 				} else if (target === "M30") {
-					// Move left edge (P3 and P0 in parallel)
 					next[3] = {
 						x: clamp(startPts[3].x + normDx),
 						y: clamp(startPts[3].y + normDy),
@@ -332,7 +417,6 @@ export function CamScannerCropperModal({
 						y: clamp(startPts[0].y + normDy),
 					};
 				} else if (target === "CENTER") {
-					// Translate whole quadrilateral
 					for (let i = 0; i < 4; i++) {
 						next[i] = {
 							x: clamp(startPts[i].x + normDx),
@@ -375,7 +459,6 @@ export function CamScannerCropperModal({
 	};
 
 	const handleApply = () => {
-		// Calculate the axis-aligned envelope bounds [minX, minY, width, height]
 		const minX = Math.min(points[0].x, points[1].x, points[2].x, points[3].x);
 		const minY = Math.min(points[0].y, points[1].y, points[2].y, points[3].y);
 		const maxX = Math.max(points[0].x, points[1].x, points[2].x, points[3].x);
@@ -397,25 +480,49 @@ export function CamScannerCropperModal({
 			transparent={false}
 			onRequestClose={onClose}
 		>
-			<SafeAreaView style={styles.modalRoot}>
+			<SafeAreaView style={styles.modalRoot} edges={["top", "bottom"]}>
 				{/* HEADER BAR */}
 				<View style={styles.header}>
 					<Pressable onPress={onClose} style={styles.headerBtn} hitSlop={10}>
 						<Text style={styles.headerBtnText}>Cancel</Text>
 					</Pressable>
-					<View style={styles.headerTitleWrap}>
-						<Text style={styles.headerTitle}>CamScanner 4-Dot Crop</Text>
+
+					<View style={styles.headerCenter}>
+						<Text style={styles.headerTitle}>Adjust LCD Crop</Text>
 						<Text style={styles.headerSub}>
-							Move dots freely to frame LCD display
+							{zoomLevel === 2
+								? "2x Zoom Active"
+								: "Move 4 corner pins to digits"}
 						</Text>
 					</View>
-					<Pressable
-						onPress={handleReset}
-						style={styles.headerBtn}
-						hitSlop={10}
-					>
-						<Text style={styles.resetBtnText}>Reset</Text>
-					</Pressable>
+
+					<View style={styles.headerRight}>
+						<Pressable
+							onPress={() => setZoomLevel((prev) => (prev === 1 ? 2 : 1))}
+							style={[
+								styles.zoomChip,
+								zoomLevel === 2 && styles.zoomChipActive,
+							]}
+							hitSlop={6}
+						>
+							<Text
+								style={[
+									styles.zoomChipText,
+									zoomLevel === 2 && styles.zoomChipTextActive,
+								]}
+							>
+								{zoomLevel === 1 ? "1x Zoom" : "2x Zoom"}
+							</Text>
+						</Pressable>
+
+						<Pressable
+							onPress={handleReset}
+							style={styles.headerBtn}
+							hitSlop={10}
+						>
+							<Text style={styles.resetBtnText}>Reset</Text>
+						</Pressable>
+					</View>
 				</View>
 
 				{/* CANVAS CONTAINER */}
@@ -426,11 +533,19 @@ export function CamScannerCropperModal({
 						setLayoutDims({ w: width, h: height });
 					}}
 				>
-					{imageUri ? (
+					{imageUri && layoutDims ? (
 						<Image
 							source={{ uri: imageUri }}
-							style={styles.fullImage}
-							contentFit="contain"
+							style={[
+								styles.displayedImage,
+								{
+									width: dispW,
+									height: dispH,
+									left: dispX,
+									top: dispY,
+								},
+							]}
+							contentFit="fill"
 							transition={100}
 						/>
 					) : (
@@ -441,7 +556,7 @@ export function CamScannerCropperModal({
 
 					{layoutDims && imageDims && (
 						<>
-							{/* 4 DYNAMIC VECTOR CONNECTING LINES */}
+							{/* 4 DYNAMIC VECTOR CONNECTING LINES (THIN 1.5px) */}
 							<VectorLine x1={sP0.x} y1={sP0.y} x2={sP1.x} y2={sP1.y} />
 							<VectorLine x1={sP1.x} y1={sP1.y} x2={sP2.x} y2={sP2.y} />
 							<VectorLine x1={sP2.x} y1={sP2.y} x2={sP3.x} y2={sP3.y} />
@@ -452,8 +567,8 @@ export function CamScannerCropperModal({
 								style={[
 									styles.centerDragger,
 									{
-										left: sCenter.x - 45,
-										top: sCenter.y - 14,
+										left: sCenter.x - 40,
+										top: sCenter.y - 12,
 									},
 								]}
 								{...respCenter.panHandlers}
@@ -463,13 +578,12 @@ export function CamScannerCropperModal({
 							</View>
 
 							{/* 4 EDGE MIDPOINT HANDLERS */}
-							{/* Top Edge Handle */}
 							<View
 								style={[
 									styles.edgeHandleWrap,
 									{
-										left: sM01.x - EDGE_HANDLE_SIZE / 2 - 10,
-										top: sM01.y - EDGE_HANDLE_SIZE / 2 - 10,
+										left: sM01.x - TOUCH_EDGE_SIZE / 2,
+										top: sM01.y - TOUCH_EDGE_SIZE / 2,
 									},
 								]}
 								{...respM01.panHandlers}
@@ -477,13 +591,12 @@ export function CamScannerCropperModal({
 								<View style={styles.edgeHandlePin} />
 							</View>
 
-							{/* Right Edge Handle */}
 							<View
 								style={[
 									styles.edgeHandleWrap,
 									{
-										left: sM12.x - EDGE_HANDLE_SIZE / 2 - 10,
-										top: sM12.y - EDGE_HANDLE_SIZE / 2 - 10,
+										left: sM12.x - TOUCH_EDGE_SIZE / 2,
+										top: sM12.y - TOUCH_EDGE_SIZE / 2,
 									},
 								]}
 								{...respM12.panHandlers}
@@ -491,13 +604,12 @@ export function CamScannerCropperModal({
 								<View style={styles.edgeHandlePin} />
 							</View>
 
-							{/* Bottom Edge Handle */}
 							<View
 								style={[
 									styles.edgeHandleWrap,
 									{
-										left: sM23.x - EDGE_HANDLE_SIZE / 2 - 10,
-										top: sM23.y - EDGE_HANDLE_SIZE / 2 - 10,
+										left: sM23.x - TOUCH_EDGE_SIZE / 2,
+										top: sM23.y - TOUCH_EDGE_SIZE / 2,
 									},
 								]}
 								{...respM23.panHandlers}
@@ -505,13 +617,12 @@ export function CamScannerCropperModal({
 								<View style={styles.edgeHandlePin} />
 							</View>
 
-							{/* Left Edge Handle */}
 							<View
 								style={[
 									styles.edgeHandleWrap,
 									{
-										left: sM30.x - EDGE_HANDLE_SIZE / 2 - 10,
-										top: sM30.y - EDGE_HANDLE_SIZE / 2 - 10,
+										left: sM30.x - TOUCH_EDGE_SIZE / 2,
+										top: sM30.y - TOUCH_EDGE_SIZE / 2,
 									},
 								]}
 								{...respM30.panHandlers}
@@ -519,14 +630,14 @@ export function CamScannerCropperModal({
 								<View style={styles.edgeHandlePin} />
 							</View>
 
-							{/* 4 INDEPENDENT CORNER PINS (FREELY MOVABLE) */}
+							{/* 4 INDEPENDENT CORNER PINS (THIN RETICLES) */}
 							{/* P0: Top-Left */}
 							<View
 								style={[
 									styles.pinWrap,
 									{
-										left: sP0.x - (PIN_SIZE + 24) / 2,
-										top: sP0.y - (PIN_SIZE + 24) / 2,
+										left: sP0.x - TOUCH_PIN_SIZE / 2,
+										top: sP0.y - TOUCH_PIN_SIZE / 2,
 									},
 								]}
 								{...respP0.panHandlers}
@@ -546,8 +657,8 @@ export function CamScannerCropperModal({
 								style={[
 									styles.pinWrap,
 									{
-										left: sP1.x - (PIN_SIZE + 24) / 2,
-										top: sP1.y - (PIN_SIZE + 24) / 2,
+										left: sP1.x - TOUCH_PIN_SIZE / 2,
+										top: sP1.y - TOUCH_PIN_SIZE / 2,
 									},
 								]}
 								{...respP1.panHandlers}
@@ -567,8 +678,8 @@ export function CamScannerCropperModal({
 								style={[
 									styles.pinWrap,
 									{
-										left: sP2.x - (PIN_SIZE + 24) / 2,
-										top: sP2.y - (PIN_SIZE + 24) / 2,
+										left: sP2.x - TOUCH_PIN_SIZE / 2,
+										top: sP2.y - TOUCH_PIN_SIZE / 2,
 									},
 								]}
 								{...respP2.panHandlers}
@@ -588,8 +699,8 @@ export function CamScannerCropperModal({
 								style={[
 									styles.pinWrap,
 									{
-										left: sP3.x - (PIN_SIZE + 24) / 2,
-										top: sP3.y - (PIN_SIZE + 24) / 2,
+										left: sP3.x - TOUCH_PIN_SIZE / 2,
+										top: sP3.y - TOUCH_PIN_SIZE / 2,
 									},
 								]}
 								{...respP3.panHandlers}
@@ -603,22 +714,37 @@ export function CamScannerCropperModal({
 									<View style={styles.pinInnerDot} />
 								</View>
 							</View>
+
+							{/* CAMSCANNER FLOATING MAGNIFYING LOUPE */}
+							{activeLoupeData && (
+								<MagnifyingLoupe
+									imageUri={imageUri}
+									targetPoint={activeLoupeData.point}
+									screenX={activeLoupeData.screenX}
+									screenY={activeLoupeData.screenY}
+									dispW={dispW}
+									dispH={dispH}
+									layoutW={layoutDims.w}
+								/>
+							)}
 						</>
 					)}
 				</View>
 
-				{/* BOTTOM CONTROL ACTIONS */}
+				{/* BOTTOM BAR */}
 				<View style={styles.bottomBar}>
-					<View style={styles.bottomTipRow}>
-						<AppSymbol name="check" size={14} color="#10B981" />
-						<Text style={styles.bottomTipText}>
-							Encloses 4-point polygon & rectifies perspective distortion
+					<View style={styles.bottomInstruction}>
+						<AppSymbol name="edit" size={14} color="#38BDF8" />
+						<Text style={styles.bottomInstructionText}>
+							{activeTarget
+								? "Align crosshair with LCD corner"
+								: "Drag corner dots to match meter screen"}
 						</Text>
 					</View>
 
-					<Pressable style={styles.confirmBtn} onPress={handleApply}>
+					<Pressable style={styles.applyBtn} onPress={handleApply} hitSlop={6}>
 						<AppSymbol name="check" size={18} color="#FFFFFF" />
-						<Text style={styles.confirmBtnText}>Apply Clean LCD Crop</Text>
+						<Text style={styles.applyBtnText}>Apply Clean Crop</Text>
 					</Pressable>
 				</View>
 			</SafeAreaView>
@@ -629,55 +755,80 @@ export function CamScannerCropperModal({
 const styles = StyleSheet.create({
 	modalRoot: {
 		flex: 1,
-		backgroundColor: "#090A0D",
+		backgroundColor: "#0B0F19",
 	},
 	header: {
-		height: 56,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
 		paddingHorizontal: 16,
+		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderColor: "rgba(255, 255, 255, 0.1)",
-		backgroundColor: "#0E1014",
+		borderBottomColor: "#1E293B",
 	},
 	headerBtn: {
-		paddingVertical: 8,
-		paddingHorizontal: 10,
+		paddingVertical: 4,
+		paddingHorizontal: 6,
 	},
 	headerBtnText: {
 		color: "#94A3B8",
 		fontSize: 14,
-		fontWeight: "500",
-	},
-	resetBtnText: {
-		color: "#38BDF8",
-		fontSize: 14,
 		fontWeight: "600",
 	},
-	headerTitleWrap: {
+	headerCenter: {
 		alignItems: "center",
 	},
 	headerTitle: {
 		color: "#F8FAFC",
 		fontSize: 15,
 		fontWeight: "700",
+		letterSpacing: 0.3,
 	},
 	headerSub: {
-		color: "#64748B",
+		color: "#38BDF8",
+		fontSize: 10,
+		fontFamily: Fonts.mono,
+		marginTop: 2,
+	},
+	headerRight: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	zoomChip: {
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 6,
+		backgroundColor: "#1E293B",
+		borderWidth: 1,
+		borderColor: "#334155",
+	},
+	zoomChipActive: {
+		backgroundColor: "rgba(56, 189, 248, 0.2)",
+		borderColor: "#38BDF8",
+	},
+	zoomChipText: {
+		color: "#94A3B8",
 		fontSize: 11,
-		marginTop: 1,
+		fontFamily: Fonts.mono,
+		fontWeight: "700",
+	},
+	zoomChipTextActive: {
+		color: "#38BDF8",
+	},
+	resetBtnText: {
+		color: "#F59E0B",
+		fontSize: 13,
+		fontWeight: "600",
 	},
 	canvas: {
 		flex: 1,
 		position: "relative",
 		backgroundColor: "#000000",
-		justifyContent: "center",
-		alignItems: "center",
+		overflow: "hidden",
 	},
-	fullImage: {
-		width: "100%",
-		height: "100%",
+	displayedImage: {
+		position: "absolute",
 	},
 	loaderCenter: {
 		...StyleSheet.absoluteFill,
@@ -686,116 +837,166 @@ const styles = StyleSheet.create({
 	},
 	vectorLine: {
 		position: "absolute",
-		height: 2.5,
+		height: 1.5,
 		backgroundColor: "#38BDF8",
-		elevation: 4,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.5,
+		zIndex: 30,
+		shadowColor: "#38BDF8",
+		shadowOffset: { width: 0, height: 0 },
+		shadowOpacity: 0.8,
 		shadowRadius: 2,
 	},
 	pinWrap: {
 		position: "absolute",
-		width: PIN_SIZE + 24,
-		height: PIN_SIZE + 24,
+		width: TOUCH_PIN_SIZE,
+		height: TOUCH_PIN_SIZE,
 		justifyContent: "center",
 		alignItems: "center",
-		zIndex: 100,
+		zIndex: 90,
 	},
 	pinDot: {
-		width: PIN_SIZE,
-		height: PIN_SIZE,
-		borderRadius: PIN_SIZE / 2,
+		width: VISUAL_PIN_SIZE,
+		height: VISUAL_PIN_SIZE,
+		borderRadius: VISUAL_PIN_SIZE / 2,
 		backgroundColor: "#FFFFFF",
-		borderWidth: 4,
+		borderWidth: 2,
 		borderColor: "#0284C7",
 		justifyContent: "center",
 		alignItems: "center",
-		elevation: 8,
+		elevation: 6,
 		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 3 },
-		shadowOpacity: 0.5,
-		shadowRadius: 4,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.4,
+		shadowRadius: 2,
 	},
 	pinDotActive: {
-		transform: [{ scale: 1.3 }],
+		transform: [{ scale: 1.25 }],
 		borderColor: "#38BDF8",
 		backgroundColor: "#E0F2FE",
 	},
 	pinInnerDot: {
-		width: 8,
-		height: 8,
-		borderRadius: 4,
+		width: 4,
+		height: 4,
+		borderRadius: 2,
 		backgroundColor: "#0284C7",
 	},
 	edgeHandleWrap: {
 		position: "absolute",
-		width: EDGE_HANDLE_SIZE + 20,
-		height: EDGE_HANDLE_SIZE + 20,
+		width: TOUCH_EDGE_SIZE,
+		height: TOUCH_EDGE_SIZE,
 		justifyContent: "center",
 		alignItems: "center",
-		zIndex: 80,
+		zIndex: 70,
 	},
 	edgeHandlePin: {
-		width: EDGE_HANDLE_SIZE,
-		height: EDGE_HANDLE_SIZE,
-		borderRadius: EDGE_HANDLE_SIZE / 2,
+		width: VISUAL_EDGE_SIZE,
+		height: VISUAL_EDGE_SIZE,
+		borderRadius: VISUAL_EDGE_SIZE / 2,
 		backgroundColor: "#38BDF8",
-		borderWidth: 2,
+		borderWidth: 1.5,
 		borderColor: "#FFFFFF",
-		elevation: 6,
+		elevation: 4,
 	},
 	centerDragger: {
 		position: "absolute",
-		width: 90,
-		height: 28,
+		width: 80,
+		height: 24,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
 		gap: 4,
 		backgroundColor: "rgba(15, 23, 42, 0.85)",
-		borderRadius: 6,
+		borderRadius: 5,
 		borderWidth: 1,
 		borderColor: "rgba(56, 189, 248, 0.4)",
-		zIndex: 70,
+		zIndex: 60,
 	},
 	centerDraggerText: {
 		color: "#60A5FA",
-		fontSize: 10,
+		fontSize: 9,
 		fontFamily: Fonts.mono,
 		fontWeight: "700",
+		letterSpacing: 0.5,
+	},
+	loupeContainer: {
+		position: "absolute",
+		width: LOUPE_SIZE,
+		height: LOUPE_SIZE,
+		borderRadius: LOUPE_SIZE / 2,
+		borderWidth: 2.5,
+		borderColor: "#38BDF8",
+		backgroundColor: "#000000",
+		overflow: "hidden",
+		zIndex: 100,
+		elevation: 12,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.5,
+		shadowRadius: 6,
+	},
+	loupeCrosshairH: {
+		position: "absolute",
+		left: LOUPE_SIZE / 2 - 14,
+		top: LOUPE_SIZE / 2 - 0.75,
+		width: 28,
+		height: 1.5,
+		backgroundColor: "#38BDF8",
+		zIndex: 102,
+	},
+	loupeCrosshairV: {
+		position: "absolute",
+		left: LOUPE_SIZE / 2 - 0.75,
+		top: LOUPE_SIZE / 2 - 14,
+		width: 1.5,
+		height: 28,
+		backgroundColor: "#38BDF8",
+		zIndex: 102,
+	},
+	loupeCenterDot: {
+		position: "absolute",
+		left: LOUPE_SIZE / 2 - 2,
+		top: LOUPE_SIZE / 2 - 2,
+		width: 4,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: "#FFFFFF",
+		zIndex: 103,
 	},
 	bottomBar: {
 		paddingHorizontal: 16,
-		paddingTop: 12,
-		paddingBottom: 16,
-		backgroundColor: "#0E1014",
+		paddingVertical: 12,
+		backgroundColor: "#0B0F19",
 		borderTopWidth: 1,
-		borderColor: "rgba(255, 255, 255, 0.1)",
+		borderTopColor: "#1E293B",
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		gap: 12,
 	},
-	bottomTipRow: {
+	bottomInstruction: {
+		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 6,
-		marginBottom: 10,
-		justifyContent: "center",
 	},
-	bottomTipText: {
+	bottomInstructionText: {
 		color: "#94A3B8",
-		fontSize: 12,
+		fontSize: 11,
+		flexShrink: 1,
 	},
-	confirmBtn: {
+	applyBtn: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "center",
-		gap: 8,
+		gap: 6,
 		backgroundColor: "#0284C7",
-		paddingVertical: 14,
-		borderRadius: 10,
+		paddingVertical: 10,
+		paddingHorizontal: 16,
+		borderRadius: 8,
+		elevation: 4,
 	},
-	confirmBtnText: {
+	applyBtnText: {
 		color: "#FFFFFF",
-		fontSize: 15,
+		fontSize: 13,
 		fontWeight: "700",
+		fontFamily: Fonts.mono,
 	},
 });

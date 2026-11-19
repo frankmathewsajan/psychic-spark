@@ -172,7 +172,7 @@ export default function ValidationScreen() {
 												isSelected && styles.selectorTextSelected,
 											]}
 										>
-											{status}
+											{status === "CRITICAL_HAZARD" ? "HAZARD" : status}
 										</Text>
 									</Pressable>
 								);

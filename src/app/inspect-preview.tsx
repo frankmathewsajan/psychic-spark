@@ -400,7 +400,7 @@ export default function InspectPreviewScreen() {
 								<View style={styles.bannerTopRow}>
 									<AppSymbol name="hazard" size={20} color={MD3.color.error} />
 									<Text style={styles.hazardTitle}>
-										CRITICAL HAZARD — Exposed Wiring Detected
+										HAZARD — Exposed Wiring Detected
 									</Text>
 								</View>
 								<Text style={styles.hazardDescription}>

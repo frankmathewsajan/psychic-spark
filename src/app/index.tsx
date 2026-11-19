@@ -263,22 +263,20 @@ export default function DashboardScreen() {
 
 			setSyncProgress({
 				active: true,
-				stage: "RECONCILING",
-				progress: 0.88,
-				title: "VLM RECONCILE",
-				message: "Auditing cloud VLM readings & directives...",
-			});
-
-			await reconcileCloudAuditStatus(db, gatewayUrl, devId);
-			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
-
-			setSyncProgress({
-				active: true,
 				stage: "COMPLETE",
 				progress: 1.0,
 				title: "SYNC COMPLETE",
-				message: "All records and photos up to date",
+				message: "All records and photos uploaded",
 			});
+
+			// Asynchronously audit VLM readings & flush directives in background
+			(async () => {
+				try {
+					await reconcileCloudAuditStatus(db, gatewayUrl, devId);
+					await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
+					loadData();
+				} catch {}
+			})();
 		} else {
 			const backoff = getTier1BackoffInfo();
 			const errMsg =
@@ -735,7 +733,9 @@ export default function DashboardScreen() {
 																	!isPass && !isWarn && styles.chipTextError,
 																]}
 															>
-																{item.qa_status}
+																{item.qa_status === "CRITICAL_HAZARD"
+																	? "HAZARD"
+																	: item.qa_status}
 															</Text>
 														</View>
 													)}

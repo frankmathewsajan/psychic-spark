@@ -447,20 +447,29 @@ If the installation is wire-safe, the cropped LCD image is processed via native 
     \item \textbf{Height-Ratio Decimal Recovery:} Identifies isolated periods or commas. If an explicit decimal symbol is missing but the final character bounding box height ratio satisfies $r = h_{\text{last}} / h_{\text{prior}} < 0.82$, the token is recognized as a fractional register digit and a decimal point is inserted deterministically before the final digit.
 \end{enumerate}
 
-\subsection{Stage 5: Intermediary Safety \& Crop Verification Screen}
+\subsection{Stage 5: Intermediary Safety Verification, CamScanner Precision Cropping \& Sign-Off}
 The technician is immediately transitioned to \texttt{src/app/inspect-preview.tsx}. The screen presents:
 \begin{itemize}
-    \item \textbf{Step A: Wire Safety Verification Banner:} Displays a green ``Compliant'' checkmark or a prominent red ``CRITICAL HAZARD: Exposed Wiring Detected'' alert. If hazardous, the ``Save \& Done'' button is disabled until the technician taps ``Retake Photo'' after physical remediation.
-    \item \textbf{Step B: Cropped LCD Visual Sign-Off:} Shows the tight, cropped blue-box LCD image directly adjacent to an editable kWh input text box auto-filled with the OCR result. If glare caused a single digit drop, the technician taps to correct it in 1 second.
+    \item \textbf{Step A: Wire Safety Verification Banner:} Displays a green ``Compliant'' checkmark or a prominent red ``HAZARD: Exposed Wiring Detected'' alert. If hazardous, the ``Save \& Done'' button is disabled until the technician taps ``Retake Photo'' after physical remediation.
+    \item \textbf{Step B: Cropped LCD Visual Sign-Off:} Shows the cropped LCD image directly adjacent to an editable kWh input text box auto-filled with the OCR result. If glare caused a single digit drop, the technician taps to correct it in 1 second.
+    \item \textbf{CamScanner-Style 4-Point Polygon Cropper (\texttt{camscanner-cropper-modal.tsx}):} For installations where meters are mounted at oblique angles or non-standard enclosure framing includes serial numbers or metallic bezels, technicians tap ``Adjust Crop''. The modal features:
+    \begin{enumerate}
+        \item \textit{4 Unconstrained Polygon Vertices ($P_0, P_1, P_2, P_3$):} Rendered with hardware-accelerated $1.5\text{~px}$ cyan vector connecting lines at 60~FPS.
+        \item \textit{Floating $2.8\times$ Magnifying Loupe:} A circular lens ($100\text{~px}$ diameter) hovers $85\text{~px}$ above the dragging finger with a precision crosshair, ensuring finger contact never obscures LCD corner pixels.
+        \item \textit{2$\times$ Canvas Zoom:} Toggling $2\times$ zoom centers the canvas over the LCD display, doubling manual touch precision while preserving original unzoomed image resolution upon final export.
+        \item \textit{Affine Angle Rectification (\texttt{cropLcdQuad}):} Computes top-edge tilt $\theta = \operatorname{atan2}(\Delta y, \Delta x)$, extracts the bounding envelope, and counter-rotates the cropped LCD digits before re-evaluating local ML Kit OCR on the spot.
+    \end{enumerate}
     \item \textbf{Instant Commit:} Tapping ``Save \& Done'' writes the inspection record to local SQLite with status \texttt{DONE} (or \texttt{PENDING} for cloud sync) and navigates back to the main dashboard in $<50\text{~ms}$.
 \end{itemize}
 
-\subsection{Stage 6: Two-Tier Crash-Resilient Sync Protocol}
+\subsection{Stage 6: Two-Tier Decoupled Sync with Asynchronous Progress Tracking \& Disaster Recovery}
 To handle 2G/EDGE cellular dead zones in basements and electrical shafts, synchronization is decoupled into two tiers:
 \begin{itemize}
-    \item \textbf{Tier-1 Telemetry Batch Sync (Immediate):} Aggregates pending inspections into a minified JSON array ($<2\text{~KB}$ for 15 inspections) containing meter serial numbers, GPS coordinates, timestamps, and QA verdicts. Transmitted via HTTP POST to \texttt{/api/v1/ingest/tier1-batch}. Over 2G links, this payload dispatches in $1.14\text{~seconds}$ with a 100\% success rate.
-    \item \textbf{Tier-2 Multipart Media Sync (Deferred):} High-resolution JPEG images remain queued locally in the device sandbox. They are uploaded via multipart requests to \texttt{/api/v1/ingest/tier2-media} only when the technician returns to the regional depot on unmetered Wi-Fi.
-    \item \textbf{Idempotent Ingestion:} The FastAPI ingestion gateway implements update-on-conflict logic on the primary key, absorbing repeated mobile network retransmissions without raising 409 server errors.
+    \item \textbf{Tier-1 Telemetry Batch Sync (Immediate):} Aggregates pending inspections into a minified JSON array ($<2\text{~KB}$ for 15 inspections) containing meter serial numbers, GPS coordinates, timestamps, and QA verdicts. Transmitted via HTTP POST to \texttt{/api/v1/inspections/batch}. Over 2G links, this payload dispatches in $1.14\text{~seconds}$ with a 100\% success rate.
+    \item \textbf{Tier-2 Multipart Media Sync (Deferred):} Compressed audit JPEG images ($150\text{~KB}$) upload asynchronously in the background to \texttt{/api/v1/inspections/\{id\}/image}.
+    \item \textbf{Minimalist Stage-Aware Progress Bar:} Tracks gateway ping, Tier-1 metadata dispatch, and per-photo streaming in real time. Once metadata and media are acknowledged by the cloud, the mobile UI marks sync 100\% Complete immediately.
+    \item \textbf{Asynchronous Non-Blocking Cloud VLM Audit:} Tier-3 Cloud VLM auditing and administrative directives reconciliation run asynchronously in the background, updating local SQLite records without delaying field technicians.
+    \item \textbf{Remote Fleet Disaster Recovery Sync-Back:} If a technician's handset is wiped or reassigned, the admin console triggers a remote restore (\texttt{GET /api/v1/devices/\{device\_id\}/restore}), streaming all historical inspections, photos, and VLM audit verdicts back to the device over WebSocket.
 \end{itemize}
 
 \subsection{Stage 7: Tier-3 Cloud Multimodal VLM Auditing}

@@ -197,10 +197,10 @@ def populate_presentation():
     s8 = prs.slides[7]
     fill_content_box(s8.shapes[1], "System Architecture: Hybrid Edge-Cloud Topology", [
         "Tier 1 - Edge Handset: Camera Viewfinder with MEMS leveling, onLayout reticle math, INT8 wire safety.",
-        "Tier 2 - Verification Screen: inspect-preview.tsx dual-box HUD (Step A safety banner, Step B editable kWh).",
+        "Tier 2 - Verification & Polygon Cropper: Dual-box HUD + CamScanner 4-dot polygon cropper with 2.8x floating loupe & 2x zoom.",
         "Tier 3 - SQLite WAL SSOT: On-device storage with startup recovery pragmas resetting orphaned sync states.",
-        "Tier 4 - FastAPI Ingestion Gateway: Ephemeral ASGI backend computing SHA-256 evidence seals.",
-        "Tier 5 - Cloud VLM Auditor: Multimodal Gemini 3.8 Flash scoring 4-point physical QC with auto-fallback."
+        "Tier 4 - FastAPI Ingestion Gateway: Ephemeral ASGI backend computing SHA-256 evidence seals & disaster recovery sync-back.",
+        "Tier 5 - Cloud VLM Auditor: Multimodal Gemini 3.8 Flash scoring 4-point physical QC with non-blocking async audit."
     ])
 
     # =========================================================================
@@ -211,8 +211,8 @@ def populate_presentation():
         "1. Dynamic Viewfinder Overlay: Sensor tilt indicator + normalized percentage crop without window offsets.",
         "2. Wire Safety Classifier: 1.24 MB INT8 MobileNetV3 detecting conductor stripping (P_hazard >= 0.65).",
         "3. Sim-to-Real Digit Recognizer: ML Kit OCR + 7-segment automaton + height-ratio decimal recovery (r < 0.82).",
-        "4. Intermediary Verification Screen: 1-second technician sign-off eliminating UI thread freeze.",
-        "5. Two-Way Fleet Directives: Real-time administrative safety push alerts with local SQLite persistence."
+        "4. CamScanner Polygon Cropper: 4-point polygon isolation with 2.8x floating loupe, 2x canvas zoom, and affine tilt de-skewing.",
+        "5. Decoupled Asynchronous Sync: Stage-aware telemetry bar with immediate completion and non-blocking background VLM audit."
     ])
 
     # =========================================================================
@@ -225,7 +225,7 @@ def populate_presentation():
         "Embedded Database: SQLite 3.45 with Write-Ahead Logging (WAL) and synchronous normal mode.",
         "Cloud Ingestion Gateway: Python 3.12, FastAPI 0.115, Uvicorn ASGI, Pydantic v2 data contracts.",
         "Multimodal Cloud AI: Google Gemini Interactions API (gemini-3.8-flash primary, gemini-4-hydrogen fallback).",
-        "Security & Cryptography: FIPS 180-4 SHA-256 evidence seals and Tailscale WireGuard overlay mesh."
+        "Security & Cryptography: FIPS 180-4 SHA-256 evidence seals and remote fleet disaster recovery sync-back."
     ])
 
     # =========================================================================

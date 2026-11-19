@@ -322,7 +322,7 @@ $\downarrow$ \quad \quad \quad \quad \quad $\downarrow$\\
 To evaluate model performance across real-world operational distributions, we assembled a comprehensive multi-source dataset comprising Indian utility meters and electrical wiring defects:
 \begin{enumerate}
     \item \textbf{Adani Electricity \& OEM Dataset:} High-resolution field imagery and technical manuals covering dominant Indian smart meter manufacturers: Salzer Gridxpert SALFM146, Genus Power Smart Single-Phase, Secure Premier 300, HPL Electric, and Larsen \& Toubro (L\&T).
-    \item \textbf{Mendeley Indian Energy Meter Dataset:} 169 raw digital energy meter photographs collected under diverse Tamil Nadu field conditions~\cite{kanagarathinam2019text}, exhibiting severe dust accumulation, oblique angles, and scratched acrylic covers.
+    \item \textbf{Mendeley Indian Energy Meter Dataset:} 169 raw digital energy meter photographs collected under diverse Tamil Nadu field conditions~\cite{kanagarathinam2019data, kanagarathinam2020text}, exhibiting severe dust accumulation, oblique angles, and scratched acrylic covers.
     \item \textbf{Exposed Wiring \& Terminal Defect Dataset:} 1,420 annotated images depicting properly terminated enclosures, partially seated covers, loose phase wires, and stripped copper conductors.
     \item \textbf{Public Seven-Segment Benchmarks:} Curated subsets from Roboflow Universe and Hugging Face (\texttt{utilitimetersai/Annotated-LCD-Utility-Meter-Dials-Dataset}) for digit bounding box parity.
 \end{enumerate}
@@ -392,6 +392,26 @@ Crucially, at the operational decision threshold of $P_{\text{hazard}} \ge 0.65$
 Evaluating Stage~2 across 250 real meter display captures demonstrated the efficacy of sensor-leveling and heuristic sanitization. While baseline unconstrained OCR achieved a Character Error Rate (CER) of $18.4\%$ due to segment confusion, Novo's sanitization automaton reduced the CER to $1.2\%$. 
 
 In Tier-3 cloud evaluation, \texttt{gemini-3.8-flash} successfully reconciled $89.2\%$ of edge-unreadable low-contrast displays ($E_{\text{edge}} = \text{null}$), transcribing correct cumulative energy values with mean confidence $0.92$. Furthermore, the 4-point physical QC scorecard achieved an accuracy of $97.1\%$ across terminal cover and tamper seal verification.
+
+\begin{table}[t]
+\caption{Seven-Segment Benchmark on Mendeley YUVA EB Dataset~\cite{kanagarathinam2019data, kanagarathinam2020text}}
+\label{tab:yuva_eb_benchmark}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Methodology} & \textbf{Acc.} & \textbf{CER} & \textbf{Lat.} & \textbf{Day} & \textbf{Night} & \textbf{Tilt/Blur} \\
+\midrule
+Generic Edge OCR & 1.2\% & 91.2\% & 24.5\,ms & 0.0\% & 4.2\% & 0.0\% \\
+MATLAB MSER~\cite{kanagarathinam2020text} & 0.0\% & 129.8\% & 107.1\,ms & 0.0\% & 0.0\% & 0.0\% \\
+Our YOLOv8n (INT8) & 4.2\% & 60.4\% & 26.4\,ms & 0.0\% & 14.6\% & 0.0\% \\
+\textbf{Cloud VLM (\texttt{3.8-flash})} & \textbf{98.8\%} & \textbf{0.2\%} & 1180\,ms & \textbf{100\%} & \textbf{100\%} & \textbf{95.0\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+To empirically benchmark recognition paradigms under real field degradations, we evaluated four methodologies across the 169-image Mendeley YUVA EB dataset~\cite{kanagarathinam2019data, kanagarathinam2020text} spanning Day Light, Night, Tilted Perspective, and Motion Blur (Table~\ref{tab:yuva_eb_benchmark}). The classical MSER and morphological segment-bridging method from~\cite{kanagarathinam2020text} failed completely on raw field captures ($0.0\%$ exact match, $129.8\%$ CER) because high-contrast faceplate branding, voltage ratings (\texttt{240V 10(40)A 50Hz}), and regulatory stamps produce denser extremal regions than unbacklit LCD glyphs. Generic edge OCR also struggled with segment air gaps ($1.2\%$ accuracy), failing entirely under daytime specular glare and perspective tilt. Standalone INT8 YOLOv8n digit bounding boxes achieved $4.2\%$ accuracy ($26.4\text{~ms}$) but lacked decimal point inference. Conversely, the cloud multimodal auditor (\texttt{gemini-3.8-flash}) achieved a dominant \textbf{98.8\% accuracy} ($0.2\%$ CER), attaining $100\%$ across Day, Night, and Tilt, and $90.0\%$ on motion-blurred images, validating Novo's hybrid design pairing low-latency edge gating with cloud VLM rigor.
 
 \textbf{On-Device Multimodal SLM Trade-off Analysis:} To investigate whether full multimodal reasoning can be migrated entirely to edge devices without cloud dependency, we benchmarked a 2B Small Language Model (\texttt{Gemma E2B-it}) locally on a representative mid-range Android smartphone (Realme 11 Pro, MediaTek Dimensity 7050, 8\,GB RAM). While \texttt{Gemma E2B-it} accurately read difficult seven-segment meter displays without heuristic substitution (successfully extracting \texttt{0507106}), local execution required \textbf{2.23\,GB RAM} (${\approx}30\%$ of total device memory) and exhibited a prohibitive \textbf{11.8\,s} inference latency (\textbf{9.7\,s} time-to-first-token prefill). In contrast, Novo's Stage~1 safety gate requires merely \textbf{4.59\,MB} peak RAM and executes in \textbf{24.34\,ms}. This 485$\times$ memory reduction and 480$\times$ latency advantage confirms that running monolithic multi-billion-parameter VLMs locally on contractor smartphones induces severe UI freezing, thermal throttling, and out-of-memory risks on budget Android hardware, validating Novo's architectural decision to decouple low-latency edge safety gating from cloud VLM adjudication.
 

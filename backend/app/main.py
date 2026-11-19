@@ -845,7 +845,11 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
     function renderFleetMap() {
       if (!map) return;
+      const validPoints = [];
       allDevices.forEach(d => {
+        if (d.latitude && d.longitude && (d.latitude !== 0 || d.longitude !== 0)) {
+          validPoints.push([d.latitude, d.longitude]);
+        }
         const lat = d.latitude || 19.0760;
         const lon = d.longitude || 72.8777;
         const key = d.device_id;
@@ -855,6 +859,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           <div class="p-1 text-xs text-zinc-300 font-mono">
             <div class="text-zinc-100 font-medium">${escapeHtml(d.technician_id)} (${d.is_online ? 'Online' : 'Offline'})</div>
             <div class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(d.device_id)}</div>
+            <div class="text-[11px] text-zinc-400 mt-0.5">${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
             <div class="mt-2 pt-2 border-t border-zinc-800">
               <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="w-full py-1 bg-zinc-200 hover:bg-white text-zinc-950 rounded text-center text-xs">Alert Device</button>
             </div>
@@ -866,7 +871,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           mapMarkers[key].setPopupContent(popupHtml);
         } else {
           const marker = L.circleMarker([lat, lon], {
-            radius: 6,
+            radius: 7,
             fillColor: color,
             color: '#090a0d',
             weight: 2,
@@ -877,6 +882,12 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           mapMarkers[key] = marker;
         }
       });
+
+      if (validPoints.length === 1) {
+        map.setView(validPoints[0], 15);
+      } else if (validPoints.length > 1) {
+        map.fitBounds(L.latLngBounds(validPoints).pad(0.2));
+      }
     }
 
     function dispatchDirectToDevice(deviceId) {

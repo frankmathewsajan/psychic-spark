@@ -467,47 +467,51 @@ export default function DashboardScreen() {
 											<Text style={[styles.snText, { color: colors.text }]}>
 												{item.meter_serial_number || "UNKNOWN"}
 											</Text>
-											<View
-												style={{
-													flexDirection: "row",
-													gap: 6,
-													alignItems: "center",
-												}}
-											>
-												{item.vlm_kwh != null && (
-													<View
-														style={[
-															styles.aiChip,
-															{
-																backgroundColor: isDark ? "#064e3b" : "#DCFCE7",
-																borderColor: isDark ? "#059669" : "#86EFAC",
-															},
-														]}
-													>
-														<Text
-															style={[
-																styles.aiChipText,
-																{ color: isDark ? "#4ade80" : "#15803D" },
-															]}
-														>
-															AI: {Number(item.vlm_kwh).toFixed(1)} kWh
-														</Text>
-													</View>
-												)}
-												<View style={styles.warnChip}>
-													<Text style={styles.warnChipText}>Review</Text>
-												</View>
+											<View style={styles.warnChip}>
+												<Text style={styles.warnChipText}>Review</Text>
 											</View>
 										</View>
-										<Text
-											style={[styles.metaText, { color: colors.textSecondary }]}
-										>
-											{item.extracted_kwh != null
-												? `${item.extracted_kwh} kWh`
-												: item.vlm_kwh != null
-													? `Cloud AI: ${item.vlm_kwh} kWh`
+										{item.vlm_kwh != null ? (
+											<View style={styles.aiReadingRow}>
+												<View
+													style={[
+														styles.aiChip,
+														{
+															backgroundColor: isDark ? "#064e3b" : "#DCFCE7",
+															borderColor: isDark ? "#059669" : "#86EFAC",
+														},
+													]}
+												>
+													<Text
+														style={[
+															styles.aiChipText,
+															{ color: isDark ? "#4ade80" : "#15803D" },
+														]}
+													>
+														AI: {Number(item.vlm_kwh).toFixed(1)} kWh
+													</Text>
+												</View>
+												<Text
+													style={[
+														styles.metaText,
+														{ color: colors.textSecondary },
+													]}
+												>
+													Tap to autofill
+												</Text>
+											</View>
+										) : (
+											<Text
+												style={[
+													styles.metaText,
+													{ color: colors.textSecondary },
+												]}
+											>
+												{item.extracted_kwh != null
+													? `${item.extracted_kwh} kWh`
 													: "No reading"}
-										</Text>
+											</Text>
+										)}
 									</View>
 								</View>
 							</Pressable>
@@ -579,28 +583,6 @@ export default function DashboardScreen() {
 													{item.meter_serial_number || "UNKNOWN"}
 												</Text>
 												<View style={styles.badgesCluster}>
-													{item.vlm_kwh != null && (
-														<View
-															style={[
-																styles.aiChip,
-																{
-																	backgroundColor: isDark
-																		? "#064e3b"
-																		: "#DCFCE7",
-																	borderColor: isDark ? "#059669" : "#86EFAC",
-																},
-															]}
-														>
-															<Text
-																style={[
-																	styles.aiChipText,
-																	{ color: isDark ? "#4ade80" : "#15803D" },
-																]}
-															>
-																AI: {Number(item.vlm_kwh).toFixed(1)} kWh
-															</Text>
-														</View>
-													)}
 													{isPendingMl ? (
 														<View style={styles.processChip}>
 															<Text style={styles.processChipText}>
@@ -649,15 +631,63 @@ export default function DashboardScreen() {
 													) : null}
 												</View>
 											</View>
-											<Text style={styles.metaText}>
-												{isPendingMl
-													? "Running model on device..."
-													: item.extracted_kwh != null
-														? `${item.extracted_kwh} kWh`
-														: item.vlm_kwh != null
-															? `${item.vlm_kwh} kWh (VLM)`
-															: "Tap to enter reading"}
-											</Text>
+											{isPendingMl ? (
+												<Text
+													style={[
+														styles.metaText,
+														{ color: colors.textSecondary },
+													]}
+												>
+													Running model on device...
+												</Text>
+											) : item.extracted_kwh != null ? (
+												<Text
+													style={[
+														styles.metaText,
+														{ color: colors.textSecondary },
+													]}
+												>
+													{item.extracted_kwh} kWh
+												</Text>
+											) : item.vlm_kwh != null ? (
+												<View style={styles.aiReadingRow}>
+													<View
+														style={[
+															styles.aiChip,
+															{
+																backgroundColor: isDark ? "#064e3b" : "#DCFCE7",
+																borderColor: isDark ? "#059669" : "#86EFAC",
+															},
+														]}
+													>
+														<Text
+															style={[
+																styles.aiChipText,
+																{ color: isDark ? "#4ade80" : "#15803D" },
+															]}
+														>
+															AI: {Number(item.vlm_kwh).toFixed(1)} kWh
+														</Text>
+													</View>
+													<Text
+														style={[
+															styles.metaText,
+															{ color: colors.textSecondary },
+														]}
+													>
+														Tap to enter reading
+													</Text>
+												</View>
+											) : (
+												<Text
+													style={[
+														styles.metaText,
+														{ color: colors.textSecondary },
+													]}
+												>
+													Tap to enter reading
+												</Text>
+											)}
 										</View>
 									</View>
 								</Pressable>
@@ -825,11 +855,9 @@ const styles = StyleSheet.create({
 		width: 40,
 		height: 40,
 		borderRadius: MD3.shape.cornerFull,
-		backgroundColor: MD3.color.surfaceContainerLow,
 		justifyContent: "center",
 		alignItems: "center",
 		borderWidth: 1,
-		borderColor: MD3.color.outlineVariant,
 	},
 	primaryFab: {
 		flexDirection: "row",
@@ -972,10 +1000,17 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		fontWeight: "600",
 		color: MD3.color.onSurface,
+		flexShrink: 1,
 	},
 	metaText: {
 		fontSize: 13,
 		color: MD3.color.onSurfaceVariant,
+	},
+	aiReadingRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+		marginTop: 2,
 	},
 	chip: {
 		paddingHorizontal: 8,
@@ -1030,6 +1065,9 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 6,
+		flexShrink: 0,
+		flexWrap: "wrap",
+		justifyContent: "flex-end",
 	},
 	vlmVerifiedChip: {
 		backgroundColor: "#CCFBF1",

@@ -46,6 +46,12 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow novo to access your location for meter inspection tagging."
+        }
+      ],
       "react-native-fast-tflite"
     ],
     "experiments": {

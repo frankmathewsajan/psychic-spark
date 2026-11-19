@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
 import { MD3 } from "@/constants/theme";
+import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import { logger } from "@/core/logger";
 import { calculateWallTilt } from "@/services/sensor/leveling";
 
@@ -89,6 +90,7 @@ export default function CaptureScreen() {
 	const detectedBarcodeRef = useRef<string | null>(null);
 
 	useEffect(() => {
+		getCurrentCoordinates();
 		Accelerometer.setUpdateInterval(100);
 		const subscription = Accelerometer.addListener(({ x, y, z }) => {
 			const evaluation = calculateWallTilt(x, y, z);
@@ -179,6 +181,9 @@ export default function CaptureScreen() {
 					cropBoundsJson = JSON.stringify([normX, normY, normW, normH]);
 				}
 
+				const coords =
+					getCachedCoordinates() || (await getCurrentCoordinates());
+
 				// Do NOT insert into SQLite or wake useBackgroundMlWorker here.
 				// Immediately push to /inspect-preview for zero-delay UX.
 				router.push({
@@ -190,6 +195,8 @@ export default function CaptureScreen() {
 						tilt: String(snapTilt),
 						barcode: snapBarcode || "",
 						cropBoundsJson: cropBoundsJson || "",
+						latitude: String(coords.latitude),
+						longitude: String(coords.longitude),
 					},
 				});
 			}

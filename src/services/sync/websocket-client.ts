@@ -6,6 +6,7 @@ import {
 	getOrCreateDeviceId,
 	upsertClientMessage,
 } from "@/core/db/repository";
+import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import { logger } from "@/core/logger";
 import type { ClientMessage } from "@/core/types/inspection";
 
@@ -238,18 +239,26 @@ class DeviceWebSocketService {
 		}
 	}
 
-	public sendTelemetry(
+	public async sendTelemetry(
 		technicianId = "TECH-01",
-		lat = 19.076,
-		lon = 72.8777,
+		lat?: number,
+		lon?: number,
 		battery = 0.92,
 	) {
+		let currentLat = lat;
+		let currentLon = lon;
+		if (currentLat === undefined || currentLon === undefined) {
+			const coords = getCachedCoordinates() || (await getCurrentCoordinates());
+			currentLat = coords.latitude;
+			currentLon = coords.longitude;
+		}
+
 		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
 			this.ws.send(
 				JSON.stringify({
 					type: "TELEMETRY",
-					lat,
-					lon,
+					lat: currentLat,
+					lon: currentLon,
 					battery,
 					technician_id: technicianId,
 					device_model: getDeviceModel(),

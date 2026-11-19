@@ -20,6 +20,7 @@ import {
 	commitReviewedInspection,
 	insertInspection,
 } from "@/core/db/repository";
+import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import type { QAStatus } from "@/core/types/inspection";
 
 const STATUS_OPTIONS: QAStatus[] = ["PASS", "WARNING", "CRITICAL_HAZARD"];
@@ -95,13 +96,14 @@ export default function ValidationScreen() {
 				hazardReason: finalHazard,
 			});
 		} else {
+			const coords = getCachedCoordinates() || (await getCurrentCoordinates());
 			await insertInspection(db, {
 				id: `ins_${Date.now()}`,
 				technician_id: "field_tech",
 				device_id: "device_01",
 				meter_serial_number: serialNumber.trim().toUpperCase() || "UNKNOWN",
-				latitude: 0,
-				longitude: 0,
+				latitude: coords.latitude,
+				longitude: coords.longitude,
 				timestamp_utc: new Date().toISOString(),
 				qa_status: selectedStatus,
 				hazard_reason: finalHazard,

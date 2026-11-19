@@ -19,6 +19,7 @@ import { AppSymbol } from "@/components/app-symbol";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import { insertInspection } from "@/core/db/repository";
+import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import { logger } from "@/core/logger";
 import {
 	type CroppedLcdOcrResult,
@@ -39,6 +40,8 @@ export default function InspectPreviewScreen() {
 		tilt?: string;
 		barcode?: string;
 		cropBoundsJson?: string;
+		latitude?: string;
+		longitude?: string;
 	}>();
 
 	const photoUri = params.photoUri;
@@ -174,6 +177,14 @@ export default function InspectPreviewScreen() {
 						? null
 						: "Manual review required — unconfirmed reading";
 
+			let lat = params.latitude ? Number.parseFloat(params.latitude) : 0;
+			let lon = params.longitude ? Number.parseFloat(params.longitude) : 0;
+			if (lat === 0 && lon === 0) {
+				const c = getCachedCoordinates() || (await getCurrentCoordinates());
+				lat = c.latitude;
+				lon = c.longitude;
+			}
+
 			await insertInspection(db, {
 				id,
 				technician_id: "field_tech",
@@ -181,8 +192,8 @@ export default function InspectPreviewScreen() {
 				meter_serial_number:
 					serialInput.trim().toUpperCase() ||
 					`EB${(Date.now() % 900000) + 100000}`,
-				latitude: 0,
-				longitude: 0,
+				latitude: lat,
+				longitude: lon,
 				timestamp_utc: new Date().toISOString(),
 				qa_status: effectiveStatus,
 				hazard_reason: effectiveHazardReason,

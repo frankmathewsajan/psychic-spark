@@ -92,3 +92,44 @@ def test_admin_reset_data(client):
     ok_res = client.post("/api/v1/admin/reset-data", json={"confirm": "RESET_ALL_DATA"})
     assert ok_res.status_code == 200
     assert ok_res.json()["status"] == "SUCCESS"
+
+
+def test_device_restore_and_sync_back(client):
+    # 1. Ingest an inspection for device dev_restore_01
+    batch_payload = {
+        "batch_id": "batch_restore_01",
+        "inspections": [
+            {
+                "id": "insp_restore_01",
+                "technician_id": "TECH-RESTORE",
+                "device_id": "dev_restore_01",
+                "device_model": "Realme 11 Pro",
+                "app_version": "1.0.0",
+                "meter_serial_number": "EB998877",
+                "timestamp_utc": "2026-11-19T11:00:00Z",
+                "geo": [19.0760, 72.8777],
+                "qa_status": "PASS",
+                "kwh_reading": 507106.0,
+                "ocr_confidence": 0.98,
+            }
+        ]
+    }
+    batch_res = client.post("/api/v1/inspections/batch", json=batch_payload)
+    assert batch_res.status_code == 200
+
+    # 2. Query restore endpoint for dev_restore_01
+    restore_res = client.get("/api/v1/devices/dev_restore_01/restore")
+    assert restore_res.status_code == 200
+    records = restore_res.json()
+    assert len(records) == 1
+    assert records[0]["id"] == "insp_restore_01"
+    assert records[0]["meter_serial_number"] == "EB998877"
+    assert records[0]["kwh_reading"] == 507106.0
+
+    # 3. Trigger sync-back endpoint
+    sync_res = client.post("/api/v1/devices/dev_restore_01/sync-back")
+    assert sync_res.status_code == 200
+    data = sync_res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["inspection_count"] == 1
+

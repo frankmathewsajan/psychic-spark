@@ -9,6 +9,7 @@ import {
 import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import { logger } from "@/core/logger";
 import type { ClientMessage } from "@/core/types/inspection";
+import { reconcileCloudAuditStatus } from "./tier1-sync";
 
 export type WsStatus = "CONNECTED" | "CONNECTING" | "DISCONNECTED";
 
@@ -172,6 +173,31 @@ class DeviceWebSocketService {
 						this.sendAck(data.id, "DELIVERED", technicianId);
 
 						this.onMessageCallback?.(clientMsg);
+					} else if (data.type === "SYNC_BACK_REQUEST") {
+						logger.info(
+							"DeviceWS",
+							"Received remote sync-back restore trigger from admin console",
+						);
+						if (this.cachedDb && this.cachedGatewayUrl) {
+							reconcileCloudAuditStatus(
+								this.cachedDb,
+								this.cachedGatewayUrl,
+								this.deviceId,
+							).then((count) => {
+								this.onMessageCallback?.({
+									id: `restore-${Date.now()}`,
+									target_type: "DEVICE",
+									target_id: this.deviceId,
+									message_type: "NOTICE",
+									priority: "HIGH",
+									title: "Cloud Data Restored",
+									body: `Restored ${count} inspection record(s) and photos from cloud.`,
+									payload_json: JSON.stringify(data),
+									created_at: new Date().toISOString(),
+									ack_status: "ACTIONED",
+								});
+							});
+						}
 					}
 				} catch (err) {
 					logger.warn("DeviceWS", "Failed to parse incoming WS message", err);

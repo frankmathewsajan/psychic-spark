@@ -5,6 +5,7 @@ import {
 	recordClientAck,
 	removePendingMessageAck,
 	resolveTier1Batch,
+	restoreInspectionFromCloud,
 	updateInspectionAuditStage,
 	upsertClientMessage,
 } from "../../core/db/repository";
@@ -272,50 +273,97 @@ export async function executeTier1Sync(
 export async function reconcileCloudAuditStatus(
 	db: SQLiteDatabase,
 	gatewayUrl: string,
+	deviceId?: string,
 ): Promise<number> {
 	try {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 10000);
-		const res = await fetch(
-			`${gatewayUrl.trim().replace(/\/+$/, "")}/api/v1/inspections?limit=50`,
-			{
-				method: "GET",
-				signal: controller.signal,
-			},
-		);
+		const base = gatewayUrl.trim().replace(/\/+$/, "");
+		const url = deviceId
+			? `${base}/api/v1/devices/${encodeURIComponent(deviceId)}/restore`
+			: `${base}/api/v1/inspections?limit=50`;
+
+		const res = await fetch(url, {
+			method: "GET",
+			signal: controller.signal,
+		});
 		clearTimeout(timer);
 
 		if (!res.ok) return 0;
 		const remoteItems = (await res.json()) as Array<{
 			id: string;
+			technician_id?: string;
+			device_id?: string;
+			meter_serial_number?: string;
+			latitude?: number;
+			longitude?: number;
+			timestamp_utc?: string;
+			qa_status?: string;
+			hazard_reason?: string | null;
+			kwh_reading?: number | null;
+			extracted_kwh?: number | null;
+			ocr_confidence?: number | null;
 			audit_stage?: string;
 			vlm_kwh?: number | null;
 			vlm_notes?: string | null;
 			vlm_summary?: string | null;
 			vlm_tags?: string | null;
 			qc_checklist_json?: string | null;
+			photos?: Array<{ photo_type: string; file_path: string }>;
 		}>;
 
 		let updatedCount = 0;
 		for (const item of remoteItems) {
-			if (item.id && item.audit_stage) {
-				await updateInspectionAuditStage(
-					db,
-					item.id,
-					item.audit_stage,
-					item.vlm_kwh ?? null,
-					item.vlm_notes ?? null,
-					item.vlm_summary ?? null,
-					item.vlm_tags ?? null,
-					item.qc_checklist_json ?? null,
-				);
+			if (!item.id) continue;
+
+			const local = await db.getFirstAsync<{
+				id: string;
+				image_local_path: string | null;
+			}>("SELECT id, image_local_path FROM inspections WHERE id = ? LIMIT 1;", [
+				item.id,
+			]);
+
+			let imageUrl: string | null = null;
+			if (item.photos && item.photos.length > 0 && item.photos[0].file_path) {
+				const p = item.photos[0].file_path;
+				imageUrl = p.startsWith("http")
+					? p
+					: `${base}${p.startsWith("/") ? "" : "/"}${p}`;
+			}
+
+			if (!local) {
+				await restoreInspectionFromCloud(db, {
+					...item,
+					kwh_reading: item.kwh_reading ?? item.extracted_kwh ?? null,
+					image_url: imageUrl,
+				});
+				updatedCount++;
+			} else {
+				if (item.audit_stage) {
+					await updateInspectionAuditStage(
+						db,
+						item.id,
+						item.audit_stage,
+						item.vlm_kwh ?? null,
+						item.vlm_notes ?? null,
+						item.vlm_summary ?? null,
+						item.vlm_tags ?? null,
+						item.qc_checklist_json ?? null,
+					);
+				}
+				if (!local.image_local_path && imageUrl) {
+					await db.runAsync(
+						"UPDATE inspections SET image_local_path = ? WHERE id = ?;",
+						[imageUrl, item.id],
+					);
+				}
 				updatedCount++;
 			}
 		}
 		if (updatedCount > 0) {
 			logger.info(
 				"SyncTier1",
-				`Reconciled ${updatedCount} inspection audit statuses from cloud`,
+				`Reconciled/Restored ${updatedCount} inspection records from cloud`,
 			);
 		}
 		return updatedCount;

@@ -334,7 +334,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
                 <th class="p-2.5">Hardware</th>
                 <th class="p-2.5">Recent Activity / Reply</th>
                 <th class="p-2.5">Battery</th>
-                <th class="p-2.5 text-right"></th>
+                <th class="p-2.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody id="devices-table-body" class="divide-y divide-zinc-800/40">
@@ -836,8 +836,11 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           <td class="p-2.5 text-zinc-500 text-xs">${escapeHtml(d.device_model || 'Android')}</td>
           <td class="p-2.5">${activityHtml}</td>
           <td class="p-2.5 text-zinc-400 font-mono">${batteryText}</td>
-          <td class="p-2.5 text-right">
-            <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="text-zinc-400 hover:text-zinc-200 text-xs font-mono">Alert &rarr;</button>
+          <td class="p-2.5 text-right flex items-center justify-end gap-1.5">
+            <button onclick="triggerDeviceSyncBack('${escapeHtml(d.device_id)}')" title="Restore cloud inspections and photos to this device" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-[11px] font-mono transition flex items-center gap-1">
+              <span>↺</span> Sync Back
+            </button>
+            <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="px-2 py-1 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-[11px] font-mono rounded transition">Alert &rarr;</button>
           </td>
         </tr>`;
       }).join('');
@@ -887,6 +890,21 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         map.setView(validPoints[0], 15);
       } else if (validPoints.length > 1) {
         map.fitBounds(L.latLngBounds(validPoints).pad(0.2));
+      }
+    }
+
+    async function triggerDeviceSyncBack(deviceId) {
+      if (!confirm(`Trigger Sync Back to device "${deviceId}"?\n\nThis will send all cloud inspections and images back to the mobile device in case of local data wipe.`)) return;
+      try {
+        const res = await fetch(`/api/v1/devices/${encodeURIComponent(deviceId)}/sync-back`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`[SYNC BACK TRIGGERED]\n\nDevice: ${data.device_id}\nRecords available in cloud: ${data.inspection_count}\nDevice online: ${data.is_online ? 'YES (Live push sent)' : 'NO (Will sync on reconnection)'}\n\n${data.message}`);
+        } else {
+          alert(`Failed to trigger sync: ${data.detail || 'Server error'}`);
+        }
+      } catch (err) {
+        alert(`Sync back network error: ${err.message}`);
       }
     }
 

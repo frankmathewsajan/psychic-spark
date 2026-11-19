@@ -156,8 +156,8 @@ export default function DashboardScreen() {
 		if (tier1Success) {
 			setSyncFeedback("Synced ✓");
 			await executeTier2MediaSync(db, gatewayUrl);
-			// Reconcile Cloud VLM audit stage & verified reading back to local SQLite
-			await reconcileCloudAuditStatus(db, gatewayUrl);
+			// Reconcile Cloud VLM audit stage, verified reading, or restore wiped records
+			await reconcileCloudAuditStatus(db, gatewayUrl, devId);
 			// Poll new admin directives & flush offline acks
 			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
 		} else {

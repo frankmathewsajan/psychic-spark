@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import SessionLocal, get_db
 from app.core.websocket_manager import ws_manager
@@ -37,6 +37,67 @@ def list_devices(db: Annotated[Session, Depends(get_db)]):
             "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
         })
     return result
+
+
+@router.get("/devices/{device_id}/restore", summary="Export all cloud inspections and photo paths for local device restoration")
+def get_device_restore_payload(device_id: str, db: Annotated[Session, Depends(get_db)]):
+    rows = (
+        db.query(Inspection)
+        .options(joinedload(Inspection.photos))
+        .filter(Inspection.device_id == device_id)
+        .order_by(Inspection.ingested_at.desc())
+        .all()
+    )
+    result = []
+    for r in rows:
+        photos = [{"photo_type": p.photo_type, "file_path": p.file_path} for p in r.photos]
+        result.append({
+            "id": r.id,
+            "batch_id": r.batch_id,
+            "technician_id": r.technician_id,
+            "device_id": r.device_id,
+            "device_model": r.device_model,
+            "app_version": r.app_version,
+            "meter_serial_number": r.meter_serial_number,
+            "timestamp_utc": r.timestamp_utc,
+            "latitude": r.latitude,
+            "longitude": r.longitude,
+            "qa_status": r.qa_status,
+            "hazard_reason": r.hazard_reason,
+            "kwh_reading": r.kwh_reading,
+            "ocr_confidence": r.ocr_confidence,
+            "audit_stage": r.audit_stage,
+            "vlm_kwh": r.vlm_kwh,
+            "vlm_notes": r.vlm_notes,
+            "vlm_summary": r.vlm_summary,
+            "vlm_tags": r.vlm_tags,
+            "qc_checklist_json": r.qc_checklist_json,
+            "evidence_sha256": r.evidence_sha256,
+            "photos": photos,
+        })
+    return result
+
+
+@router.post("/devices/{device_id}/sync-back", summary="Trigger cloud sync back to device over WebSocket or mark for restore")
+async def trigger_sync_back_to_device(device_id: str, db: Annotated[Session, Depends(get_db)]):
+    count = db.query(Inspection).filter(Inspection.device_id == device_id).count()
+    is_online = ws_manager.is_device_online(device_id)
+    sent_ws = False
+    if is_online:
+        sent_ws = await ws_manager.send_to_device(device_id, {
+            "type": "SYNC_BACK_REQUEST",
+            "device_id": device_id,
+            "inspection_count": count,
+            "message": f"Admin requested restore of {count} cloud inspections to device."
+        })
+    return {
+        "status": "SUCCESS",
+        "device_id": device_id,
+        "is_online": is_online,
+        "sent_via_websocket": sent_ws,
+        "inspection_count": count,
+        "message": f"Sync back triggered for device {device_id} ({count} inspections available in cloud)."
+    }
 
 
 @router.post("/admin/reset-data", summary="Purge dummy data from tables")

@@ -340,6 +340,66 @@ export async function updateInspectionAuditStage(
 	);
 }
 
+export async function restoreInspectionFromCloud(
+	db: SQLiteDatabase,
+	item: {
+		id: string;
+		technician_id?: string;
+		device_id?: string;
+		device_model?: string | null;
+		app_version?: string | null;
+		meter_serial_number?: string;
+		latitude?: number;
+		longitude?: number;
+		timestamp_utc?: string;
+		qa_status?: string;
+		hazard_reason?: string | null;
+		kwh_reading?: number | null;
+		ocr_confidence?: number | null;
+		audit_stage?: string;
+		vlm_kwh?: number | null;
+		vlm_notes?: string | null;
+		vlm_summary?: string | null;
+		vlm_tags?: string | null;
+		qc_checklist_json?: string | null;
+		evidence_sha256?: string | null;
+		image_url?: string | null;
+	},
+): Promise<void> {
+	await db.runAsync(
+		`INSERT OR IGNORE INTO inspections (
+			id, technician_id, device_id, device_model, app_version, meter_serial_number,
+			latitude, longitude, timestamp_utc, qa_status,
+			hazard_reason, extracted_kwh, ocr_confidence,
+			image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg,
+			audit_stage, vlm_kwh, vlm_notes, vlm_summary, vlm_tags, qc_checklist_json, evidence_sha256
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED', 'SYNCED', 'COMPLETED', 0.0, ?, ?, ?, ?, ?, ?, ?);`,
+		[
+			item.id,
+			item.technician_id ?? "TECH-01",
+			item.device_id ?? "UNKNOWN",
+			item.device_model ?? "RESTORED",
+			item.app_version ?? "1.0.0",
+			item.meter_serial_number ?? "UNKNOWN",
+			item.latitude ?? 0.0,
+			item.longitude ?? 0.0,
+			item.timestamp_utc ?? new Date().toISOString(),
+			item.qa_status ?? "PASS",
+			item.hazard_reason ?? null,
+			item.kwh_reading ?? null,
+			item.ocr_confidence ?? 1.0,
+			item.image_url ?? null,
+			item.audit_stage ?? "VLM_VERIFIED",
+			item.vlm_kwh ?? null,
+			item.vlm_notes ?? null,
+			item.vlm_summary ?? null,
+			item.vlm_tags ?? null,
+			item.qc_checklist_json ?? null,
+			item.evidence_sha256 ?? null,
+		],
+	);
+}
+
 export async function clearAllInspections(db: SQLiteDatabase): Promise<void> {
 	await db.runAsync(`DELETE FROM inspections;`);
 	logger.info("Repository", "Cleared all inspection records from SQLite");

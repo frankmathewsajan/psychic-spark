@@ -21,10 +21,21 @@
 
 \author{
 \IEEEauthorblockN{Frank Mathew Sajan}
-\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
-\textit{Adani AI Labs / Capstone Research Initiative}\\
-Ahmedabad, India \\
-frankmathewsajan@gmail.com}
+\IEEEauthorblockA{\textit{School of Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, Andhra Pradesh, India \\
+sajan.23bce8713@vitapstudent.ac.in}
+\and
+\IEEEauthorblockN{Sibi Chakkaravarthy}
+\IEEEauthorblockA{\textit{School of Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, Andhra Pradesh, India \\
+chakkaravarthy.sibi@vitap.ac.in}
+\and
+\IEEEauthorblockN{Gowrav Shekar}
+\IEEEauthorblockA{\textit{Adani AI Labs} \\
+Ahmedabad, Gujarat, India \\
+}
 }
 
 \maketitle
@@ -269,7 +280,7 @@ To establish closed-loop operational control over field contractor fleets, Novo 
 \subsection{Cost-Optimized Multi-Cloud and Overlay Network Architecture}
 To guarantee economic viability across multi-million-meter rollouts, the server infrastructure decouples stateless compute from persistent storage:
 \begin{itemize}
-    \item \textbf{Ephemeral PaaS Ingestion Gateway:} The FastAPI application executes within an ephemeral compute footprint ($0.1\text{~vCPU}$, $512\text{~MB}$ RAM) at $\$0/\text{month}$ baseline cost. To overcome cold-start delays ($40\text{--}55\text{~s}$) following container idle shutdown, the mobile client implements an application-layer health handshake (\texttt{GET /api/v1/health}) paired with bounded exponential backoff:
+    \item \textbf{Ephemeral Containerized ASGI Gateway Tier:} The FastAPI application executes within an ephemeral containerized ASGI tier ($0.1\text{~vCPU}$, $512\text{~MB}$ RAM) at $\$0/\text{month}$ baseline cost. To overcome cold-start delays ($40\text{--}55\text{~s}$) following container idle shutdown, the mobile client implements an application-layer health handshake (\texttt{GET /api/v1/health}) paired with bounded exponential backoff:
     \begin{equation}
     \Delta t = \min\left( t_{\max}, \, t_{\text{initial}} \cdot 2^k + \text{jitter} \right)
     \label{eq:backoff}
@@ -400,8 +411,8 @@ From an infrastructure perspective, decoupling compute and storage enables signi
 \toprule
 \textbf{Infrastructure Tier} & \textbf{Conventional Cloud OCR} & \textbf{Novo Edge--Cloud} \\
 \midrule
-Cloud Compute Nodes & Always-on GPU VM (2 vCPU, 8GB GPU) & Ephemeral PaaS (0.1 vCPU, 512MB RAM) \\
-Monthly Compute OPEX & $\$85\text{--}\$150/\text{month}$ & \textbf{\$0.00 / month} (Free Tier) \\
+Cloud Compute Nodes & Always-on GPU VM (2 vCPU, 8GB GPU) & Ephemeral Container Tier (0.1 vCPU, 512MB RAM) \\
+Monthly Compute OPEX & $\$85\text{--}\$150/\text{month}$ & \textbf{\$0.00 / month} (Baseline Tier) \\
 Tier-3 Multimodal Audit & Dedicated Vision Service (\$120/mo) & Pay-per-Call Serverless VLM \\
 Cold-Start Latency & $0\text{~s}$ (Active) & $45\text{~s}$ (Mitigated via backoff ping) \\
 Database \& Storage & Dedicated RDS instance & Managed Supabase BaaS (Free Tier) \\
@@ -423,7 +434,7 @@ Future work will advance in four key directions:
 (4) \textbf{Optical Tamper Seal Verification:} expanding edge classifiers to detect holographic seal tampering and phase-shunting bypasses.
 
 \section*{Acknowledgment}
-The author gratefully acknowledges the technical mentorship, field dataset access, and industrial testing facilities provided by Adani AI Labs during the engineering research phase.
+The authors gratefully acknowledge the technical leadership, field dataset access, and industrial testing facilities provided by Mr. Gowrav Shekar and the engineering team at Adani AI Labs (Ahmedabad, Gujarat), as well as the academic research guidance and laboratory facilities provided by the School of Computer Science and Engineering (SCOPE) at VIT-AP University (Amaravati, Andhra Pradesh).
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

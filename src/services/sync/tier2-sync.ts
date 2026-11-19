@@ -1,4 +1,4 @@
-import { File, Paths } from "expo-file-system";
+import { File, Paths, UploadType } from "expo-file-system";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { logger } from "../../core/logger";
 
@@ -44,24 +44,21 @@ export async function executeTier2MediaSync(
 		const isPng = file.name.toLowerCase().endsWith(".png");
 		const mimeType = isPng ? "image/png" : "image/jpeg";
 
-		const formData = new FormData();
-		formData.append("photo_type", "CASING");
-		formData.append("file", {
-			uri: file.uri,
-			name: file.name,
-			type: mimeType,
-		} as unknown as Blob);
-
 		try {
-			const res = await fetch(
+			const res = await file.upload(
 				`${gatewayUrl}/api/v1/inspections/${item.id}/image`,
 				{
-					method: "POST",
-					body: formData,
+					httpMethod: "POST",
+					uploadType: UploadType.MULTIPART,
+					fieldName: "file",
+					mimeType,
+					parameters: {
+						photo_type: "CASING",
+					},
 				},
 			);
 
-			if (res.ok) {
+			if (res.status >= 200 && res.status < 300) {
 				await db.runAsync(
 					`UPDATE inspections SET sync_tier2_status = 'SYNCED' WHERE id = ?;`,
 					[item.id],

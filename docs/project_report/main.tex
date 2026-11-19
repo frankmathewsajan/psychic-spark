@@ -57,27 +57,40 @@
     
     {\Large\bfseries A SAFETY-GATED HYBRID EDGE--CLOUD VISUAL INSPECTION FRAMEWORK FOR POINT-OF-WORK SMART METER VERIFICATION IN BANDWIDTH-CONSTRAINED ENVIRONMENTS\par}
     
-    \vspace{1.2cm}
+    \vspace{1.0cm}
     {\large\itshape A Major Project / Capstone Thesis Report Submitted in Partial Fulfillment of the Requirements for the Degree of\par}
-    \vspace{0.4cm}
+    \vspace{0.3cm}
     {\large\bfseries BACHELOR OF TECHNOLOGY\par}
     {\large in\par}
     {\large\bfseries COMPUTER SCIENCE AND ENGINEERING\par}
     
-    \vspace{1.5cm}
+    \vspace{1.2cm}
     {\large Submitted by:\par}
     \vspace{0.2cm}
     {\Large\bfseries FRANK MATHEW SAJAN\par}
-    {\large (Registration No: Capstone-2026-CSE)\par}
+    {\large \textbf{Registration No:} 23BCE8713\par}
+    {\large \texttt{sajan.23bce8713@vitapstudent.ac.in}\par}
     
-    \vspace{1.5cm}
-    {\large Under the Guidance and Mentorship of:\par}
-    \vspace{0.2cm}
-    {\large\bfseries Adani AI Labs Research Group\par}
-    {\large Industry Collaboration Initiative\par}
+    \vspace{1.0cm}
+    {\large Under the Guidance of:\par}
+    \vspace{0.3cm}
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+    \textbf{Internal Academic Guide:} & \textbf{External Industry Guide:} \\
+    \textbf{Dr. Sibi Chakkaravarthy} & \textbf{Mr. Gowrav Shekar} \\
+    Associate Professor & Head of Technology \& AI Practices \\
+    School of Computer Science and Engineering & Adani AI Labs \\
+    VIT-AP University & Ahmedabad, Gujarat, India \\
+    \texttt{chakkaravarthy.sibi@vitap.ac.in} & \\
+    \end{tabular*}
     
     \vfill
-    {\large Department of Computer Science and Engineering\par}
+    {\large School of Computer Science and Engineering (SCOPE)\par}
+    {\large\bfseries VIT-AP UNIVERSITY\par}
+    {\large Amaravati, Andhra Pradesh -- 522237, India\par}
+    \vspace{0.25cm}
+    {\large In Collaboration with\par}
+    {\large\bfseries Adani AI Labs, Ahmedabad, Gujarat, India\par}
+    \vspace{0.25cm}
     {\large Academic Year 2025--2026\par}
     {\large November 2026\par}
 \end{titlepage}
@@ -90,16 +103,18 @@
 % ------------------------------------------------------------------------------
 \chapter*{Certificate of Approval}
 \addcontentsline{toc}{chapter}{Certificate of Approval}
-This is to certify that the project report entitled \textbf{``A Safety-Gated Hybrid Edge--Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments''} submitted by \textbf{Frank Mathew Sajan} in partial fulfillment of the requirements for the award of the degree of \textbf{Bachelor of Technology in Computer Science and Engineering} is a bona fide record of research and engineering work carried out under our supervision and guidance.
+This is to certify that the project report entitled \textbf{``A Safety-Gated Hybrid Edge--Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments''} submitted by \textbf{Frank Mathew Sajan} (Registration No: \textbf{23BCE8713}) in partial fulfillment of the requirements for the award of the degree of \textbf{Bachelor of Technology in Computer Science and Engineering} at \textbf{VIT-AP University, Amaravati} is a bona fide record of research and engineering work carried out under our joint supervision and guidance during his internship at \textbf{Adani AI Labs, Ahmedabad}.
 
 The empirical results, architectural formulations, and source implementations embodied in this report have been verified against real-world smart meter distributions and have not been submitted elsewhere for the award of any other degree or diploma.
 
-\vspace{2.5cm}
+\vspace{2.2cm}
 \noindent
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
-\rule{5cm}{0.4pt} & \rule{5cm}{0.4pt} \\
-\textbf{Project Guide / Industry Mentor} & \textbf{Head of the Department} \\
-Adani AI Labs & Department of Computer Science and Engineering
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccc}
+\rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+\textbf{Dr. Sibi Chakkaravarthy} & \textbf{Mr. Gowrav Shekar} & \textbf{Head of the School / Dean} \\
+Internal Academic Guide & External Industry Guide & School of Computer Science \\
+SCOPE, VIT-AP University & Head of Technology \& AI Practices & and Engineering (SCOPE) \\
+Amaravati, Andhra Pradesh & Adani AI Labs, Ahmedabad & VIT-AP University \\
 \end{tabular*}
 
 \clearpage
@@ -109,15 +124,17 @@ Adani AI Labs & Department of Computer Science and Engineering
 % ------------------------------------------------------------------------------
 \chapter*{Candidate's Declaration}
 \addcontentsline{toc}{chapter}{Candidate's Declaration}
-I hereby declare that this project report entitled \textbf{``A Safety-Gated Hybrid Edge--Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments''} is an authentic presentation of my own research and development work carried out during the academic year 2025--2026.
+I hereby declare that this project report entitled \textbf{``A Safety-Gated Hybrid Edge--Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments''} is an authentic presentation of my own research and development work carried out during the academic year 2025--2026 under the joint supervision of \textbf{Dr. Sibi Chakkaravarthy} (VIT-AP University) and \textbf{Mr. Gowrav Shekar} (Adani AI Labs).
 
 All contributions, datasets, software packages, and upstream models cited in this report have been properly acknowledged with formal academic citations. I further declare that neither this report nor any significant part of it has been previously submitted for any degree, diploma, or academic award at this or any other institution.
 
 \vspace{2.0cm}
 \noindent
 \textbf{Frank Mathew Sajan} \\
-Date: November 17, 2026 \\
-Place: Ahmedabad, Gujarat, India
+Registration No: \textbf{23BCE8713} \\
+Email: \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
+Date: November 19, 2026 \\
+Place: Amaravati, Andhra Pradesh, India / Ahmedabad, Gujarat, India
 
 \clearpage
 
@@ -126,9 +143,11 @@ Place: Ahmedabad, Gujarat, India
 % ------------------------------------------------------------------------------
 \chapter*{Acknowledgments}
 \addcontentsline{toc}{chapter}{Acknowledgments}
-I would like to express my deepest gratitude to the engineering team and researchers at \textbf{Adani AI Labs} for their invaluable guidance, industrial mentorship, and domain expertise in utility distribution networks throughout the design and benchmarking of the \textbf{Novo} platform. Access to authentic smart meter field imagery, technical OEM documentation (Salzer, Genus, Secure Meters, HPL, and L\&T), and physical testing facilities was instrumental in grounding this work in real-world industrial constraints.
+I express my sincere gratitude to my external industry guide, \textbf{Mr. Gowrav Shekar}, Head of Technology \& AI Practices at \textbf{Adani AI Labs, Ahmedabad}, for his continuous technical leadership, domain guidance in utility distribution engineering, and access to authentic smart meter field installations and testing facilities throughout this capstone project.
 
-I extend my heartfelt appreciation to the faculty members of the Department of Computer Science and Engineering for their continuous encouragement, rigorous academic critique, and support. Finally, I am profoundly grateful to my family, peers, and fellow developers whose support made the completion of this engineering capstone possible.
+I extend my deep gratitude to my internal academic guide, \textbf{Dr. Sibi Chakkaravarthy}, School of Computer Science and Engineering (SCOPE), \textbf{VIT-AP University}, for his constructive critique, research guidance, and systematic evaluation of the distributed systems architecture and security interlocks.
+
+I also thank the faculty and leadership at the School of Computer Science and Engineering, VIT-AP University, for providing the institutional support and academic environment required to conduct this work. Finally, I thank my family, peers, and fellow student researchers for their encouragement and support.
 
 \clearpage
 
@@ -961,8 +980,8 @@ If the device is connected to the WebSocket channel, the ACK is dispatched insta
 \section{Cloud Infrastructure and Zero-Trust Mesh Optimization}
 To support multi-million meter utility rollouts economically, Novo decouples stateless compute from persistent storage:
 
-\subsection{Ephemeral PaaS Compute and Cold-Start Pre-Warming}
-The FastAPI ingestion service executes on an ephemeral Platform-as-a-Service (PaaS) container (Render Free Tier) allocating $0.1\text{~vCPU}$ and $512\text{~MB}$ RAM. Ephemeral containers spin down after 15 minutes of inactivity, introducing a cold-start delay of 40--55 seconds when spun back up.
+\subsection{Ephemeral Containerized ASGI Gateway Tier}
+The FastAPI ingestion service operates within an ephemeral containerized ASGI gateway tier allocating $0.1\text{~vCPU}$ slice and $512\text{~MB}$ RAM. The container instances scale to zero after 15 minutes of inactivity, introducing a cold-start initialization latency of 40--55 seconds upon initial wake-up.
 
 To prevent client-side HTTP timeouts during container wake-up, the mobile app implements an application-layer health handshake. Prior to dispatching a Tier-1 batch, the client sends a lightweight probe (\texttt{GET /api/v1/health}). The request uses an extended timeout ($15\text{~seconds}$) and up to four retry cycles. Once the container responds with a status of \texttt{200 OK}, the active telemetry batch is dispatched immediately, completing in under 200~ms.
 
@@ -1012,17 +1031,17 @@ Images were annotated across two distinct task modalities:
 \end{enumerate}
 
 \section{Upstream Model Repositories}
-To benchmark model parity between desktop training frameworks and on-device runtimes, we integrated weights from two upstream open-source repositories:
+To benchmark model parity between desktop training frameworks and on-device runtimes, we evaluated detection baselines using weights adapted from open-source research repositories:
 \begin{itemize}
-    \item \textbf{Manu Panel Detector (`manu\_panel`):} Sourced from Manu5643's utility meter project (\texttt{smart-meter-reading-detection}). Utilizes YOLOv8 architectures for meter casing and display panel bounding box detection.
-    \item \textbf{Liamm 7-Segment Digit Detector (`liamm\_7seg`):} Sourced from Liamm545's seven-segment detection repository (\texttt{7Segement\_YOLO}). Trained to localize individual seven-segment digits across 320x320 and 640x640 input resolutions.
+    \item \textbf{Smart Meter Panel and Enclosure Detector~\cite{panel_detector_2023}:} Employs a YOLOv8 architecture optimized for detecting the outer casing and LCD display sub-regions across varying field perspectives.
+    \item \textbf{Seven-Segment Character Localization Model~\cite{seven_seg_yolo_2023}:} A specialized digit detector trained to isolate individual seven-segment characters across normalized $320\times 320$ and $640\times 640$ pixel input resolutions.
 \end{itemize}
 
 \section{Experimental Testbed and Profiling Hardware}
 On-device profiling and inference benchmarks were executed across two representative hardware profiles:
 \begin{enumerate}
     \item \textbf{Edge Mobile Testbed (Contractor Tier):} Xiaomi Redmi 12 running Android 14, powered by a MediaTek Helio G88 octa-core processor (2x ARM Cortex-A75 @ 2.0 GHz, 6x ARM Cortex-A55 @ 1.8 GHz) with 4~GB physical LPDDR4X RAM. This represents the lowest-tier commodity smartphone utilized by third-party field contractors.
-    \item \textbf{Cloud Gateway Server:} Ephemeral container executing Python 3.12, Uvicorn ASGI runtime, 0.1 vCPU slice, and 512 MB physical memory allocation on Render PaaS infrastructure.
+    \item \textbf{Cloud Gateway Server:} Ephemeral containerized ASGI runtime executing Python 3.12 and Uvicorn with a $0.1\text{~vCPU}$ allocation and $512\text{~MB}$ physical memory footprint.
 \end{enumerate}
 
 \section{Evaluation Metrics}
@@ -1199,7 +1218,7 @@ A core strength of the Novo systems architecture is its economic viability under
 \textbf{Infrastructure Component} & \textbf{Conventional Cloud Vision Stack} & \textbf{Novo Edge--Cloud Architecture} \\
 \midrule
 Inference Compute & 2x Always-On GPU Instances (\$150/mo) & On-Device Client Inference (\$0.00) \\
-API Ingestion Gateway & Load-Balanced ECS/EKS Cluster (\$65/mo) & Ephemeral Container PaaS (\$0.00 Free Tier) \\
+API Ingestion Gateway & Load-Balanced ECS/EKS Cluster (\$65/mo) & Ephemeral Containerized ASGI Tier (\$0.00 baseline) \\
 Tier-3 Multimodal Audit & Dedicated Cloud Vision Service (\$120/mo) & Pay-per-Call Serverless VLM (\$0.00 Free Tier) \\
 Relational Database & Dedicated AWS RDS PostgreSQL (\$45/mo) & Managed Supabase BaaS (\$0.00 Free Tier) \\
 Object Storage & Multi-Terabyte S3 Ingress (\$40/mo) & Deferred Wi-Fi S3 Ingestion (\$5.00/mo) \\

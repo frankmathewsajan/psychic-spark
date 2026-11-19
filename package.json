@@ -53,7 +53,8 @@
     "web": "expo start --web",
     "check": "biome check --write src/",
     "format": "biome format --write src/",
-    "lint": "biome lint src/"
+    "lint": "biome lint src/",
+    "test:ocr": "node --test tests/meter-ocr.test.mjs"
   },
   "private": true
 }

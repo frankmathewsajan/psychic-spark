@@ -246,6 +246,40 @@ export async function runWireSafetyCheck(
 }
 
 // ---------------------------------------------------------------------------
+// Exported Helper: parseMeterCandidateLine
+// ---------------------------------------------------------------------------
+/**
+ * Extracts numeric meter reading from an OCR text line, stripping units (kWh/kVAh)
+ * and rejecting non-LCD faceplate specifications (240V, 50Hz, TYPE, IEC).
+ */
+export function parseMeterCandidateLine(rawText: string): string | null {
+	const trimmed = rawText.trim();
+	if (!trimmed) return null;
+
+	// Discard non-LCD faceplate specs/standards (excluding reading units like kWh)
+	const faceplateSpecRegex = /\b(230V|240V|50Hz|60Hz|TYPE|PE1|imp|IEC)\b/i;
+	if (faceplateSpecRegex.test(trimmed)) return null;
+
+	// Strip common LCD reading units before checking numbers
+	const textWithoutUnits = trimmed
+		.replace(/\b(kWh|kVAh|kW\.h|kvarh)\b/gi, "")
+		.trim();
+
+	// Collapse internal whitespace so e.g. "0507 106" -> "0507106"
+	const collapsed = textWithoutUnits.replace(/\s+/g, "");
+	const numericRegex = /^\d{1,8}(\.\d{1,2})?$/;
+
+	if (numericRegex.test(collapsed)) {
+		return collapsed;
+	}
+
+	// Sanitize 7-segment character misreads (A->4, S->5, O->0, B->8)
+	const sanitized = sanitize7Segment(collapsed);
+	const match = sanitized.match(/\d{1,8}(\.\d{1,2})?/);
+	return match ? match[0] : null;
+}
+
+// ---------------------------------------------------------------------------
 // Exported Helper 3: runCroppedLcdOcr
 // ---------------------------------------------------------------------------
 /**
@@ -266,7 +300,19 @@ export async function runCroppedLcdOcr(
 		try {
 			const mlkitResult = await TextRecognition.recognize(croppedUri);
 			if (mlkitResult.blocks && mlkitResult.blocks.length > 0) {
-				recognizedLines = mlkitResult.blocks.flatMap((b) => b.lines || []);
+				for (const b of mlkitResult.blocks) {
+					if (b.lines && b.lines.length > 0) {
+						for (const l of b.lines) {
+							recognizedLines.push({ text: l.text, frame: l.frame });
+						}
+					} else if (b.text) {
+						recognizedLines.push({ text: b.text, frame: b.frame });
+					}
+				}
+			} else if (mlkitResult.text) {
+				recognizedLines = mlkitResult.text
+					.split("\n")
+					.map((t) => ({ text: t }));
 			}
 		} catch (mlkitErr) {
 			logger.warn(
@@ -277,38 +323,11 @@ export async function runCroppedLcdOcr(
 			return { kwh: null, confidence: 0.0 };
 		}
 
-		// Multi-character faceplate keyword filter (never matches bare 'A' or 'V')
-		const faceplateSpecRegex =
-			/\b(230V|240V|50Hz|60Hz|TYPE|PE1|imp|kWh|kVAh|IEC)\b/i;
-		const numericRegex = /^\d{4,8}(\.\d{1,2})?$/;
-
 		let bestCandidate: string | null = null;
 		let bestHeight = 0;
 
 		for (const line of recognizedLines) {
-			const rawText = line.text?.trim() || "";
-			if (!rawText) continue;
-
-			// Discard line if it contains faceplate electrical specs or standards
-			if (faceplateSpecRegex.test(rawText)) {
-				continue;
-			}
-
-			// Collapse internal whitespace so e.g. "0507 106" -> "0507106"
-			const collapsed = rawText.replace(/\s+/g, "");
-
-			let candidateNum: string | null = null;
-			if (numericRegex.test(collapsed)) {
-				candidateNum = collapsed;
-			} else {
-				// Sanitize 7-segment character misreads (A->4, S->5, O->0, B->8)
-				const sanitized = sanitize7Segment(collapsed);
-				const digitsOnly = sanitized.replace(/\./g, "");
-				if (digitsOnly.length >= 4 && digitsOnly.length <= 8) {
-					candidateNum = sanitized;
-				}
-			}
-
+			const candidateNum = parseMeterCandidateLine(line.text || "");
 			if (candidateNum) {
 				const lineHeight = line.frame?.height ?? 0;
 				// Select line with largest bounding-box height (LCD digits are larger than faceplate print)

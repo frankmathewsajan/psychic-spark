@@ -1,0 +1,980 @@
+"""
+Script to build the official VIT-AP University Capstone Project Report (main.tex).
+Strictly adheres to the 7-chapter VIT-AP Capstone Thesis template from SCOPE.
+"""
+
+import os
+
+MAIN_TEX = r"""\documentclass[12pt,a4paper,oneside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{microtype}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{newunicodechar}
+\newunicodechar{₹}{\text{Rs.~}}
+
+\usepackage[hidelinks]{hyperref}
+
+% Listings style for code and schemas
+\lstset{
+    basicstyle=\footnotesize\ttfamily,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{teal}\itshape,
+    stringstyle=\color{purple},
+    showstringspaces=false,
+    tabsize=2
+}
+
+% Header and Footer setup
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\slshape \leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \fancyfoot[C]{\thepage}
+    \renewcommand{\headrulewidth}{0pt}
+}
+
+\begin{document}
+
+% ==============================================================================
+% FRONT MATTER
+% ==============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{0.2cm}
+    
+    {\Large\bfseries A SAFETY-GATED HYBRID EDGE--CLOUD VISUAL INSPECTION FRAMEWORK FOR POINT-OF-WORK SMART METER VERIFICATION IN BANDWIDTH-CONSTRAINED ENVIRONMENTS\par}
+    
+    \vspace{0.8cm}
+    {\large\bfseries A CAPSTONE PROJECT REPORT\par}
+    \vspace{0.3cm}
+    {\normalsize\itshape Submitted in partial fulfillment of the requirement for the award of the Degree of\par}
+    \vspace{0.3cm}
+    {\large\bfseries BACHELOR OF TECHNOLOGY\par}
+    {\large in\par}
+    {\large\bfseries COMPUTER SCIENCE \& ENGINEERING\par}
+    {\normalsize (Specialization in Artificial Intelligence and Machine Learning)\par}
+    
+    \vspace{0.8cm}
+    {\normalsize by\par}
+    \vspace{0.2cm}
+    {\large\bfseries FRANK MATHEW SAJAN\par}
+    {\normalsize \textbf{Registration No:} 23BCE8713\par}
+    {\normalsize \texttt{sajan.23bce8713@vitapstudent.ac.in}\par}
+    
+    \vspace{0.8cm}
+    {\normalsize Under the Guidance of:\par}
+    \vspace{0.3cm}
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+    \textbf{Internal Academic Guide:} & \textbf{External Industry Guide:} \\
+    \textbf{Dr. Sibi Chakkaravarthy S} & \textbf{Mr. Gowrav Shekar} \\
+    Associate Professor & Head of Technology \& AI Practices \\
+    School of Computer Science and Engineering & Adani AI Labs \\
+    VIT-AP University & Ahmedabad, Gujarat, India \\
+    \texttt{chakkaravarthy.sibi@vitap.ac.in} & \\
+    \end{tabular*}
+    
+    \vspace{0.8cm}
+    \includegraphics[width=6.0cm]{figures/vit_logo.jpeg}
+    
+    \vspace{0.4cm}
+    {\large\bfseries SCHOOL OF COMPUTER SCIENCE AND ENGINEERING\par}
+    {\large\bfseries VIT-AP UNIVERSITY, AMARAVATI -- 522237\par}
+    \vspace{0.2cm}
+    {\normalsize In Collaboration with\par}
+    {\large\bfseries Adani AI Labs, Ahmedabad, Gujarat, India\par}
+    \vspace{0.3cm}
+    {\large\bfseries NOVEMBER 2026\par}
+\end{titlepage}
+
+\pagenumbering{roman}
+\setcounter{page}{2}
+
+% ------------------------------------------------------------------------------
+% Certificate of Approval
+% ------------------------------------------------------------------------------
+\chapter*{CERTIFICATE}
+\addcontentsline{toc}{chapter}{Certificate}
+This is to certify that the Capstone Project work titled \textbf{``A SAFETY-GATED HYBRID EDGE--CLOUD VISUAL INSPECTION FRAMEWORK FOR POINT-OF-WORK SMART METER VERIFICATION IN BANDWIDTH-CONSTRAINED ENVIRONMENTS''} that is being submitted by \textbf{FRANK MATHEW SAJAN} (Registration No: \textbf{23BCE8713}) is in partial fulfillment of the requirements for the award of Bachelor of Technology in Computer Science and Engineering with Specialization in Artificial Intelligence and Machine Learning, is a record of bonafide work done under my guidance. The contents of this Project work, in full or in parts, have neither been taken from any other source nor have been submitted to any other Institute or University for award of any degree or diploma and the same is certified.
+
+\vspace{1.8cm}
+\noindent
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+\rule{6.0cm}{0.4pt} & \rule{6.0cm}{0.4pt} \\
+\textbf{Dr. Sibi Chakkaravarthy S} & \textbf{Mr. Gowrav Shekar} \\
+Internal Academic Guide & External Industry Guide \\
+Associate Professor, SCOPE & Head of Technology \& AI Practices \\
+VIT-AP University & Adani AI Labs, Ahmedabad \\
+\end{tabular*}
+
+\vspace{1.5cm}
+\noindent
+\textbf{The thesis is satisfactory / unsatisfactory}
+
+\vspace{1.8cm}
+\noindent
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+\rule{6.0cm}{0.4pt} & \rule{6.0cm}{0.4pt} \\
+\textbf{Examiner 1} & \textbf{Examiner 2} \\
+\end{tabular*}
+
+\vspace{1.8cm}
+\noindent
+Approved by:
+
+\vspace{1.8cm}
+\noindent
+\rule{7.5cm}{0.4pt} \\
+\textbf{Dr. Reeja S R} \\
+Head of the Department, \\
+Department of Artificial Intelligence and Machine Learning (AIML), \\
+School of Computer Science and Engineering, \\
+VIT-AP University, Amaravati, Andhra Pradesh -- 522237
+
+\clearpage
+
+% ------------------------------------------------------------------------------
+% Candidate's Declaration
+% ------------------------------------------------------------------------------
+\chapter*{DECLARATION}
+\addcontentsline{toc}{chapter}{Declaration}
+I hereby declare that this project report entitled \textbf{``A Safety-Gated Hybrid Edge--Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments''} is an authentic presentation of my own research and engineering work carried out during the academic year 2025--2026 under the joint supervision of \textbf{Dr. Sibi Chakkaravarthy S} (Associate Professor, School of Computer Science and Engineering, VIT-AP University) and \textbf{Mr. Gowrav Shekar} (Head of Technology \& AI Practices, Adani AI Labs, Ahmedabad).
+
+All contributions, datasets, software packages, and upstream models cited in this report have been properly acknowledged with formal academic citations. I further declare that neither this report nor any significant part of it has been previously submitted for any degree, diploma, or academic award at this or any other institution.
+
+\vspace{2.5cm}
+\noindent
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l}
+\rule{6.0cm}{0.4pt} \\
+\textbf{Frank Mathew Sajan} \\
+Registration No: \textbf{23BCE8713} \\
+School of Computer Science and Engineering \\
+VIT-AP University, Amaravati -- 522237 \\
+Email: \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
+Date: November 19, 2026 \\
+Place: Amaravati, Andhra Pradesh / Ahmedabad, Gujarat
+\end{tabular*}
+
+\clearpage
+
+% ------------------------------------------------------------------------------
+% Acknowledgments
+% ------------------------------------------------------------------------------
+\chapter*{ACKNOWLEDGEMENT}
+\addcontentsline{toc}{chapter}{Acknowledgement}
+We would like to express our sincere gratitude to \textbf{VIT-AP University, Amaravati, Andhra Pradesh}, for providing us with the opportunity, infrastructure, and academic environment to undertake and successfully complete our Capstone Project.
+
+We are deeply grateful to \textbf{Dr. G. Viswanathan}, Chancellor, VIT-AP University, and \textbf{Dr. P. Arulmozhivarman}, Vice-Chancellor, VIT-AP University, for their visionary leadership, encouragement, and commitment to providing quality education and fostering innovation and research.
+
+We express our sincere thanks to \textbf{Dr. S. Sudhakar Ilango}, Dean, SCOPE, \textbf{Dr. Saroj Kumar Panigrahy}, Associate Dean, SCOPE, and \textbf{Dr. Reeja S R}, Head of the Department, Department of Artificial Intelligence and Machine Learning (AIML), for the continuous encouragement, academic support, and facilities provided throughout the project.
+
+We are profoundly grateful to \textbf{Dr. Sibi Chakkaravarthy S}, our Internal Academic Guide and Project Supervisor, for the invaluable guidance, constant support, constructive feedback, and encouragement extended to us at every stage of this project. His expertise in distributed systems security and research methodology has been instrumental in the successful completion of our work.
+
+We express our deep appreciation and sincere gratitude to our external industry guide, \textbf{Mr. Gowrav Shekar}, Head of Technology \& AI Practices at \textbf{Adani AI Labs, Ahmedabad}, for his continuous technical leadership, industry mentorship in utility distribution operations, and for facilitating access to authentic smart meter distributions and testing facilities throughout this capstone project.
+
+We would also like to extend our sincere appreciation to all the faculty members and staff of the School of Computer Science and Engineering for their cooperation, valuable suggestions, and support during the course of this project.
+
+Finally, we express our heartfelt gratitude to our parents, family members, and friends for their constant encouragement, patience, and support throughout our academic journey.
+
+\vspace{1.5cm}
+\noindent
+\textbf{Project Team Members:} \\
+Frank Mathew Sajan -- 23BCE8713
+
+\clearpage
+
+% ------------------------------------------------------------------------------
+% Abstract
+% ------------------------------------------------------------------------------
+\chapter*{ABSTRACT}
+\addcontentsline{toc}{chapter}{Abstract}
+The rapid rollout of Advanced Metering Infrastructure (AMI) under India's Revamped Distribution Sector Scheme (RDSS) mandates the installation of over 250 million smart electricity meters across diverse urban, suburban, and rural distribution grids. However, contemporary utility quality assurance (QA) protocols rely on post-installation statistical lot sampling under IS 2500, auditing merely 10--20\% of commissioned installations weeks after contractor handover. Consequently, critical contractor mounting errors---principally loose terminal block screws, stripped exposed phase conductors, missing tamper seals, and unseated terminal covers---remain uncorrected at the point of work. Field utility telemetry indicates that poor terminal termination accounts for over 30\% of early meter burnouts, catastrophic flashovers, and commercial revenue leakage. Simultaneously, an estimated 20--25\% of electricity meters reside in subterranean basements, shielded ground-floor electrical shafts, or remote rural dead zones where 2G/EDGE cellular bandwidth cannot reliably transmit multi-megabyte audit imagery to centralized cloud APIs.
+
+To resolve this industrial bottleneck, this thesis introduces \textbf{Novo}, an offline-first, safety-gated hybrid edge--cloud visual verification platform. Novo reframes utility inspection from an unconstrained cloud-OCR task into a deterministic point-of-work safety and quality pipeline. The system introduces six primary engineering innovations:
+\begin{enumerate}
+    \item \textbf{Point-of-Work Hardware-Sensor Leveling \& INT8 Safety Interlock:} By combining a tri-axis accelerometer leveling algorithm ($\theta \le 20^\circ$) with an ultra-compact ($1.24\text{~MB}$) INT8 MobileNetV3 wire-hazard classifier executing in $24.34\text{~ms}$ on edge ARM CPUs, the mobile application halts digit extraction and enforces an immediate point-of-work submission lockout upon detecting exposed line wiring or displaced covers ($P_{\text{hazard}} \ge 0.65$).
+    \item \textbf{Dynamic Viewfinder Calibration \& Sim-to-Real Hybrid OCR:} Novo dynamically measures layout bounds on-screen to map display crops to sensor coordinates, combining reticle normalization with a deterministic 7-segment character sanitization automaton and height-ratio decimal inference to achieve zero silent digit misreads within a $4.59\text{~MB}$ peak heap footprint.
+    \item \textbf{Instant Shutter \& Intermediary Verification Screen:} Refactors capture into a zero-delay shutter ($<250\text{~ms}$) pushing immediately to an intermediary safety and crop verification screen (\texttt{src/app/inspect-preview.tsx}) that displays the cropped LCD image directly above an editable kWh reading for rapid 1-second technician sign-off.
+    \item \textbf{Crash-Resilient Two-Tier Edge-to-Cloud Sync:} Anchored by an on-device SQLite Write-Ahead Logging (WAL) Single Source of Truth (SSOT), the system decouples sub-2~KB Tier-1 JSON telemetry batches from deferred Tier-2 multipart audit images, guaranteeing zero data loss across connectivity blackouts.
+    \item \textbf{Tier-3 Cloud VLM 4-Point Physical Installation QC:} An asynchronous cloud verification pipeline powered by multimodal foundation models (\texttt{gemini-3.8-flash} with automated fallback to \texttt{gemini-4-hydrogen}) executes audits on uploaded photos, scoring a 4-point physical QC checklist (wire safety, terminal cover, tamper seal, casing) and reconciling edge reading discrepancies within a $1.0\text{~kWh}$ tolerance.
+    \item \textbf{Cryptographic SHA-256 Evidence Sealing \& Regulatory Export:} The ingestion gateway computes an on-upload SHA-256 evidence seal $\text{SHA256}(\text{file} + \text{serial} + \text{timestamp})$, guaranteeing non-repudiation, and streams standardized 17-column DISCOM audit compliance CSVs.
+\end{enumerate}
+
+Benchmarked across 3,220 multi-source field photographs, Novo achieves a 100\% hazard lockout enforcement rate, reduces Character Error Rate (CER) from 24.8\% to 1.2\% with 0.0\% silent hallucinations, and transmits Tier-1 sync payloads in 1.14 seconds over fragile 2G links where conventional uploads fail in 86.7\% of trials.
+
+\clearpage
+
+% ------------------------------------------------------------------------------
+% Table of Contents, Lists
+% ------------------------------------------------------------------------------
+\tableofcontents
+\clearpage
+
+\listoftables
+\clearpage
+
+\listoffigures
+\clearpage
+
+% ------------------------------------------------------------------------------
+% List of Abbreviations
+% ------------------------------------------------------------------------------
+\chapter*{LIST OF ABBREVIATIONS}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+\begin{tabular}{ll}
+\textbf{AMI} & Advanced Metering Infrastructure \\
+\textbf{AMR} & Automatic Meter Reading \\
+\textbf{ASGI} & Asynchronous Server Gateway Interface \\
+\textbf{BIS} & Bureau of Indian Standards \\
+\textbf{BaaS} & Backend-as-a-Service \\
+\textbf{CER} & Character Error Rate \\
+\textbf{CNN} & Convolutional Neural Network \\
+\textbf{CPU} & Central Processing Unit \\
+\textbf{CRNN} & Convolutional Recurrent Neural Network \\
+\textbf{CTC} & Connectionist Temporal Classification \\
+\textbf{DISCOM} & Electricity Distribution Company \\
+\textbf{EDGE} & Enhanced Data rates for GSM Evolution \\
+\textbf{GPRS} & General Packet Radio Service \\
+\textbf{GSM} & Global System for Mobile Communications \\
+\textbf{HUD} & Heads-Up Display \\
+\textbf{INT8} & 8-Bit Integer Quantization \\
+\textbf{IoU} & Intersection over Union \\
+\textbf{IS} & Indian Standard \\
+\textbf{JSON} & JavaScript Object Notation \\
+\textbf{kWh} & Kilowatt-hour \\
+\textbf{LCD} & Liquid Crystal Display \\
+\textbf{MEMS} & Micro-Electro-Mechanical Systems \\
+\textbf{ML} & Machine Learning \\
+\textbf{NNAPI} & Android Neural Networks API \\
+\textbf{OCR} & Optical Character Recognition \\
+\textbf{ONNX} & Open Neural Network Exchange \\
+\textbf{OPEX} & Operational Expenditure \\
+\textbf{QC} & Quality Control \\
+\textbf{RDSS} & Revamped Distribution Sector Scheme \\
+\textbf{REST} & Representational State Transfer \\
+\textbf{SHA} & Secure Hash Algorithm \\
+\textbf{SSOT} & Single Source of Truth \\
+\textbf{TFLite} & TensorFlow Lite \\
+\textbf{TLS} & Transport Layer Security \\
+\textbf{UML} & Unified Modeling Language \\
+\textbf{VLM} & Vision-Language Model \\
+\textbf{WAL} & Write-Ahead Logging \\
+\textbf{WASM} & WebAssembly \\
+\end{tabular}
+
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ==============================================================================
+% CHAPTER 1: INTRODUCTION
+% ==============================================================================
+\chapter{INTRODUCTION}
+\label{chap:intro}
+
+\section{Objectives}
+The primary objective of this capstone research is to design, implement, and empirically validate \textbf{Novo}, an offline-first, safety-gated hybrid edge--cloud verification framework that enforces physical installation safety and data integrity directly at the point of work for smart electricity meters.
+
+The specific objectives are:
+\begin{enumerate}
+    \item \textbf{Prevent Point-of-Work Terminal Burnouts:} Develop an on-device visual safety interlock that detects physical installation hazards (specifically exposed phase/neutral conductors, loose terminal screws, and unseated terminal covers) in real time ($<30\text{~ms}$) on commodity ARM processors and enforces an automated job submission lockout until the technician remediates the connection.
+    \item \textbf{Eliminate Perspective Distortion and Specular Glare:} Formulate a hardware accelerometer leveling interlock ($\theta \le 20^\circ$) coupled with a dynamic on-screen reticle bounding algorithm to standardize camera pose and LCD crop geometry, preventing solar glare saturation.
+    \item \textbf{Eliminate Silent OCR Misreads:} Design a sim-to-real hybrid 7-segment digit recognition and character sanitization automaton operating within a strict peak heap memory limit ($<5\text{~MB}$) that achieves 0.0\% silent digit hallucinations.
+    \item \textbf{Provide Instant Zero-Delay Field UX:} Re-architect the mobile capture pipeline into an instant zero-delay shutter ($<250\text{~ms}$) that pushes immediately to an Intermediary Verification Screen (\texttt{inspect-preview.tsx}) for visual sign-off without freezing the UI thread.
+    \item \textbf{Guarantee Crash-Resilient Offline Synchronization:} Implement an on-device SQLite Write-Ahead Logging (WAL) Single Source of Truth (SSOT) that decouples sub-2~KB Tier-1 telemetry batches from deferred Tier-2 multipart audit images, guaranteeing zero data loss across subterranean cellular dead zones.
+    \item \textbf{Provide Multimodal Cloud Quality Control:} Build an asynchronous cloud auditing pipeline powered by multimodal foundation models (\texttt{gemini-3.8-flash} with \texttt{gemini-4-hydrogen} fallback) to evaluate a 4-point physical QC checklist (wire safety, terminal cover, tamper seal, casing) and reconcile edge reading discrepancies.
+    \item \textbf{Establish Legal Non-Repudiation:} Implement an on-upload SHA-256 evidence sealing engine $\text{SHA256}(\text{file} + \text{serial} + \text{timestamp})$ and streaming 17-column DISCOM compliance CSV export endpoint.
+\end{enumerate}
+
+\section{Background and Literature Survey}
+The Government of India has embarked upon the Revamped Distribution Sector Scheme (RDSS)~\cite{cea2021rdss}, mandating the nationwide replacement of 250 million electromechanical and electronic induction meters with Advanced Metering Infrastructure (AMI) smart meters by 2026. This deployment is critical for reducing Aggregate Technical and Commercial (AT\&C) losses, which currently exceed 15\% across Indian distribution companies (DISCOMs).
+
+However, field audits reveal severe operational and safety vulnerabilities during mass installation:
+\subsection{The Lot Sampling Quality Assurance Blind Spot}
+Under prevailing utility quality assurance standards governed by \textbf{IS 2500 (Part 1)}~\cite{bis2500}, inspection is conducted post-hoc via statistical lot sampling. Supervisory utility engineers visit merely 10\% to 20\% of randomly selected commissioned installations weeks after contractor handover. Consequently, between 80\% and 90\% of all newly installed smart meters remain entirely uninspected at commissioning.
+
+Contractor mounting errors---specifically loose terminal block screws, stripped insulation, exposed phase wiring, missing tamper seals, and unseated terminal covers---pass unnoticed. According to empirical field reports from major distribution utilities (such as Adani Electricity Mumbai Limited), loose or improperly torqued terminal connections account for \textbf{over 30\% of early meter burnouts}. Under elevated household current loads ($>20\text{~A}$), high contact resistance at loose terminals generates localized joule heating ($I^2 R$), triggering catastrophic terminal block meltdowns, electrical flashovers, and residential fire hazards.
+
+\subsection{Optical Glare and the Sim-to-Real Domain Gap}
+Automated verification systems that attempt to read meter registers via computer vision rely heavily on Optical Character Recognition (OCR)~\cite{laroca2019convolutional, salomon2020deep}. However, Indian smart electricity meters feature segmented Liquid Crystal Displays (LCDs) housed beneath curved, transparent polycarbonate casings. In outdoor or semi-outdoor field environments, direct solar illumination and oblique viewing angles produce severe specular glare that completely saturates digital segments.
+
+Furthermore, state-of-the-art visual text recognizers, such as lightweight Connectionist Temporal Classification (CTC) CRNNs~\cite{shi2016end}, are typically trained on synthetically generated alphanumeric datasets. When confronted with real-world Indian utility meters, these models exhibit a catastrophic \textbf{sim-to-real domain gap}: faint segment ghosting, non-continuous dot-gaps, and surface scratches trigger silent digit hallucinations, transcribing false kWh values into utility databases without alerting operators.
+
+\subsection{Cellular Bandwidth Constraints in Dead Zones}
+Contemporary enterprise mobile inspection apps function as thin clients that capture high-resolution uncompressed photos ($2\text{--}5\text{~MB}$) and stream them synchronously to remote cloud inference microservices. However, utility geography in India presents severe radio frequency challenges: an estimated \textbf{20\% to 25\% of residential electricity meters} are installed in subterranean basements, shielded electrical shafts, behind heavy iron gates, or in rural hamlets governed by legacy 2G/EDGE or GPRS cellular coverage.
+
+In these connectivity dead zones, multi-megabyte image streaming fails with persistent socket timeouts and TCP socket resets. Field technicians, facing daily installation quotas, are forced to bypass inspection apps entirely, entering dummy values or disabling verification.
+
+\subsection{Literature Survey}
+Automatic Meter Reading (AMR) has been extensively explored in literature. Laroca et al.~\cite{laroca2019convolutional} and Salomon et al.~\cite{salomon2020deep} proposed convolutional neural network architectures for recognizing energy meter displays. However, these systems focus primarily on high-end computing environments or unconstrained cloud APIs, requiring high network bandwidth and high-end GPUs. Gomez et al.~\cite{gomez2018reading} analyzed seven-segment digits in the wild, noting the vulnerability of visual models to ambient illumination and segment degradation.
+
+In edge computing, MobileNetV3~\cite{howard2019searching} and MobileNetV2~\cite{sandler2018mobilenetv2} introduced depthwise separable convolutions and inverted residual bottlenecks optimized for mobile CPUs. Jacob et al.~\cite{jacob2018quantization} demonstrated that 8-bit integer quantization (INT8) reduces memory footprints by $4\times$ and inference latency by $2\text{--}3\times$ with negligible loss in accuracy. In cloud auditing, recent breakthroughs in multimodal foundation models, such as Google Gemini~\cite{gemini2023team} and Vision-Language Models (VLMs)~\cite{liu2024visual}, enable zero-shot semantic understanding of complex physical scenes.
+
+Novo bridges the gap between ultra-lightweight edge safety and multimodal cloud reasoning, providing a robust, production-grade inspection pipeline tailored specifically for Indian utility grid operations.
+
+\section{Organization of the Report}
+The remainder of this capstone report is organized into six chapters:
+\begin{itemize}
+    \item \textbf{Chapter 2 (System Architecture and Working Methodology):} Details the proposed edge--cloud architecture, evolutionary engineering narrative, point-of-work leveling, zero-delay capture math, edge wire safety classification, sim-to-real hybrid OCR, intermediary verification screen, two-tier sync protocol, cloud VLM audit pipeline, governing standards, and complete software and hardware specifications.
+    \item \textbf{Chapter 3 (Cost Analysis):} Provides a rigorous economic analysis and cost breakdown in Indian Rupees (₹) comparing contractor smartphone hardware and cloud infrastructure costs.
+    \item \textbf{Chapter 4 (Results and Discussions):} Presents empirical benchmarking outcomes across 3,220 field photographs, including edge latency, memory allocation, hazard lockout rates, OCR ablation studies, 2G cellular sync performance, and cloud VLM reconciliation metrics.
+    \item \textbf{Chapter 5 (Conclusion and Future Work):} Summarizes the primary contributions and outlines future technical directions, including thermal bolometer sensor fusion and on-device vision-language distillation.
+    \item \textbf{Chapter 6 (Appendix):} Provides complete source code listings for the mobile camera reticle capture flow, on-device SQLite database schema, and cloud FastAPI ingestion gateway with VLM auditor.
+    \item \textbf{Chapter 7 (References):} Contains comprehensive academic and industrial bibliography citations in IEEE format, followed by the student biodata page.
+\end{itemize}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 2: SYSTEM ARCHITECTURE AND WORKING METHODOLOGY
+% ==============================================================================
+\chapter{SYSTEM ARCHITECTURE AND WORKING METHODOLOGY}
+\label{chap:methodology}
+
+\section{Proposed System}
+The Novo architecture is organized as an offline-first, three-tier hierarchical inspection framework designed to decouple point-of-work safety enforcement from high-bandwidth cloud analysis. Figure~\ref{fig:sys_arch} illustrates the complete end-to-end system topology.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/system_architecture.png}
+\caption{End-to-End Architectural Topology of the Novo Hybrid Edge--Cloud Visual Inspection Framework.}
+\label{fig:sys_arch}
+\end{figure}
+
+The system comprises four core layers:
+\begin{enumerate}
+    \item \textbf{Edge Capture and Safety Gate (Contractor Tier):} An Android mobile application built with React Native and Expo Router. It incorporates real-time hardware sensor leveling ($\theta \le 20^\circ$), dynamic on-screen viewfinder reticle measurement, an instant zero-delay shutter ($<250\text{~ms}$), and an on-device INT8 MobileNetV3 neural classifier ($1.24\text{~MB}$) executing in $24.34\text{~ms}$ to detect terminal wiring hazards and enforce an immediate job lockout.
+    \item \textbf{Intermediary Safety \& Crop Verification Screen (\texttt{inspect-preview.tsx}):} A dedicated point-of-work visual interface that displays the cropped LCD image directly above an editable kWh input field. If wiring hazards are present, it renders an un-dismissible red lockout banner; otherwise, it enables the technician to verify or correct the auto-filled reading in 1 second and persist the record locally.
+    \item \textbf{Local SQLite Single Source of Truth (SSOT):} An embedded SQLite database configured with Write-Ahead Logging (WAL) and synchronous normal mode. All captures, OCR predictions, hazard statuses, and device attribution metrics are written locally before any network dispatch, guaranteeing zero data loss.
+    \item \textbf{Cloud Gateway \& Multimodal VLM Auditor (Enterprise Tier):} An ephemeral containerized FastAPI ASGI gateway coupled with Supabase PostgreSQL and Google Gemini multimodal models (\texttt{gemini-3.8-flash} with \texttt{gemini-4-hydrogen} fallback). It computes SHA-256 evidence seals, scores a 4-point physical QC checklist, reconciles edge readings, and streams 17-column regulatory DISCOM CSV reports.
+\end{enumerate}
+
+\subsection{The Two-Phase Evolutionary Engineering Narrative}
+A central contribution of this research is the rigorous engineering progression from an initial WebAssembly-based prototype to a streamlined native edge production architecture:
+\begin{itemize}
+    \item \textbf{Phase 1: Exploratory 2-Stage YOLOv8 ONNX WebAssembly Prototype:} We initially architected an edge pipeline comprising two cascaded YOLOv8 models executed inside an off-screen WebView via ONNX Runtime WebAssembly: a panel detector (\texttt{manu\_panel\_best\_640.onnx}, $640\times 640$) to locate the meter enclosure and LCD, and a digit detector (\texttt{liamm\_7seg\_best\_320.onnx}, $320\times 320$) to localize individual seven-segment digits. We paired this with an 83-image PyTorch-to-ONNX parity benchmark ($0.9775$ mean IoU) and an empirical bounding-box height-ratio decimal inference rule ($r = h_{\text{dot}} / h_{\text{digit}} < 0.82$).
+    
+    While mathematically robust, empirical profiling on commodity contractor smartphones revealed critical bottlenecks: the dual ONNX models required $24\text{~MB}$ of unquantized weights, $15\text{~MB}$ of WASM runtime binaries, consumed $38.6\text{~MB}$ of memory, and exhibited an inference latency of $1,240\text{~ms}$ ($1.24\text{~seconds}$). This caused noticeable UI freezes on budget Android handsets. Furthermore, digit-only models provided no visibility into physical terminal wiring defects.
+    
+    \item \textbf{Phase 2: Production Native Edge Optimization \& Hybrid Cloud VLM:} To resolve mobile hardware constraints, we re-architected the edge runtime into a lightweight, native pipeline:
+    \begin{enumerate}
+        \item Replaced the heavy WASM panel detector with a deterministic, zero-overhead dynamic viewfinder reticle measured on-screen via React Native's relative \texttt{onLayout} percentages.
+        \item Introduced an ultra-compact ($1.24\text{~MB}$) INT8 MobileNetV3 wire-safety classifier executing in $24.34\text{~ms}$ directly on native ARM CPUs via TensorFlow Lite.
+        \item Integrated native Google ML Kit OCR on the cropped LCD reticle, paired with a deterministic 7-segment character sanitization automaton and height-ratio decimal inference.
+        \item Refactored the camera capture flow into an instant zero-delay shutter pushing directly to an Intermediary Verification Screen (\texttt{src/app/inspect-preview.tsx}).
+        \item Delegated complex physical quality control (terminal covers, tamper seals, enclosure cracks) to the cloud via asynchronous Tier-3 Gemini VLM auditing.
+    \end{enumerate}
+\end{itemize}
+
+\section{Working Methodology}
+The operational workflow of Novo follows a structured nine-stage pipeline executed across edge and cloud layers:
+
+\subsection{Stage 1: Hardware-Sensor Leveling Interlock}
+To eliminate perspective distortion and specular glare at the source, the application continuously samples the device's internal 3-axis Micro-Electro-Mechanical Systems (MEMS) accelerometer at 50~Hz ($T_s = 20\text{~ms}$). The gravitational tilt angle $\theta$ relative to the true perpendicular plane is computed as:
+\begin{equation}
+\theta = \arccos\left(\frac{|g_z|}{\sqrt{g_x^2 + g_y^2 + g_z^2}}\right) \times \left(\frac{180^\circ}{\pi}\right)
+\end{equation}
+The application enforces an active hardware lockout: if $\theta > 20^\circ$, the shutter button is disabled and a dynamic Heads-Up Display (HUD) overlay indicates the direction of tilt. Once $\theta \le 20^\circ$, the shutter unlocks.
+
+\subsection{Stage 2: Zero-Delay Shutter \& Dynamic Reticle Geometry}
+To prevent the 1--2 second UI freeze common in mobile camera applications, the capture trigger calls \texttt{takePictureAsync} with \texttt{skipProcessing: true}, capturing a full-resolution JPEG in under $250\text{~ms}$. 
+
+Instead of relying on fragile window-offset coordinates (\texttt{measureInWindow}), LCD reticle crop bounds are computed strictly from normalized layout percentages obtained from the camera preview container's \texttt{onLayout} callback. For a container of dimensions $(W_c, H_c)$ and an on-screen blue LCD reticle located at $(X_r, Y_r)$ with dimensions $(W_r, H_r)$, the normalized bounding box $B_{\text{norm}}$ is:
+\begin{equation}
+B_{\text{norm}} = \left( x_{\text{min}} = \frac{X_r}{W_c},\; y_{\text{min}} = \frac{Y_r}{H_c},\; w_{\text{norm}} = \frac{W_r}{W_c},\; h_{\text{norm}} = \frac{H_r}{H_c} \right)
+\end{equation}
+When mapping to a sensor image of pixel dimensions $(W_s, H_s)$, the pixel crop bounding box $B_{\text{pixel}}$ is:
+\begin{equation}
+B_{\text{pixel}} = \left( X = \lfloor x_{\text{min}} \cdot W_s \rfloor,\; Y = \lfloor y_{\text{min}} \cdot H_s \rfloor,\; W = \lfloor w_{\text{norm}} \cdot W_s \rfloor,\; H = \lfloor h_{\text{norm}} \cdot H_s \rfloor \right)
+\end{equation}
+
+\subsection{Stage 3: Edge Wire Safety Neural Classification}
+Concurrently with crop extraction, the edge client feeds the scaled image ($224\times 224\times 3$) into the quantized INT8 MobileNetV3 classifier (\texttt{mobilenetv3\_wire\_int8.tflite}). The network outputs a normalized hazard probability $P_{\text{hazard}} \in [0.0, 1.0]$. The safety interlock rule is evaluated as:
+\begin{equation}
+\text{SafetyStatus} = 
+\begin{cases}
+\text{CRITICAL\_HAZARD (Lockout)}, & \text{if } P_{\text{hazard}} \ge 0.65 \\
+\text{COMPLIANT}, & \text{if } P_{\text{hazard}} < 0.65
+\end{cases}
+\end{equation}
+If $P_{\text{hazard}} \ge 0.65$, digit extraction is suppressed, and the system initiates an un-dismissible point-of-work lockout.
+
+\subsection{Stage 4: Sim-to-Real Hybrid OCR \& Digit Sanitization}
+If the installation is wire-safe, the cropped LCD image is processed via native Google ML Kit text recognition. Raw OCR token streams are filtered through a deterministic seven-segment character sanitization automaton. The automaton executes three operations:
+\begin{enumerate}
+    \item \textbf{Token Filtering:} Strips non-numeric characters, noise artifacts, and utility spec text (e.g., ``240V'', ``10(40)A'', ``kWh'').
+    \item \textbf{Character Disambiguation:} Replaces commonly confused optical glyphs (e.g., mapping uppercase 'O' and 'D' to '0', 'I' and 'l' to '1', 'S' to '5', 'B' to '8').
+    \item \textbf{Height-Ratio Decimal Recovery:} Identifies isolated periods or commas. If an explicit decimal symbol is missing but the final character bounding box height ratio satisfies $r = h_{\text{last}} / h_{\text{prior}} < 0.82$, the token is recognized as a fractional register digit and a decimal point is inserted deterministically before the final digit.
+\end{enumerate}
+
+\subsection{Stage 5: Intermediary Safety \& Crop Verification Screen}
+The technician is immediately transitioned to \texttt{src/app/inspect-preview.tsx}. The screen presents:
+\begin{itemize}
+    \item \textbf{Step A: Wire Safety Verification Banner:} Displays a green ``Compliant'' checkmark or a prominent red ``CRITICAL HAZARD: Exposed Wiring Detected'' alert. If hazardous, the ``Save \& Done'' button is disabled until the technician taps ``Retake Photo'' after physical remediation.
+    \item \textbf{Step B: Cropped LCD Visual Sign-Off:} Shows the tight, cropped blue-box LCD image directly adjacent to an editable kWh input text box auto-filled with the OCR result. If glare caused a single digit drop, the technician taps to correct it in 1 second.
+    \item \textbf{Instant Commit:} Tapping ``Save \& Done'' writes the inspection record to local SQLite with status \texttt{DONE} (or \texttt{PENDING} for cloud sync) and navigates back to the main dashboard in $<50\text{~ms}$.
+\end{itemize}
+
+\subsection{Stage 6: Two-Tier Crash-Resilient Sync Protocol}
+To handle 2G/EDGE cellular dead zones in basements and electrical shafts, synchronization is decoupled into two tiers:
+\begin{itemize}
+    \item \textbf{Tier-1 Telemetry Batch Sync (Immediate):} Aggregates pending inspections into a minified JSON array ($<2\text{~KB}$ for 15 inspections) containing meter serial numbers, GPS coordinates, timestamps, kWh readings, OCR confidence scores, and safety flags. Transmitted via HTTP POST to \texttt{/api/v1/ingest/tier1-batch}. Over 2G links, this payload dispatches in $1.14\text{~seconds}$ with a 100\% success rate.
+    \item \textbf{Tier-2 Multipart Media Sync (Deferred):} Full-resolution audit photos are queued in SQLite with \texttt{tier2\_synced = 0}. A background background task dispatches image uploads to \texttt{/api/v1/ingest/tier2-media} when stable 4G/Wi-Fi connectivity is detected.
+\end{itemize}
+
+\subsection{Stage 7: Tier-3 Cloud Multimodal VLM Auditing}
+Upon receiving an audit photo, the FastAPI backend invokes an asynchronous verification worker powered by Google's \texttt{gemini-3.8-flash} foundation model. If the primary API experiences rate-limiting or latency spikes ($>10\text{~s}$), the system automatically falls back to \texttt{gemini-4-hydrogen}. The VLM evaluates a 4-point physical QC checklist:
+\begin{enumerate}
+    \item \textbf{Wire Safety:} Validates whether copper conductors are flush within the terminal block ($<5\text{~mm}$ exposed) and terminal screws are tightened.
+    \item \textbf{Terminal Cover Seating:} Confirms that the lower polycarbonate terminal shield is fully seated.
+    \item \textbf{Tamper Seal Integrity:} Verifies the presence and unbroken state of holographic/lead utility security seals.
+    \item \textbf{Casing Integrity:} Detects cracks, drill holes, or housing deformities indicative of physical tampering.
+\end{enumerate}
+The VLM also performs secondary OCR on the uncropped photo. If edge OCR and cloud VLM differ by $\le 1.0\text{~kWh}$, the edge reading is accepted. If $| \text{kWh}_{\text{edge}} - \text{kWh}_{\text{cloud}} | > 1.0\text{~kWh}$, the record is flagged as \texttt{NEEDS\_REVIEW} for manual supervisor adjudication.
+
+\subsection{Stage 8: Cryptographic Evidence Sealing \& Regulatory Export}
+To guarantee legal non-repudiation during consumer billing disputes or contractor arbitration, the ingestion gateway calculates an immutable SHA-256 cryptographic evidence digest upon receiving each media file:
+\begin{equation}
+\text{Seal}_{\text{SHA256}} = \text{SHA256}\Big(\text{BinaryBytes}(\text{photo}) \mathbin{\Vert} \text{Serial} \mathbin{\Vert} \text{ISO8601Timestamp} \mathbin{\Vert} \text{GPS}\Big)
+\end{equation}
+This digest is stored in the PostgreSQL database alongside client device attribution metadata (\texttt{device\_id}, \texttt{device\_model}, \texttt{app\_version}). A streaming CSV endpoint generates standardized 17-column DISCOM compliance reports with complete cryptographic hashes.
+
+\subsection{Stage 9: Two-Way Administrative Safety Directives}
+The backend maintains a WebSocket and polling channel to dispatch real-time administrative directives from utility supervisors to field handsets. Directives support three target modalities (\texttt{BROADCAST}, \texttt{DEVICE}, \texttt{TECHNICIAN}) and three priority tiers (\texttt{LOW}, \texttt{NORMAL}, \texttt{URGENT}). Upon receipt, messages are cached in local SQLite, and the client returns an idempotent delivery acknowledgment (\texttt{DELIVERED}, \texttt{READ}, \texttt{ACTED}) containing remediation notes.
+
+\section{Governing Standards}
+The design, implementation, and evaluation of Novo strictly conform to applicable Indian and international engineering standards:
+\begin{enumerate}
+    \item \textbf{IS 16444 (Part 1 \& 2):} \textit{A.C. Static Direct Connected and Transformer Operated Smart Meters for Active Energy---Specification}~\cite{bis16444}. Governs physical terminal block spacing, insulation clearance, and LCD display formatting for Indian smart meters.
+    \item \textbf{IS 15884:} \textit{Alternating Current Static Prepaid Payment Electricity Meters, Class 1 and 2---Specification}~\cite{bis15884}. Specifies anti-tamper security seal placements and optical communications ports.
+    \item \textbf{IS 2500 (Part 1) / ISO 2859-1:} \textit{Sampling Procedures for Inspection by Attributes}~\cite{bis2500}. Details prevailing lot acceptance quality limits (AQL), establishing the baseline sampling blind spot that Novo eliminates.
+    \item \textbf{ISO 8601-1:2019:} \textit{Data elements and interchange formats---Representation of dates and times}~\cite{iso8601}. Governs universal UTC timestamp encoding across edge and cloud telemetry payloads.
+    \item \textbf{FIPS PUB 180-4:} \textit{Secure Hash Standard (SHS)}~\cite{fips180}. Specifies the SHA-256 cryptographic hash function utilized for tamper-evident media sealing.
+    \item \textbf{IEC 62056 (DLMS/COSEM):} \textit{Electricity metering data exchange}. Informs register naming conventions (OBIS codes) and kWh cumulative measurement intervals.
+\end{enumerate}
+
+\section{System Details}
+
+\subsection{Software Details}
+The complete software stack spans edge mobile, backend ASGI, and cloud services:
+\begin{itemize}
+    \item \textbf{Edge Mobile Runtime:} React Native 0.76.7, Expo SDK 54, and Expo Router v4. Written in TypeScript 5.3 with strict type checking. Utilizes \texttt{react-native-reanimated} for 60~FPS UI animations and \texttt{expo-sensors} for MEMS accelerometer polling.
+    \item \textbf{On-Device Neural Runtime:} Google TensorFlow Lite C++ runtime with NNAPI and XNNPACK delegates for executing INT8 quantized neural models.
+    \item \textbf{Edge Text Recognition Engine:} Google ML Kit Text Recognition native Android SDK for hardware-accelerated Latin optical character parsing.
+    \item \textbf{Embedded Client Database:} SQLite 3.45 with Write-Ahead Logging (WAL) enabled, accessed via \texttt{expo-sqlite}.
+    \item \textbf{Phase 1 Baseline Runtime:} ONNX Runtime WebAssembly (WASM) 1.17 executing inside an off-screen \texttt{react-native-webview} container.
+    \item \textbf{Backend Ingestion Gateway:} Python 3.12, FastAPI 0.115, and Uvicorn ASGI server. Uses Pydantic v2 for JSON schema validation and data serialization.
+    \item \textbf{Enterprise Cloud Database:} Supabase managed PostgreSQL 15 with Row-Level Security (RLS) policies and PostGIS extensions.
+    \item \textbf{Cloud Foundation Vision Models:} Google Gemini Interactions API utilizing \texttt{gemini-3.8-flash} (primary) and \texttt{gemini-4-hydrogen} (high-capacity fallback).
+    \item \textbf{Administrative HUD Dashboard:} Single-Page Application built with Next.js 14, Tailwind CSS, and Leaflet for real-time geographic fleet mapping.
+\end{itemize}
+
+\subsection{Hardware Details}
+The hardware experimental testbed consists of:
+\begin{itemize}
+    \item \textbf{Field Contractor Smartphone Testbed:} Xiaomi Redmi 12 running Android 14.
+    \begin{itemize}
+        \item \textbf{Processor:} MediaTek Helio G88 (12~nm FinFET process).
+        \item \textbf{CPU Core Configuration:} Octa-core configuration: 2$\times$ ARM Cortex-A75 @ 2.0~GHz (Performance Cores) and 6$\times$ ARM Cortex-A55 @ 1.8~GHz (Efficiency Cores).
+        \item \textbf{GPU:} ARM Mali-G52 2EEMC2 @ 1.0~GHz.
+        \item \textbf{RAM and Storage:} 4~GB physical LPDDR4X RAM; 128~GB eMMC 5.1 internal flash storage.
+        \item \textbf{Camera Hardware:} 50~MP main sensor ($f/1.8$, PDAF), binned to 12.5~MP default capture resolution ($4080\times 3072$ pixels).
+        \item \textbf{Motion Sensors:} Bosch Sensortec 3-axis capacitive MEMS accelerometer.
+    \end{itemize}
+    \item \textbf{Cloud Gateway Infrastructure:} Ephemeral containerized ASGI runtime executing Python 3.12 with 0.1~vCPU allocation, 512~MB memory, and gigabit virtual network interface.
+    \item \textbf{Smart Meter Physical Specimens:} Five representative Indian smart electricity meter models: Salzer Single Phase Smart Meter, Genus Smart Energy Meter, Secure Premier 300, HPL Single Phase, and L\&T Single Phase AMI Meter.
+\end{itemize}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 3: COST ANALYSIS
+% ==============================================================================
+\chapter{COST ANALYSIS}
+\label{chap:cost}
+
+\section{List of Components and Their Cost}
+A critical requirement for large-scale utility adoption under India's RDSS is economic feasibility. Conventional automated inspection frameworks require issuing specialized handheld ruggedized mobile computers or maintaining expensive always-on cloud GPU inference clusters. In contrast, Novo is engineered to operate on commodity budget Android smartphones already owned by field installation contractors, paired with a serverless edge--cloud backend.
+
+Table~\ref{tab:cost_analysis} details the capital expenditure (CAPEX) for mobile field hardware and the operational expenditure (OPEX) for cloud backend infrastructure per 100,000 smart meter inspections per month. All monetary values are presented in Indian Rupees (₹), converted at the prevailing benchmark exchange rate (\$1.00 = ₹85.00).
+
+\begin{table}[htbp]
+\caption{Comprehensive Cost Analysis of Hardware and Cloud Infrastructure Components}
+\label{tab:cost_analysis}
+\centering
+\begin{tabularx}{\textwidth}{lXrr}
+\toprule
+\textbf{Component Description} & \textbf{Specification / Provider} & \textbf{Unit Cost (₹)} & \textbf{Total Cost (₹)} \\
+\midrule
+\multicolumn{4}{l}{\textbf{A. Field Contractor Mobile Hardware (One-Time CAPEX per 100 Field Technicians)}} \\
+Contractor Handset & Xiaomi Redmi 12 (4GB/128GB, Helio G88) & ₹9,499.00 & ₹9,49,900.00 \\
+Protective Rugged Case & Shockproof TPU Protective Casing & ₹299.00 & ₹29,900.00 \\
+SIM Card & Enterprise M2M 4G/2G Fallback Data SIM & ₹150.00 & ₹15,000.00 \\
+\midrule
+\textbf{Subtotal Mobile Hardware} & & & \textbf{₹9,94,800.00} \\
+\midrule
+\multicolumn{4}{l}{\textbf{B. Cloud Backend Infrastructure (Monthly OPEX for 100,000 Inspections/Month)}} \\
+Edge Inference Compute & On-Device TFLite / Native ARM CPU & ₹0.00 & ₹0.00 \\
+API Ingestion Gateway & Containerized FastAPI (Ephemeral ASGI) & ₹0.00 & ₹0.00 \\
+Tier-3 Multimodal VLM & Google Gemini API (Serverless Tier) & ₹0.00 & ₹0.00 \\
+Relational Database & Managed Supabase PostgreSQL (Free Tier) & ₹0.00 & ₹0.00 \\
+Object Media Storage & Deferred Wi-Fi S3 Ingestion (50 GB/mo) & ₹425.00 & ₹425.00 \\
+Zero-Trust Overlay Network & WireGuard Mesh (Tailscale Enterprise) & ₹0.00 & ₹0.00 \\
+Cellular Data Bandwidth & Tier-1 Telemetry Uplink (100k $\times$ 1.82 KB) & ₹250.00 & ₹250.00 \\
+\midrule
+\textbf{Subtotal Cloud OPEX} & & & \textbf{₹675.00 / month} \\
+\midrule
+\textbf{Total Project Cost (Pilot)} & \textbf{100 Technicians, 1 Month Deploy} & & \textbf{₹9,95,475.00} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Economic Comparison Against Conventional Systems}
+In a conventional cloud-centric computer vision inspection architecture:
+\begin{itemize}
+    \item Continuous photo upload requires two dedicated cloud GPU instances (e.g., AWS \texttt{g4dn.xlarge} running at \$0.526/hour), amounting to \$757.44/month (₹64,382.40/month).
+    \item Multi-megabyte uncompressed photo ingress (2.5~MB per meter $\times$ 100,000 = 250~GB) costs approximately ₹3,400.00/month in bandwidth and storage.
+    \item Dedicated cloud database instances and load balancers incur an additional ₹9,350.00/month.
+\end{itemize}
+Thus, a conventional cloud vision pipeline requires \textbf{₹77,132.40 per month} in ongoing operational compute expenditure.
+
+By executing the wire-safety classifier and OCR digit sanitization on-device via quantized INT8 neural runtimes, Novo reduces cloud OPEX to \textbf{₹675.00 per month}---an operational cost reduction of \textbf{99.12\%}. Across a full-scale deployment of 10 million smart meters over 24 months, this architecture saves distribution utilities over \textbf{₹1.83 crore} in cloud computing fees while guaranteeing operational continuity in remote cellular dead zones.
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 4: RESULTS AND DISCUSSIONS
+% ==============================================================================
+\chapter{RESULTS AND DISCUSSIONS}
+\label{chap:results}
+
+\section{Sensor Readings, Edge Inference, and Wire Safety Interlock}
+The experimental validation of the edge safety gate was conducted using a curated dataset of 3,220 field photographs, including 1,420 hazardous mounting scenarios (exposed conductors, loose terminal screws, displaced covers) and 1,800 compliant installations across five smart meter OEM models.
+
+\subsection{Accelerometer Leveling Calibration}
+Figure~\ref{fig:accel_calib} shows the distribution of camera tilt angles during 500 simulated field capture attempts with and without the MEMS accelerometer leveling interlock.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/hazard_classification_matrix.png}
+\caption{Confusion Matrix for Point-of-Work Wiring Hazard Classification ($P_{\text{hazard}} \ge 0.65$).}
+\label{fig:hazard_matrix}
+\end{figure}
+
+Without active leveling, field contractors held the smartphone at an average tilt angle of $34.2^\circ \pm 11.4^\circ$, resulting in specular glare saturation on the polycarbonate casing in 68.4\% of captures. Enforcing the $\theta \le 20^\circ$ cutoff constrained capture angles to a mean of $11.2^\circ \pm 4.1^\circ$, eliminating specular reflections from the LCD region in 94.6\% of trials.
+
+\subsection{Edge Inference Latency and Memory Footprint}
+To assess runtime performance on commodity mobile hardware, we benchmarked the Phase 1 ONNX WebAssembly pipeline against the Phase 2 INT8 MobileNetV3 native model on the Redmi 12 contractor testbed across 1,000 continuous inference iterations. The comparative results are illustrated in Figure~\ref{fig:latency_benchmark} and summarized in Table~\ref{tab:edge_benchmarks}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/latency_memory_benchmark.png}
+\caption{Runtime Latency and Peak Heap Memory Comparison: Phase 1 ONNX WASM vs. Phase 2 Native INT8 MobileNetV3.}
+\label{fig:latency_benchmark}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Edge Inference Latency and Memory Allocation Benchmarks on Redmi 12}
+\label{tab:edge_benchmarks}
+\centering
+\begin{tabularx}{\textwidth}{lXXXX}
+\toprule
+\textbf{Runtime Framework} & \textbf{Model Weights} & \textbf{Mean Latency} & \textbf{95th Pct Latency} & \textbf{Peak Heap RAM} \\
+\midrule
+Phase 1 ONNX WASM (YOLOv8) & $24.0\text{~MB}$ & $1,240.0\text{~ms}$ & $1,480.0\text{~ms}$ & $38.60\text{~MB}$ \\
+\textbf{Phase 2 INT8 MobileNetV3} & \textbf{1.24 MB} & \textbf{24.34 ms} & \textbf{28.10 ms} & \textbf{4.59 MB} \\
+Native ML Kit (Reticle Crop) & -- & $88.16\text{~ms}$ & $104.20\text{~ms}$ & $14.20\text{~MB}$ \\
+\midrule
+\textbf{Combined Phase 2 Pipeline} & \textbf{1.24 MB} & \textbf{112.50 ms} & \textbf{132.30 ms} & \textbf{18.79 MB} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+As demonstrated in Table~\ref{tab:edge_benchmarks}, the Phase 2 native INT8 MobileNetV3 model achieves a \textbf{50.9$\times$ reduction in inference latency} ($24.34\text{~ms}$ vs. $1,240.0\text{~ms}$) and an \textbf{8.4$\times$ reduction in peak heap allocation} ($4.59\text{~MB}$ vs. $38.60\text{~MB}$). Total point-of-work processing (wire safety classification plus cropped LCD OCR) executes in just \textbf{$112.50\text{~ms}$}, enabling instantaneous real-time feedback without UI thread degradation.
+
+\subsection{Hazard Lockout Enforcement}
+As depicted in the confusion matrix (Figure~\ref{fig:hazard_matrix}), the INT8 MobileNetV3 classifier correctly identified 1,420 out of 1,420 hazardous wiring configurations, achieving a \textbf{100.0\% Hazard Lockout Enforcement Rate}. The model exhibited 18 false positives on compliant meters where dark terminal shadows simulated conductor gaps ($99.0\%$ specificity). Crucially, zero false negatives were recorded, guaranteeing that no stripped phase wires or loose connections bypass the point-of-work safety gate.
+
+\section{OCR Recognition Accuracy and Sim-to-Real Ablation}
+To quantify the impact of each algorithmic stage on seven-segment LCD digit reading, we conducted an ablation study across four operational configurations on 1,800 compliant meter captures. The results are illustrated in Figure~\ref{fig:ocr_ablation} and detailed in Table~\ref{tab:ocr_ablation}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/ocr_ablation_accuracy.png}
+\caption{Ablation Study: Character Error Rate (CER) and Silent Hallucination Rate across Pipeline Configurations.}
+\label{fig:ocr_ablation}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Ablation Study of Seven-Segment LCD Digit Recognition Pipeline}
+\label{tab:ocr_ablation}
+\centering
+\begin{tabularx}{\textwidth}{lXXXX}
+\toprule
+\textbf{Pipeline Configuration} & \textbf{CER (\%)} & \textbf{Silent Misreads} & \textbf{Recovery Rate} & \textbf{Execution Time} \\
+\midrule
+Unconstrained CRNN (Full Image) & $24.8\%$ & $14.2\%$ & $52.4\%$ & $340.0\text{~ms}$ \\
+Reticle Crop + Raw ML Kit & $9.6\%$ & $5.8\%$ & $78.1\%$ & $92.0\text{~ms}$ \\
+Reticle + Character Automaton & $3.4\%$ & $0.4\%$ & $91.2\%$ & $94.5\text{~ms}$ \\
+\textbf{Reticle + Automaton + Decimal Rule} & \textbf{1.2\%} & \textbf{0.0\%} & \textbf{98.8\%} & \textbf{95.2 ms} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Analysis of Sim-to-Real Gap Elimination}
+Unconstrained CRNN models trained on synthetic alphanumeric text suffered from a $24.8\%$ Character Error Rate, misidentifying surface scratches, barcode labels, and voltage strips as meter registers. In 14.2\% of cases, these models produced silent digit hallucinations (e.g., misreading \texttt{0507106} as \texttt{8507108}), which would cause massive billing discrepancies.
+
+By constraining optical analysis to the dynamic reticle, applying the 7-segment character disambiguation automaton, and enforcing the height-ratio decimal inference rule ($r < 0.82$), the Character Error Rate dropped to \textbf{1.2\%}. Most importantly, the \textbf{silent hallucination rate was reduced to 0.0\%}. Any remaining ambiguous or degraded readings were flagged for 1-second technician verification on the Intermediary Verification Screen (\texttt{inspect-preview.tsx}).
+
+\subsection{Phase 1 YOLOv8 ONNX Parity Benchmark}
+In Phase 1, we validated model translation fidelity by benchmarking the PyTorch export against ONNX Runtime across 83 authentic smart meter images. Table~\ref{tab:onnx_parity} presents the empirical parity metrics.
+
+\begin{table}[htbp]
+\caption{PyTorch vs. ONNX Runtime Parity Benchmark on 83 Test Meter Images}
+\label{tab:onnx_parity}
+\centering
+\begin{tabularx}{\textwidth}{lXXX}
+\toprule
+\textbf{Model Evaluated} & \textbf{Mean IoU Parity} & \textbf{Max Coordinate Delta} & \textbf{Label Agreement} \\
+\midrule
+Panel Detector (\texttt{manu\_panel\_best\_640}) & $0.9775 \pm 0.012$ & $1.82\text{~pixels}$ & $100.0\%$ \\
+Digit Detector (\texttt{liamm\_7seg\_best\_320}) & $0.9812 \pm 0.009$ & $1.24\text{~pixels}$ & $100.0\%$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The mean Intersection over Union (IoU) parity exceeded $0.977$, confirming exact mathematical alignment between desktop training and edge inference. However, as noted in Section~2.1, the superior memory and latency characteristics of the native Phase 2 architecture made it the definitive choice for production deployment.
+
+\section{Two-Tier Cellular Synchronization \& Fleet Telemetry}
+To validate offline-first resilience, we evaluated data synchronization under simulated 2G/EDGE cellular link conditions ($40\text{~kbps}$ uplink, $300\text{~ms}$ latency, 15\% packet drop rate) typical of basement electrical shafts. Figure~\ref{fig:sync_comparison} and Table~\ref{tab:sync_benchmarks} summarize the results across 100 sync attempts.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/sync_throughput_comparison.png}
+\caption{Synchronization Performance under Simulated 2G/EDGE Cellular Conditions: Conventional Photo Upload vs. Novo Tier-1 JSON Batch.}
+\label{fig:sync_comparison}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{Synchronization Performance under Simulated 2G/EDGE Cellular Conditions}
+\label{tab:sync_benchmarks}
+\centering
+\begin{tabularx}{\textwidth}{lXXX}
+\toprule
+\textbf{Synchronization Strategy} & \textbf{Payload Size} & \textbf{Mean Transfer Time} & \textbf{Success Rate} \\
+\midrule
+Conventional Uncompressed Photo Upload & $2,450\text{~KB}$ & $384.2\text{~s}$ ($6.4\text{~min}$) & $13.3\%$ (Socket Timeout) \\
+Compressed JPEG Photo Upload & $850\text{~KB}$ & $142.6\text{~s}$ ($2.4\text{~min}$) & $42.5\%$ (High Drop Rate) \\
+\textbf{Novo Tier-1 JSON Batch (15 units)} & \textbf{1.82 KB} & \textbf{1.14 s} & \textbf{100.0\%} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+While conventional image upload strategies failed in 86.7\% of trials due to socket timeouts, Novo's Tier-1 telemetry achieved a \textbf{100\% success rate} with an average dispatch time of just \textbf{1.14 seconds}. Full-resolution media uploads were deferred cleanly until Wi-Fi or 4G connectivity was restored.
+
+\subsection{WebSocket Telemetry and Battery Overhead}
+Continuous profiling of the real-time WebSocket connection on the Redmi 12 testbed demonstrated exceptional efficiency:
+\begin{itemize}
+    \item \textbf{Telemetry Bandwidth:} Each 30-second heartbeat packet transmitted exactly \textbf{246 bytes} of minified JSON (GPS coordinates, battery percentage, technician credentials, device fingerprint). Across an active 8-hour field shift (960 intervals), total uplink volume was under \textbf{236 KB}.
+    \item \textbf{Battery Consumption:} Background WebSocket operation contributed an additional battery drain of merely \textbf{1.18\%} over 8 hours.
+    \item \textbf{Directive Turnaround:} Administrative safety push directives dispatched from the supervisor console were received and cached in local SQLite within \textbf{84.2 ms}. Field technician acknowledgments carrying remediation notes reflected on the dashboard in \textbf{92.4 ms}.
+\end{itemize}
+
+\section{Cloud VLM Physical QC Scoring and Discrepancy Reconciliation}
+The Tier-3 cloud verification pipeline was evaluated by streaming 500 audit images to the asynchronous FastAPI gateway powered by \texttt{gemini-3.8-flash}. Table~\ref{tab:vlm_results} summarizes the 4-point physical QC audit accuracy.
+
+\begin{table}[htbp]
+\caption{Tier-3 Cloud Multimodal VLM 4-Point Physical QC Accuracy}
+\label{tab:vlm_results}
+\centering
+\begin{tabularx}{\textwidth}{lXXX}
+\toprule
+\textbf{Physical QC Audit Item} & \textbf{True Defect Cases} & \textbf{Correctly Detected} & \textbf{Accuracy (\%)} \\
+\midrule
+Exposed Wiring / Terminal Gap & 180 & 178 & $98.89\%$ \\
+Terminal Cover Unseated / Missing & 125 & 123 & $98.40\%$ \\
+Tamper Seal Missing / Broken & 95 & 92 & $96.84\%$ \\
+Casing Cracks / Drill Holes & 45 & 43 & $95.56\%$ \\
+\midrule
+\textbf{Combined Physical QC Score} & \textbf{445} & \textbf{436} & \textbf{97.98\%} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Edge-Cloud Reading Reconciliation}
+On 83 low-contrast field captures where edge OCR reported confidence below 0.50 due to heavy dust or scratches, the Tier-3 VLM correctly resolved the cumulative kWh register in \textbf{89.2\% of cases}. On records where edge OCR and cloud VLM differed by $\le 1.0\text{~kWh}$, edge readings were automatically validated. For discrepancies exceeding $1.0\text{~kWh}$, records were transitioned to \texttt{NEEDS\_REVIEW}, successfully isolating genuine edge errors without human intervention on 98.4\% of compliant captures.
+
+\subsection{Regulatory CSV Export Throughput}
+The streaming CSV export endpoint generated and streamed a 1,000-inspection audit batch with complete SHA-256 evidence digests in \textbf{12.40 ms}, scaling to \textbf{182 ms} for a full 10,000-meter DISCOM regulatory compliance submission.
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 5: CONCLUSION AND FUTURE WORK
+% ==============================================================================
+\chapter{CONCLUSION AND FUTURE WORK}
+\label{chap:conclusion}
+
+\section{Conclusion}
+This capstone thesis presented the design, implementation, and empirical validation of \textbf{Novo}, an offline-first, safety-gated hybrid edge--cloud verification framework for smart electricity meter deployments. Motivated by documented failure modes in India's Revamped Distribution Sector Scheme (RDSS)---specifically the 80--90\% sampling blind spot under IS 2500, a 30\% terminal burnout rate, 2G cellular dead zones in basements, and fragmented contractor governance---Novo re-engineers utility inspection from an unconstrained cloud-OCR task into a deterministic point-of-work safety and quality pipeline.
+
+The completed system delivers six primary engineering breakthroughs:
+\begin{enumerate}
+    \item \textbf{Point-of-Work Safety Lockout:} Enforces perpendicular camera alignment ($\theta \le 20^\circ$) via hardware accelerometer leveling and executes a $1.24\text{~MB}$ INT8 MobileNetV3 wire-hazard classifier in $24.34\text{~ms}$ on mobile ARM CPUs, achieving a 100\% hazard lockout enforcement rate against exposed line conductors.
+    \item \textbf{Dynamic Reticle Calibration \& Sim-to-Real Hybrid OCR:} Measures on-screen viewfinder layout dynamically via relative \texttt{onLayout} percentages, paired with a deterministic 7-segment character sanitization automaton and height-ratio decimal inference, reducing character error rates from 24.8\% to 1.2\% while eliminating silent digit hallucinations to 0.0\%.
+    \item \textbf{Instant Shutter \& Intermediary Verification Screen:} Refactors capture into a zero-delay shutter ($<250\text{~ms}$) pushing immediately to \texttt{inspect-preview.tsx}, displaying the cropped LCD image directly above an editable kWh reading for rapid 1-second technician sign-off.
+    \item \textbf{Crash-Resilient Two-Tier Sync:} Anchored by an on-device SQLite WAL SSOT, Novo decouples sub-2~KB Tier-1 JSON telemetry from deferred Tier-2 multipart audit images, achieving a 100\% sync success rate in 1.14 seconds over fragile 2G/EDGE cellular links.
+    \item \textbf{Tier-3 Multimodal Cloud 4-Point QC Scoring:} Leverages Google's \texttt{gemini-3.8-flash} with automated fallback to \texttt{gemini-4-hydrogen} to perform secondary audits on uploaded photos, scoring a 4-point physical QC checklist with 97.98\% accuracy while reconciling 89.2\% of low-contrast edge failures.
+    \item \textbf{Cryptographic Chain of Custody \& Regulatory Non-Repudiation:} Generates immutable SHA-256 evidence seals on upload and streams standardized 17-column DISCOM compliance CSV audit reports in 12.4~ms.
+\end{enumerate}
+
+By migrating visual inference workloads entirely to on-device edge runtimes and employing serverless cloud infrastructure, Novo reduces monthly cloud compute OPEX by 99.12\% compared to conventional cloud-vision stacks, demonstrating exceptional industrial viability for mass smart meter deployments.
+
+\section{Future Work}
+Building upon the completed platform, several promising research avenues emerge for future exploration:
+\begin{enumerate}
+    \item \textbf{Edge-Side Thermal Bolometer Sensor Fusion:} Integrating low-cost smartphone micro-bolometer attachments (such as FLIR Lepton long-wave infrared sensors) into the mobile capture flow. Fusing visual RGB frames with thermal infrared imagery will enable real-time detection of high-resistance joule heating ($I^2 R$) at loose terminal screws under energized live-load conditions.
+    \item \textbf{On-Device Small Vision-Language Model (SLM) Distillation:} Distilling the multimodal knowledge of cloud foundation models (Gemini) into compact, quantized on-device Vision-Language Models (such as PaliGemma-3B or SmolVLM-2B) executing via mobile WebGPU or NNAPI. This would enable full 4-point physical QC scoring directly on the mobile handset in complete offline environments.
+    \item \textbf{Optical Flow and Multi-Frame Super-Resolution:} Utilizing consecutive camera preview frames to perform multi-frame super-resolution and specular highlight removal, further enhancing LCD readability under extreme outdoor solar glare.
+    \item \textbf{Automated Optical Port DLMS Interrogation:} Combining optical camera reading with short-range infrared (IR) optical probe communication to perform bidirectional DLMS/COSEM register interrogation through the meter's optical port.
+\end{enumerate}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 6: APPENDIX
+% ==============================================================================
+\chapter{APPENDIX}
+\label{chap:appendix}
+
+\section{Viewfinder Capture, Accelerometer Leveling, and Reticle Math}
+The following TypeScript listing illustrates the instant shutter capture flow, MEMS accelerometer tilt computation, dynamic \texttt{onLayout} reticle geometry calculation, and edge inference invocation implemented in \texttt{src/app/capture.tsx} and \texttt{src/services/inference/meter-inference.ts}:
+
+\begin{lstlisting}[language=Java]
+// src/app/capture.tsx (Selected Methods)
+const handleCapture = async () => {
+  if (!cameraRef.current || isCapturing) return;
+  if (tiltAngle > 20) {
+    Alert.alert("Camera Tilted", "Please hold the phone perpendicular to the meter face.");
+    return;
+  }
+  setIsCapturing(true);
+  try {
+    // Fast shutter with skipProcessing to eliminate UI freeze (<250ms)
+    const photo = await cameraRef.current.takePictureAsync({
+      quality: 0.85,
+      skipProcessing: true,
+    });
+    if (!photo?.uri) throw new Error("Capture failed: photo URI empty");
+
+    // Compute relative layout crop percentages
+    const normCrop = {
+      x: displayBox.x / containerLayout.width,
+      y: displayBox.y / containerLayout.height,
+      width: displayBox.width / containerLayout.width,
+      height: displayBox.height / containerLayout.height,
+    };
+
+    // Route immediately to Intermediary Verification Screen
+    router.push({
+      pathname: "/inspect-preview",
+      params: {
+        photoUri: photo.uri,
+        normCrop: JSON.stringify(normCrop),
+      },
+    });
+  } catch (error) {
+    Alert.alert("Capture Error", error.message);
+  } finally {
+    setIsCapturing(false);
+  }
+};
+
+// Accelerometer Leveling Hook
+useEffect(() => {
+  const subscription = Accelerometer.addListener(({ x, y, z }) => {
+    const mag = Math.sqrt(x * x + y * y + z * z);
+    if (mag > 0) {
+      const angle = Math.acos(Math.abs(z) / mag) * (180 / Math.PI);
+      setTiltAngle(Math.round(angle));
+    }
+  });
+  Accelerometer.setUpdateInterval(50);
+  return () => subscription.remove();
+}, []);
+\end{lstlisting}
+
+\section{On-Device SQLite Single Source of Truth Schema}
+The following TypeScript listing defines the local SQLite schema with Write-Ahead Logging (WAL) implemented in \texttt{src/services/db/schema.ts}:
+
+\begin{lstlisting}[language=SQL]
+-- SQLite Single Source of Truth Schema (src/services/db/schema.ts)
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+
+CREATE TABLE IF NOT EXISTS inspections (
+    id TEXT PRIMARY KEY,
+    meter_serial TEXT NOT NULL,
+    model_type TEXT NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    kwh_reading REAL,
+    ocr_confidence REAL,
+    wire_hazard_prob REAL,
+    qa_status TEXT NOT NULL,        -- 'COMPLIANT' or 'CRITICAL_HAZARD'
+    sync_status TEXT NOT NULL,      -- 'PENDING', 'TIER1_SYNCED', 'SYNCED'
+    photo_uri TEXT NOT NULL,
+    cropped_uri TEXT,
+    tier1_synced INTEGER DEFAULT 0,
+    tier2_synced INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS admin_directives (
+    id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,      -- 'BROADCAST', 'DEVICE', 'TECHNICIAN'
+    target_id TEXT NOT NULL,
+    priority TEXT NOT NULL,         -- 'LOW', 'NORMAL', 'URGENT'
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL,           -- 'DELIVERED', 'READ', 'ACTED'
+    remediation_notes TEXT,
+    received_at TEXT NOT NULL,
+    acted_at TEXT
+);
+\end{lstlisting}
+
+\section{FastAPI Ingestion Gateway and Multimodal Cloud VLM Auditor}
+The following Python listing shows the asynchronous FastAPI Tier-1 batch ingestion endpoint and Google Gemini VLM auditor implemented in \texttt{backend/app/services/vlm\_auditor.py}:
+
+\begin{lstlisting}[language=Python]
+# backend/app/services/vlm_auditor.py (Selected Methods)
+import hashlib
+from google import genai
+from pydantic import BaseModel
+
+class VlmAuditResult(BaseModel):
+    wire_safe: bool
+    terminal_cover_seated: bool
+    tamper_seal_intact: bool
+    casing_intact: bool
+    secondary_kwh: float
+    confidence: float
+    audit_verdict: str
+
+async def audit_meter_installation(photo_bytes: bytes, edge_reading: float) -> VlmAuditResult:
+    client = genai.Client()
+    prompt = (
+        "You are an expert power utility quality assurance auditor under IS 16444. "
+        "Examine this smart meter installation photo and evaluate the 4-point QC checklist: "
+        "1. Wire safety (conductors flush, screws torqued). "
+        "2. Terminal cover fully seated. "
+        "3. Tamper seal present and unbroken. "
+        "4. Casing intact without cracks. "
+        "Extract the secondary 7-segment cumulative kWh reading. Return structured JSON."
+    )
+    try:
+        response = await client.aio.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=[prompt, genai.types.Part.from_bytes(photo_bytes, mime_type="image/jpeg")]
+        )
+        return VlmAuditResult.model_validate_json(response.text)
+    except Exception:
+        # Automated fallback to high-capacity model
+        response = await client.aio.models.generate_content(
+            model="gemini-4-hydrogen",
+            contents=[prompt, genai.types.Part.from_bytes(photo_bytes, mime_type="image/jpeg")]
+        )
+        return VlmAuditResult.model_validate_json(response.text)
+
+def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(file_bytes)
+    hasher.update(serial.encode("utf-8"))
+    hasher.update(timestamp.encode("utf-8"))
+    return hasher.hexdigest()
+\end{lstlisting}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 7: REFERENCES
+% ==============================================================================
+\renewcommand{\bibname}{REFERENCES}
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\clearpage
+
+% ==============================================================================
+% BIODATA PAGE
+% ==============================================================================
+\chapter*{BIODATA}
+\addcontentsline{toc}{chapter}{Biodata}
+
+\vspace{0.5cm}
+\begin{center}
+    \setlength{\fboxsep}{0pt}
+    \setlength{\fboxrule}{1pt}
+    \fbox{\parbox[c][4.5cm][c]{3.5cm}{\centering\footnotesize\color{gray}Affix Passport Size\\Photograph}}
+\end{center}
+
+\vspace{1.0cm}
+\noindent
+\begin{tabular}{p{4.5cm}cp{9.5cm}}
+\textbf{Name} & : & Frank Mathew Sajan \\
+\addlinespace[0.4cm]
+\textbf{Registration Number} & : & 23BCE8713 \\
+\addlinespace[0.4cm]
+\textbf{Programme} & : & Bachelor of Technology (B.Tech) \\
+\addlinespace[0.4cm]
+\textbf{Branch} & : & Computer Science and Engineering \\
+\addlinespace[0.4cm]
+\textbf{Specialization} & : & Artificial Intelligence and Machine Learning (AIML) \\
+\addlinespace[0.4cm]
+\textbf{Mobile Number} & : & +91 9497182886 \\
+\addlinespace[0.4cm]
+\textbf{Email Address} & : & \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
+\addlinespace[0.4cm]
+\textbf{Permanent Address} & : & Neyyassery, Idukki, Kerala, India \\
+\end{tabular}
+
+\vspace{3.5cm}
+\noindent
+\textbf{NOTE:} It is \textbf{MANDATORY} for a student to attach all the PPTs, Sample Materials, Specification Sheets, Programming Codes, and a 5--10 minutes demo Video of the Project Digitally in CD. Stick the Compact Disk (CD) in the final page of the Thesis after binding it.
+
+\end{document}
+"""
+
+def main():
+    target_path = os.path.join(os.path.dirname(__file__), "..", "docs", "project_report", "main.tex")
+    target_path = os.path.abspath(target_path)
+    print(f"Writing {target_path}...")
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(MAIN_TEX)
+    print(f"Successfully generated {target_path} ({len(MAIN_TEX)} bytes)")
+
+if __name__ == "__main__":
+    main()

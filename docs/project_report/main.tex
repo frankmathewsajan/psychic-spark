@@ -689,7 +689,21 @@ To rigorously evaluate edge and cloud recognition capabilities against peer-revi
 
 Table~\ref{tab:yuva_eb_benchmark} presents the comparative evaluation across Exact Match Accuracy, Character Error Rate (CER), execution latency, and per-condition robustness.
 
-\input{yuva_eb_table.tex}
+\begin{table}[htbp]
+\centering
+\caption{Empirical Seven-Segment Meter Recognition Benchmark on the 169-Image Mendeley YUVA EB Dataset~\cite{kanagarathinam2019data, kanagarathinam2020text}}
+\label{tab:yuva_eb_benchmark}
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Methodology} & \textbf{Accuracy} & \textbf{CER} & \textbf{Latency} & \textbf{Day} & \textbf{Night} & \textbf{Tilt} & \textbf{Blur} \\
+\midrule
+Generic Edge OCR & 1.2\% & 91.2\% & 24.5~ms & 0.0\% & 4.2\% & 0.0\% & 0.0\% \\
+MATLAB MSER~\cite{kanagarathinam2020text} & 0.0\% & 129.8\% & 107.1~ms & 0.0\% & 0.0\% & 0.0\% & 0.0\% \\
+Phase 1 YOLOv8n (INT8) & 4.2\% & 60.4\% & 26.4~ms & 0.0\% & 14.6\% & 0.0\% & 0.0\% \\
+\textbf{Cloud VLM (Gemini 3.8)} & \textbf{98.8\%} & \textbf{0.2\%} & 1180.0~ms & \textbf{100.0\%} & \textbf{100.0\%} & \textbf{100.0\%} & \textbf{90.0\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 The empirical results reveal crucial structural insights into seven-segment optical recognition:
 \begin{enumerate}

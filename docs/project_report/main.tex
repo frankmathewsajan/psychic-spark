@@ -1,14 +1,16 @@
 \documentclass[12pt,a4paper,oneside]{report}
 
 \usepackage[utf8]{inputenc}
-% A4 Page Geometry with 0.25in gutter margin on left for thesis binding
+% University thesis page geometry (Left 3.0cm for binding gutter, Right 1.9cm, Bottom 2.2cm, Top 2.0cm with header at 1.4cm)
 \usepackage[a4paper,
-            top=1.0in,
-            bottom=1.0in,
-            left=1.25in,
-            right=1.0in,
+            left=3.0cm,
+            right=1.9cm,
+            top=2.0cm,
+            bottom=2.2cm,
             headheight=15pt,
-            footskip=0.4in]{geometry}
+            headsep=0.6cm,
+            footskip=1.0cm,
+            includehead]{geometry}
 
 \usepackage{setspace}
 \onehalfspacing
@@ -23,8 +25,27 @@
 \usepackage{cite}
 \usepackage{microtype}
 \usepackage{fancyhdr}
+\usepackage{titlesec}
 \usepackage{listings}
 \usepackage{xcolor}
+
+% Neutralize the default LaTeX 50pt chapter top whitespace; center chapter titles
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\centering}{\chaptertitlename\ \thechapter}{8pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{0pt}{18pt}
+
+\titleformat{name=\chapter,numberless}[display]
+  {\normalfont\Large\bfseries\centering}{}{0pt}{\LARGE}
+\titlespacing*{name=\chapter,numberless}{0pt}{0pt}{18pt}
+
+% Section and subsection heading styling
+\titleformat{\section}
+  {\normalfont\large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
 
 % Unicode characters setup for robust Overleaf/pdfLaTeX compilation
 \usepackage{newunicodechar}
@@ -55,7 +76,7 @@
 }
 
 % Header and Footer setup
-\pagestyle{fancy}
+\pagestyle{plain} % Default to plain for all front matter; fancy enabled at Chapter 1
 \fancyhf{}
 \fancyhead[L]{\slshape \leftmark}
 \fancyhead[R]{\thepage}
@@ -133,36 +154,35 @@
 % ------------------------------------------------------------------------------
 \chapter*{CERTIFICATE}
 \addcontentsline{toc}{chapter}{Certificate}
-This is to certify that the Capstone Project work titled \textbf{``HYBRID EDGE-CLOUD VISUAL INSPECTION SYSTEM FOR UTILITY METER VERIFICATION''} that is being submitted by \textbf{FRANK MATHEW SAJAN} (Registration No: \textbf{23BCE8713}) in partial fulfillment of the requirements for the award of Bachelor of Technology in Computer Science and Engineering with Specialization in Artificial Intelligence and Machine Learning, is a record of bonafide work done under our guidance. The contents of this Project work, in full or in parts, have neither been taken from any other source nor have been submitted to any other Institute or University for award of any degree or diploma and the same is certified.
+\thispagestyle{plain}
 
-\vspace{1.2cm}
+This is to certify that the Capstone Project work titled \textbf{``HYBRID EDGE-CLOUD VISUAL INSPECTION SYSTEM FOR UTILITY METER VERIFICATION''} submitted by \textbf{FRANK MATHEW SAJAN} (Registration No: \textbf{23BCE8713}) in partial fulfillment of the requirements for the award of Bachelor of Technology in Computer Science and Engineering with Specialization in Artificial Intelligence and Machine Learning, is a record of bonafide work done under our guidance. The contents of this Project work, in full or in parts, have neither been taken from any other source nor have been submitted to any other Institute or University for award of any degree or diploma and the same is certified.
+
+\vspace{0.8cm}
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
-\rule{6.0cm}{0.4pt} & \rule{6.0cm}{0.4pt} \\
 \textbf{Dr. Sibi Chakkaravarthy S} & \textbf{Mr. Gowrav Shekar} \\
 Internal Academic Guide & External Industry Guide \\
 Associate Professor, SCOPE & Head of Technology \& AI Practices \\
 VIT-AP University & Adani AI Labs, Ahmedabad \\
 \end{tabular*}
 
-\vspace{1.0cm}
+\vspace{0.7cm}
 \noindent
 \textbf{The thesis is satisfactory / unsatisfactory}
 
-\vspace{1.2cm}
+\vspace{0.8cm}
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
-\rule{6.0cm}{0.4pt} & \rule{6.0cm}{0.4pt} \\
 \textbf{Examiner 1} & \textbf{Examiner 2} \\
 \end{tabular*}
 
-\vspace{1.2cm}
+\vspace{0.7cm}
 \noindent
 Approved by:
 
-\vspace{1.2cm}
+\vspace{0.7cm}
 \noindent
-\rule{7.5cm}{0.4pt} \\
 \textbf{Dr. Reeja S R} \\
 Head of the Department, \\
 Department of Artificial Intelligence and Machine Learning (AIML), \\
@@ -176,14 +196,15 @@ VIT-AP University, Amaravati, Andhra Pradesh -- 522237
 % ------------------------------------------------------------------------------
 \chapter*{DECLARATION}
 \addcontentsline{toc}{chapter}{Declaration}
+\thispagestyle{plain}
+
 I hereby declare that this project report entitled \textbf{``Hybrid Edge-Cloud Visual Inspection System for Utility Meter Verification''} is an authentic presentation of my own research and engineering work carried out during the academic year 2025--2026 under the joint supervision of \textbf{Dr. Sibi Chakkaravarthy S} (Associate Professor, School of Computer Science and Engineering, VIT-AP University) and \textbf{Mr. Gowrav Shekar} (Head of Technology \& AI Practices, Adani AI Labs, Ahmedabad).
 
 All contributions, datasets, software packages, and upstream models cited in this report have been properly acknowledged with formal academic citations. I further declare that neither this report nor any significant part of it has been previously submitted for any degree, diploma, or academic award at this or any other institution.
 
-\vspace{2.2cm}
+\vspace{1.8cm}
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l}
-\rule{6.0cm}{0.4pt} \\
 \textbf{Frank Mathew Sajan} \\
 Registration No: \textbf{23BCE8713} \\
 School of Computer Science and Engineering \\
@@ -200,21 +221,23 @@ Place: Amaravati, Andhra Pradesh / Ahmedabad, Gujarat
 % ------------------------------------------------------------------------------
 \chapter*{ACKNOWLEDGEMENT}
 \addcontentsline{toc}{chapter}{Acknowledgement}
-We would like to express our sincere gratitude to \textbf{VIT-AP University, Amaravati, Andhra Pradesh}, for providing us with the opportunity, infrastructure, and academic environment to undertake and successfully complete our Capstone Project.
+\thispagestyle{plain}
 
-We are deeply grateful to \textbf{Dr. G. Viswanathan}, Chancellor, VIT-AP University, and \textbf{Dr. P. Arulmozhivarman}, Vice-Chancellor, VIT-AP University, for their visionary leadership, encouragement, and commitment to providing quality education and fostering innovation and research.
+We express our sincere gratitude to \textbf{VIT-AP University, Amaravati, Andhra Pradesh}, for providing the academic infrastructure, computing facilities, and administrative support necessary to execute and complete this Capstone Project.
 
-We express our sincere thanks to \textbf{Dr. S. Sudhakar Ilango}, Dean, SCOPE, \textbf{Dr. Saroj Kumar Panigrahy}, Associate Dean, SCOPE, and \textbf{Dr. Reeja S R}, Head of the Department, Department of Artificial Intelligence and Machine Learning (AIML), for the continuous encouragement, academic support, and facilities provided throughout the project.
+We are deeply grateful to \textbf{Dr. G. Viswanathan}, Chancellor, VIT-AP University, and \textbf{Dr. P. Arulmozhivarman}, Vice-Chancellor, VIT-AP University, for their continuous encouragement, institutional leadership, and commitment to applied engineering research.
 
-We are profoundly grateful to \textbf{Dr. Sibi Chakkaravarthy S}, our Internal Academic Guide and Project Supervisor, for the invaluable guidance, constant support, constructive feedback, and encouragement extended to us at every stage of this project. His expertise in distributed systems security and research methodology has been instrumental in the successful completion of our work.
+We express our sincere thanks to \textbf{Dr. S. Sudhakar Ilango}, Dean, SCOPE, \textbf{Dr. Saroj Kumar Panigrahy}, Associate Dean, SCOPE, and \textbf{Dr. Reeja S R}, Head of the Department, Department of Artificial Intelligence and Machine Learning (AIML), for their academic guidance and departmental facilities provided throughout the project lifecycle.
 
-We express our deep appreciation and sincere gratitude to our external industry guide, \textbf{Mr. Gowrav Shekar}, Head of Technology \& AI Practices at \textbf{Adani AI Labs, Ahmedabad}, for his continuous technical leadership, industry mentorship in utility distribution operations, and for facilitating access to authentic smart meter distributions and testing facilities throughout this capstone project.
+We are profoundly grateful to \textbf{Dr. Sibi Chakkaravarthy S}, our Internal Academic Guide and Project Supervisor, for his sustained technical mentorship, rigorous review, and expert guidance in distributed system reliability and secure edge architecture.
 
-We would also like to extend our sincere appreciation to all the faculty members and staff of the School of Computer Science and Engineering for their cooperation, valuable suggestions, and support during the course of this project.
+We express our sincere gratitude to our external industry guide, \textbf{Mr. Gowrav Shekar}, Head of Technology \& AI Practices at \textbf{Adani AI Labs, Ahmedabad}, for his continuous technical leadership, industry mentorship in power distribution operations, and for providing domain testbeds throughout this work.
 
-Finally, we express our heartfelt gratitude to our parents, family members, and friends for their constant encouragement, patience, and support throughout our academic journey.
+We also thank all faculty members and technical staff of the School of Computer Science and Engineering for their cooperation, constructive evaluations, and academic support.
 
-\vspace{1.0cm}
+Finally, we express our heartfelt gratitude to our parents, family members, and friends for their constant patience, encouragement, and support throughout our academic program.
+
+\vspace{0.8cm}
 \noindent
 \textbf{Project Team Members:} \\
 Frank Mathew Sajan -- 23BCE8713
@@ -222,41 +245,59 @@ Frank Mathew Sajan -- 23BCE8713
 \clearpage
 
 % ------------------------------------------------------------------------------
-% 5. ABSTRACT PAGE (Must fit strictly on Page v)
+% 5. ABSTRACT (Pages v and vi: Structured Two-Page Academic Split)
 % ------------------------------------------------------------------------------
 \chapter*{ABSTRACT}
 \addcontentsline{toc}{chapter}{Abstract}
-Standard utility Field Quality Plans (FQP) under India's Revamped Distribution Sector Scheme (RDSS) mandate the deployment of over 250 million smart electricity meters. However, prevailing quality assurance protocols rely on 10\% to 20\% statistical lot sampling governed by IS 2500 and REC TPQMA guidelines, leaving an \textbf{80\% to 90\% unverified blind spot} across deployed consumer nodes. Field audit data indicates that unchecked installations carry severe operational risks: loose terminal wiring and incorrect screw torquing account for \textbf{over 30\% of field meter burnouts} due to localized contact-resistance heating ($I^2 R$), missing terminal cover seals occur in 4\% to 8\% of setups creating avenues for power theft, and manual logging of 7-segment LCD registers exhibits a 4\% to 7\% human transcription error rate. Mandating 100\% cloud-based photo verification is impractical because \textbf{20\% to 25\% of installation sites sit in basements, elevator shafts, and rural dead zones} where severe cellular attenuation causes multi-megabyte image uploads to time out.
+\thispagestyle{plain}
 
-To solve this operational bottleneck, this thesis introduces \textbf{Novo}, an offline-first, production-oriented hybrid edge--cloud visual verification platform. Novo shifts defect classification and 7-segment character recognition directly onto commodity mobile CPU runtimes, scaling installation QA from 10--20\% sampling to \textbf{100\% automated point-of-work coverage}. The system introduces six primary engineering innovations:
+Under the Revamped Distribution Sector Scheme (RDSS) formulated by the Ministry of Power, Government of India, electric utilities are deploying over 250 million smart electricity meters nationwide. A major operational bottleneck in this deployment is the quality assurance protocol mandated by prevailing Field Quality Plans (FQP). Under standard IS 2500 (Part 1) and Rural Electrification Corporation (REC) Third Party Quality Monitoring Agency (TPQMA) guidelines, utilities inspect only 10\% to 20\% of installations via post-hoc statistical lot sampling. Consequently, an \textbf{80\% to 90\% uninspected blind spot} persists across commissioned field meters, leaving critical mounting and wiring defects entirely unverified.
+
+Field empirical data reveals that unchecked installations introduce severe physical and financial failure modes. Loose terminal connections and incorrect screw torquing account for \textbf{over 30\% of early meter burnouts} due to localized contact-resistance heating ($I^2 R$), generating intense thermal stress, electrical flashovers, and residential fire hazards. Furthermore, missing terminal cover seals occur in 4\% to 8\% of installations, creating avenues for unmetered power theft, while manual optical logging of seven-segment Liquid Crystal Display (LCD) registers exhibits a 4\% to 7\% human transcription error rate. Mandating 100\% synchronous cloud-based photo verification is impractical because \textbf{20\% to 25\% of installations reside in basements, elevator shafts, and rural dead zones} where severe cellular attenuation causes multi-megabyte image uploads to fail with socket timeouts.
+
+To address this challenge, this thesis presents \textbf{Novo}, an offline-first, production-grade hybrid edge--cloud visual verification system for smart meter quality assurance. Novo migrates physical hazard classification and seven-segment character recognition directly onto commodity mobile ARM runtimes, scaling installation verification from 10--20\% lot sampling to \textbf{100\% automated point-of-work enforcement}. By coupling instantaneous on-device safety interlocks with decoupled asynchronous cloud auditing, the system eliminates contractor omission, guarantees billing data integrity, and operates seamlessly across severe cellular dead zones.
+
+\clearpage
+\thispagestyle{plain}
+
+The completed Novo platform delivers six primary engineering innovations:
 \begin{enumerate}
-    \item \textbf{Point-of-Work Hardware Leveling \& INT8 Safety Interlock:} Reads the 3-axis accelerometer ($\text{tilt} = \arctan(Z / \text{hypot}(X, Y)) \times 180 / \pi$) and programmatically locks the shutter until the phone is held perpendicular ($90^\circ \pm 10^\circ$) to the meter face. An ultra-compact ($1.24\text{~MB}$) INT8 MobileNetV3 classifier benchmarks at a mean execution time of $24.34\text{~ms}$ ($10.2\times$ margin under $250\text{~ms}$) and $4.59\text{~MB}$ peak RAM ($7.6\times$ margin under $35\text{~MB}$), triggering an un-dismissible UI lockout upon detecting unseated covers or exposed conductors ($P_{\text{hazard}} \ge 0.65$).
-    \item \textbf{Dynamic Viewfinder Calibration \& Sim-to-Real Hybrid OCR:} Maps relative \texttt{onLayout} percentages directly to sensor coordinates, combining reticle cropping with a deterministic 7-segment character sanitization automaton and height-ratio decimal inference ($r < 0.82$) to achieve zero silent digit hallucinations.
-    \item \textbf{Zero-Delay Shutter \& Intermediary Verification Screen:} Refactors capture into a $<250\text{~ms}$ shutter pushing immediately to \texttt{src/app/inspect-preview.tsx}, showing the cropped LCD image directly above an editable kWh reading for rapid 1-second technician sign-off.
-    \item \textbf{Two-Tier Crash-Resilient SQLite SSOT Sync:} Anchored by on-device SQLite in Write-Ahead Logging (WAL) mode with startup recovery pragmas, the system dispatches sub-2~KB Tier-1 JSON telemetry batches in $1.14\text{~s}$ over 2G links (100\% success rate), while deferring Tier-2 multipart audit images to unmetered Wi-Fi.
-    \item \textbf{Tier-3 Cloud Multimodal VLM Quality Audit:} An asynchronous cloud verification pipeline powered by Google Gemini (\texttt{gemini-3.8-flash} with automated fallback to \texttt{gemini-4-hydrogen}) evaluates a 4-point physical QC checklist (wire safety, terminal cover, tamper seal, casing) with 97.98\% accuracy.
-    \item \textbf{Cryptographic SHA-256 Sealing \& Decoupled Storage:} The FastAPI gateway implements update-on-conflict idempotency, computes an immutable SHA-256 evidence seal $\text{SHA256}(\text{file} + \text{serial} + \text{timestamp})$, and stores photos in Supabase Storage with unique constraints on \texttt{(inspection\_id, photo\_type)}.
+    \item \textbf{Hardware Sensor Leveling \& INT8 Safety Interlock:} Samples the mobile 3-axis MEMS accelerometer at 50~Hz ($\text{tilt} = \arctan(|g_z| / \sqrt{g_x^2 + g_y^2}) \times 180 / \pi$) and disables the shutter until the camera plane is perpendicular ($90^\circ \pm 10^\circ$) to the meter face. An ultra-compact ($1.24\text{~MB}$) INT8 MobileNetV3 classifier benchmarks at $24.34\text{~ms}$ on commodity ARM cores with $4.59\text{~MB}$ peak heap RAM, triggering an automated submission lockout upon detecting stripped phase conductors or loose terminal screws ($P_{\text{hazard}} \ge 0.65$).
+    \item \textbf{Dynamic Viewfinder Calibration \& 7-Segment Automaton:} Computes LCD bounding coordinates from relative layout percentages, coupling reticle isolation with a deterministic character sanitization automaton and height-ratio decimal inference ($r = h_{\text{dot}} / h_{\text{digit}} < 0.82$) to eliminate optical noise and prevent silent digit misreads.
+    \item \textbf{Instant Shutter \& Intermediary Verification Screen:} Refactors capture into a zero-delay shutter ($<250\text{~ms}$) pushing to an intermediary screen (\texttt{src/app/inspect-preview.tsx}) that renders the cropped LCD image directly above an auto-filled kWh input field for rapid 1-second technician sign-off.
+    \item \textbf{CamScanner Precision 4-Point Polygon Cropper:} Formulates an unconstrained 4-point polygon selector with a $2.8\times$ floating loupe tracking $85\text{~px}$ above the finger, $2\times$ canvas zoom, and affine tilt rectification ($\theta = \operatorname{atan2}(\Delta y, \Delta x)$) to isolate skewed display registers on-site.
+    \item \textbf{Two-Tier Crash-Resilient SQLite SSOT Sync:} Anchored by an embedded SQLite database in Write-Ahead Logging (WAL) mode, Novo dispatches minified Tier-1 JSON telemetry batches ($1.82\text{~KB}$ for 15 records) in $1.14\text{~s}$ over 2G cellular dead zones (100\% success rate), deferring large audit images to depot Wi-Fi.
+    \item \textbf{Cloud Multimodal VLM Quality Audit \& SHA-256 Sealing:} Employs Google Gemini foundation models (\texttt{gemini-3.8-flash} with \texttt{gemini-4-hydrogen} fallback) to evaluate a 4-point physical QC checklist (wire safety, terminal cover, tamper seal, casing) with 97.98\% accuracy, computing immutable SHA-256 evidence digests for legal non-repudiation.
 \end{enumerate}
+
+Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\% hazard lockout rate} on 1,420 hazardous mountings (zero false negatives), a Character Error Rate reduction from 24.8\% to \textbf{1.2\% with 0.0\% silent hallucinations}, and a \textbf{99.12\% cloud compute OPEX reduction} (Rs.~675.00/month vs. Rs.~77,132.40/month conventional GPU clusters).
 
 \clearpage
 
 % ------------------------------------------------------------------------------
-% 6. TABLE OF CONTENTS, LISTS (Each on fresh pages)
+% 6. TABLE OF CONTENTS, LISTS (Pages vii to x)
 % ------------------------------------------------------------------------------
+\begin{spacing}{1.15}
 \tableofcontents
+\thispagestyle{plain}
 \clearpage
 
 \listoftables
+\thispagestyle{plain}
 \clearpage
 
 \listoffigures
+\thispagestyle{plain}
 \clearpage
+\end{spacing}
 
 % ------------------------------------------------------------------------------
 % 7. LIST OF ABBREVIATIONS (Must fit strictly on one single page)
 % ------------------------------------------------------------------------------
 \chapter*{LIST OF ABBREVIATIONS}
 \addcontentsline{toc}{chapter}{List of Abbreviations}
+\thispagestyle{plain}
+\begin{spacing}{1.15}
 \begin{tabular}{ll}
 \textbf{AMI} & Advanced Metering Infrastructure \\
 \textbf{AMR} & Automatic Meter Reading \\
@@ -300,10 +341,12 @@ To solve this operational bottleneck, this thesis introduces \textbf{Novo}, an o
 \textbf{WAL} & Write-Ahead Logging \\
 \textbf{WASM} & WebAssembly \\
 \end{tabular}
+\end{spacing}
 
 \clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
+\pagestyle{fancy}
 
 % ==============================================================================
 % CHAPTER 1: INTRODUCTION
@@ -414,7 +457,7 @@ To eliminate perspective distortion and specular glare at the source, the applic
 \begin{equation}
 \text{tilt} = \arctan\left(\frac{|g_z|}{\sqrt{g_x^2 + g_y^2}}\right) \times \left(\frac{180^\circ}{\pi}\right)
 \end{equation}
-The application enforces an active hardware lockout: if the phone deviates from the perpendicular plane by more than $10^\circ$ (i.e., outside $90^\circ \pm 10^\circ$), the shutter button is disabled and a dynamic Heads-Up Display (HUD) overlay indicates the direction of tilt. Once leveled, the shutter unlocks.
+where $g_x, g_y, \text{ and } g_z$ denote the instantaneous gravitational acceleration components (in $\text{m/s}^2$) measured along the orthogonal lateral, longitudinal, and normal axes of the mobile handset by the onboard 3-axis MEMS accelerometer, $|g_z|$ denotes the magnitude of normal acceleration perpendicular to the screen, and $\sqrt{g_x^2 + g_y^2}$ denotes the magnitude of the coplanar shear acceleration vector. The angle $\text{tilt} \in [0^\circ, 90^\circ]$ quantifies the angular deviation from the perpendicular viewing normal. The application enforces an active hardware lockout: if the phone deviates from the perpendicular plane by more than $10^\circ$ (outside $90^\circ \pm 10^\circ$), the shutter button is disabled and a dynamic Heads-Up Display (HUD) overlay indicates the direction of tilt. Once leveled, the shutter unlocks.
 
 \subsection{Stage 2: Zero-Delay Shutter \& Dynamic Reticle Geometry}
 To prevent the 1--2 second UI freeze common in mobile camera applications, the capture trigger calls \texttt{takePictureAsync} with \texttt{skipProcessing: true}, capturing a full-resolution JPEG in under $250\text{~ms}$. 
@@ -427,24 +470,29 @@ When mapping to a sensor image of pixel dimensions $(W_s, H_s)$, the pixel crop 
 \begin{equation}
 B_{\text{pixel}} = \left( X = \lfloor x_{\text{min}} \cdot W_s \rfloor,\; Y = \lfloor y_{\text{min}} \cdot H_s \rfloor,\; W = \lfloor w_{\text{norm}} \cdot W_s \rfloor,\; H = \lfloor h_{\text{norm}} \cdot H_s \rfloor \right)
 \end{equation}
+where $(W_c, H_c)$ represent the rendered width and height of the camera preview layout container, $(X_r, Y_r)$ represent the on-screen top-left coordinates of the LCD bounding reticle, $(W_r, H_r)$ represent the reticle width and height, $(W_s, H_s)$ denote the full physical pixel dimensions of the camera sensor capture array, and $\lfloor \cdot \rfloor$ denotes the mathematical floor function mapping continuous fractional percentages to discrete sensor pixel coordinates.
 
 \subsection{Stage 3: Edge Wire Safety Neural Classification}
 Concurrently with crop extraction, the edge client feeds the scaled image ($224\times 224\times 3$) into the quantized INT8 MobileNetV3 classifier (\texttt{mobilenetv3\_wire\_int8.tflite}). The network outputs a normalized hazard probability $P_{\text{hazard}} \in [0.0, 1.0]$. The safety interlock rule is evaluated as:
 \begin{equation}
 \text{SafetyStatus} = 
 \begin{cases}
-\text{CRITICAL\_HAZARD (Lockout)}, & \text{if } P_{\text{hazard}} \ge 0.65 \\
+\text{HAZARD (Lockout)}, & \text{if } P_{\text{hazard}} \ge 0.65 \\
 \text{COMPLIANT}, & \text{if } P_{\text{hazard}} < 0.65
 \end{cases}
 \end{equation}
-If $P_{\text{hazard}} \ge 0.65$, digit extraction is suppressed, and the system initiates an un-dismissible point-of-work lockout.
+where $P_{\text{hazard}} \in [0.0, 1.0]$ represents the continuous softmax class-probability generated by the output layer of the INT8 MobileNetV3 neural classifier for class \texttt{HAZARD}, and $0.65$ represents the calibrated decision threshold selected to enforce zero false negatives ($FN = 0$) on exposed live conductors and loose terminal connections. If $P_{\text{hazard}} \ge 0.65$, digit extraction is suppressed, and the system initiates an un-dismissible point-of-work lockout.
 
 \subsection{Stage 4: Sim-to-Real Hybrid OCR \& Digit Sanitization}
 If the installation is wire-safe, the cropped LCD image is processed via native Google ML Kit text recognition. Raw OCR token streams are filtered through a deterministic seven-segment character sanitization automaton. The automaton executes three operations:
 \begin{enumerate}
     \item \textbf{Token Filtering:} Strips non-numeric characters, noise artifacts, and utility spec text (e.g., ``240V'', ``10(40)A'', ``kWh'').
     \item \textbf{Character Disambiguation:} Replaces commonly confused optical glyphs (e.g., mapping uppercase 'O' and 'D' to '0', 'I' and 'l' to '1', 'S' to '5', 'B' to '8').
-    \item \textbf{Height-Ratio Decimal Recovery:} Identifies isolated periods or commas. If an explicit decimal symbol is missing but the final character bounding box height ratio satisfies $r = h_{\text{last}} / h_{\text{prior}} < 0.82$, the token is recognized as a fractional register digit and a decimal point is inserted deterministically before the final digit.
+    \item \textbf{Height-Ratio Decimal Recovery:} Identifies isolated periods or commas. If an explicit decimal symbol is missing, the final character bounding box height ratio is computed:
+    \begin{equation}
+    r = \frac{h_{\text{dot}}}{h_{\text{digit}}} < 0.82
+    \end{equation}
+    where $h_{\text{dot}}$ represents the pixel bounding-box vertical height of an isolated candidate punctuation mark, $h_{\text{digit}}$ denotes the median vertical height of adjacent recognized numerals, and $0.82$ represents the calibrated geometric decision boundary separating authentic decimal points from broken display segment artifacts. If $r < 0.82$, a decimal point is inserted deterministically before the final digit.
 \end{enumerate}
 
 \subsection{Stage 5: Intermediary Safety Verification, CamScanner Precision Cropping \& Sign-Off}
@@ -457,7 +505,11 @@ The technician is immediately transitioned to \texttt{src/app/inspect-preview.ts
         \item \textit{4 Unconstrained Polygon Vertices ($P_0, P_1, P_2, P_3$):} Rendered with hardware-accelerated $1.5\text{~px}$ cyan vector connecting lines at 60~FPS.
         \item \textit{Floating $2.8\times$ Magnifying Loupe:} A circular lens ($100\text{~px}$ diameter) hovers $85\text{~px}$ above the dragging finger with a precision crosshair, ensuring finger contact never obscures LCD corner pixels.
         \item \textit{2$\times$ Canvas Zoom:} Toggling $2\times$ zoom centers the canvas over the LCD display, doubling manual touch precision while preserving original unzoomed image resolution upon final export.
-        \item \textit{Affine Angle Rectification (\texttt{cropLcdQuad}):} Computes top-edge tilt $\theta = \operatorname{atan2}(\Delta y, \Delta x)$, extracts the bounding envelope, and counter-rotates the cropped LCD digits before re-evaluating local ML Kit OCR on the spot.
+        \item \textit{Affine Angle Rectification (\texttt{cropLcdQuad}):} Computes the clockwise top-edge tilt angle:
+        \begin{equation}
+        \theta_{\text{tilt}} = \operatorname{atan2}(y_1 - y_0, x_1 - x_0) \times \left(\frac{180^\circ}{\pi}\right)
+        \end{equation}
+        where $(x_0, y_0)$ and $(x_1, y_1)$ denote the Cartesian pixel coordinates of the top-left vertex $P_0$ and top-right vertex $P_1$ of the quadrilateral adjusted via the CamScanner polygon modal, and $\theta_{\text{tilt}}$ represents the clockwise rotation angle utilized by the 2D affine counter-rotation matrix $R(-\theta_{\text{tilt}})$ to restore horizontal digit alignment prior to secondary optical character recognition.
     \end{enumerate}
     \item \textbf{Instant Commit:} Tapping ``Save \& Done'' writes the inspection record to local SQLite with status \texttt{DONE} (or \texttt{PENDING} for cloud sync) and navigates back to the main dashboard in $<50\text{~ms}$.
 \end{itemize}
@@ -485,9 +537,9 @@ The VLM also performs secondary OCR on the uncropped photo. If edge OCR and clou
 \subsection{Stage 8: Cryptographic Evidence Sealing \& Regulatory Export}
 To guarantee legal non-repudiation during consumer billing disputes or contractor arbitration, the ingestion gateway calculates an immutable SHA-256 cryptographic evidence digest upon receiving each media file:
 \begin{equation}
-\text{Seal}_{\text{SHA256}} = \text{SHA256}\Big(\text{BinaryBytes}(\text{photo}) \mathbin{\Vert} \text{Serial} \mathbin{\Vert} \text{ISO8601Timestamp} \mathbin{\Vert} \text{GPS}\Big)
+\text{Seal}_{\text{SHA256}} = \text{SHA256}\Big(B_{\text{photo}} \mathbin{\Vert} S_{\text{serial}} \mathbin{\Vert} T_{\text{timestamp}} \mathbin{\Vert} G_{\text{gps}}\Big)
 \end{equation}
-This digest is stored in the PostgreSQL database alongside client device attribution metadata (\texttt{device\_id}, \texttt{device\_model}, \texttt{app\_version}). A decoupled \texttt{inspection\_photos} model enforces unique constraints on \texttt{(inspection\_id, photo\_type)}, ensuring all mandatory audit angles (casing, terminal cover, display, and tamper seals) persist without record overwrites.
+where $B_{\text{photo}}$ denotes the raw binary byte stream of the captured inspection JPEG image, $S_{\text{serial}}$ represents the UTF-8 encoded meter serial identifier, $T_{\text{timestamp}}$ represents the ISO 8601 UTC timestamp string, $G_{\text{gps}}$ represents the geographic coordinate string tuple $(\text{latitude}, \text{longitude})$, and $\mathbin{\Vert}$ denotes the byte-level concatenation operator conforming to FIPS PUB 180-4 specifications. This digest is stored in the PostgreSQL database alongside client device attribution metadata (\texttt{device\_id}, \texttt{device\_model}, \texttt{app\_version}). A decoupled \texttt{inspection\_photos} model enforces unique constraints on \texttt{(inspection\_id, photo\_type)}, ensuring all mandatory audit angles (casing, terminal cover, display, and tamper seals) persist without record overwrites.
 
 \subsection{Stage 9: Two-Way Administrative Safety Directives}
 The backend maintains a WebSocket and polling channel to dispatch real-time administrative directives from utility supervisors to field handsets. Directives support three target modalities (\texttt{BROADCAST}, \texttt{DEVICE}, \texttt{TECHNICIAN}) and three priority tiers (\texttt{LOW}, \texttt{NORMAL}, \texttt{URGENT}). Upon receipt, messages are cached in local SQLite, and the client returns an idempotent delivery acknowledgment (\texttt{DELIVERED}, \texttt{READ}, \texttt{ACTED}) containing remediation notes.
@@ -1030,36 +1082,27 @@ def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
 % ==============================================================================
 \chapter*{BIODATA}
 \addcontentsline{toc}{chapter}{Biodata}
+\thispagestyle{plain}
 
-\vspace{0.4cm}
-\begin{center}
+\vspace{1.5cm}
+\noindent
+\begin{minipage}[t]{0.32\textwidth}
+    \vspace{0pt}
     \setlength{\fboxsep}{0pt}
     \setlength{\fboxrule}{1pt}
     \fbox{\includegraphics[width=3.2cm, height=4.2cm]{figures/frank_photo.jpg}}
-\end{center}
-
-\vspace{0.8cm}
-\noindent
-\begin{tabular}{p{4.5cm}cp{9.5cm}}
-\textbf{Name} & : & Frank Mathew Sajan \\
-\addlinespace[0.35cm]
-\textbf{Registration Number} & : & 23BCE8713 \\
-\addlinespace[0.35cm]
-\textbf{Programme} & : & Bachelor of Technology (B.Tech) \\
-\addlinespace[0.35cm]
-\textbf{Branch} & : & Computer Science and Engineering \\
-\addlinespace[0.35cm]
-\textbf{Specialization} & : & Artificial Intelligence and Machine Learning (AIML) \\
-\addlinespace[0.35cm]
-\textbf{Mobile Number} & : & +91 9497182886 \\
-\addlinespace[0.35cm]
-\textbf{Email Address} & : & \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
-\addlinespace[0.35cm]
-\textbf{Permanent Address} & : & Neyyassery, Idukki, Kerala, India \\
-\end{tabular}
-
-\vspace{2.5cm}
-\noindent
-\textbf{NOTE:} It is \textbf{MANDATORY} for a student to attach all the PPTs, Sample Materials, Specification Sheets, Programming Codes, and a 5--10 minutes demo Video of the Project Digitally in CD. Stick the Compact Disk (CD) in the final page of the Thesis after binding it.
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.65\textwidth}
+    \vspace{0pt}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{ll}
+    \textbf{Name} & : Frank Mathew Sajan \\
+    \textbf{Mobile Number} & : +91 9497182886 \\
+    \textbf{E-mail} & : \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
+    \textbf{Permanent Address} & : Neyyassery, Idukki, \\
+    & \phantom{:} Kerala, India \\
+    \end{tabular}
+\end{minipage}
 
 \end{document}

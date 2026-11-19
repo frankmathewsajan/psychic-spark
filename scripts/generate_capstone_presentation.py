@@ -13,9 +13,17 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
+import os
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.enum.shapes import MSO_SHAPE
+
 def populate_presentation():
     template_path = r"C:\Users\frank\Downloads\Capstone_PPT_Template.pptx"
     output_path = r"docs\presentation\Capstone_Final_Review_Presentation.pptx"
+    figures_dir = r"docs\project_report\figures"
     
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template not found at {template_path}")
@@ -23,10 +31,13 @@ def populate_presentation():
     prs = Presentation(template_path)
     print(f"Loaded template with {len(prs.slides)} slides.")
 
-    # Colors
+    # Palette
     DARK_BLUE = RGBColor(16, 44, 87)
     CHARCOAL = RGBColor(40, 40, 40)
     ACCENT_BLUE = RGBColor(41, 128, 185)
+    LIGHT_BG = RGBColor(245, 247, 250)
+    BORDER_COLOR = RGBColor(200, 210, 225)
+    WHITE = RGBColor(255, 255, 255)
 
     def fill_content_box(shape, subtitle_text, bullets):
         tf = shape.text_frame
@@ -48,6 +59,92 @@ def populate_presentation():
             p.font.color.rgb = CHARCOAL
             p.space_after = Pt(5)
             p.level = 0
+
+    def fill_split_slide(slide, text_shape, subtitle_text, bullets, image_path, img_top_in=1.1, img_width_in=4.4, caption=None):
+        # Position left text frame
+        text_shape.left = Inches(0.5)
+        text_shape.top = Inches(1.0)
+        text_shape.width = Inches(4.7)
+        text_shape.height = Inches(4.2)
+        
+        tf = text_shape.text_frame
+        tf.clear()
+        
+        p0 = tf.paragraphs[0]
+        p0.text = subtitle_text
+        p0.font.bold = True
+        p0.font.size = Pt(15)
+        p0.font.color.rgb = DARK_BLUE
+        p0.space_after = Pt(8)
+        
+        for b_text in bullets:
+            p = tf.add_paragraph()
+            p.text = b_text
+            p.font.size = Pt(11.5)
+            p.font.color.rgb = CHARCOAL
+            p.space_after = Pt(4)
+            p.level = 0
+            
+        # Add Image on the right
+        if os.path.exists(image_path):
+            img_left = Inches(5.35)
+            slide.shapes.add_picture(image_path, img_left, Inches(img_top_in), width=Inches(img_width_in))
+            if caption:
+                tx_box = slide.shapes.add_textbox(img_left, Inches(img_top_in + 2.8), Inches(img_width_in), Inches(0.5))
+                c_tf = tx_box.text_frame
+                c_tf.clear()
+                cp = c_tf.paragraphs[0]
+                cp.text = caption
+                cp.font.size = Pt(9.5)
+                cp.font.italic = True
+                cp.font.color.rgb = CHARCOAL
+                cp.alignment = PP_ALIGN.CENTER
+
+    def create_styled_table(slide, left, top, width, height, headers, data, col_widths=None):
+        table_shape = slide.shapes.add_table(len(data) + 1, len(headers), left, top, width, height)
+        table = table_shape.table
+        
+        if col_widths:
+            for idx, w in enumerate(col_widths):
+                table.columns[idx].width = w
+                
+        # Style headers
+        for col_idx, h_text in enumerate(headers):
+            cell = table.cell(0, col_idx)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = DARK_BLUE
+            cell.margin_left = Inches(0.08)
+            cell.margin_right = Inches(0.08)
+            cell.margin_top = Inches(0.06)
+            cell.margin_bottom = Inches(0.06)
+            p = cell.text_frame.paragraphs[0]
+            p.text = h_text
+            p.font.bold = True
+            p.font.size = Pt(10.5)
+            p.font.color.rgb = WHITE
+            
+        # Style data rows
+        for row_idx, row_values in enumerate(data):
+            is_even = (row_idx % 2 == 0)
+            bg_color = LIGHT_BG if is_even else WHITE
+            for col_idx, val in enumerate(row_values):
+                cell = table.cell(row_idx + 1, col_idx)
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = bg_color
+                cell.margin_left = Inches(0.08)
+                cell.margin_right = Inches(0.08)
+                cell.margin_top = Inches(0.05)
+                cell.margin_bottom = Inches(0.05)
+                p = cell.text_frame.paragraphs[0]
+                p.text = val
+                p.font.size = Pt(9.5)
+                p.font.color.rgb = CHARCOAL
+                if col_idx == 0:
+                    p.font.bold = True
+                elif col_idx == 1:
+                    p.font.bold = True
+                    p.font.color.rgb = ACCENT_BLUE
+        return table_shape
 
     # =========================================================================
     # SLIDE 1: TITLE SLIDE
@@ -183,37 +280,40 @@ def populate_presentation():
     # SLIDE 7: BACKGROUND & RELATED WORK - IMPROVEMENTS
     # =========================================================================
     s7 = prs.slides[6]
-    fill_content_box(s7.shapes[1], "Improvements Over Existing Solutions", [
-        "Two-Phase Engineering Evolution: Evolved from heavy 2-stage YOLOv8 ONNX WASM to native INT8 MobileNetV3.",
-        "Zero-Cost Edge Safety Gate: Enforces immediate submission block on exposed wiring (1.24 MB, 24.34 ms).",
-        "Active Accelerometer Interlock: tilt = arctan(Z / hypot(X, Y)) * 180 / pi locks shutter outside 90 deg +/- 10 deg.",
-        "Two-Tier Decoupled Sync: Sub-2 KB Tier-1 JSON dispatches in 1.14 s; high-res image sync deferred to Wi-Fi.",
-        "99.12% Cloud OPEX Reduction: Slashes compute fees from Rs. 77,132/mo (GPUs) to Rs. 675/mo (serverless)."
-    ])
+    fill_split_slide(s7, s7.shapes[1], "Two-Tier Synchronization Advantages", [
+        "Engineering Pivot: Transitioned from heavy YOLOv8 ONNX WASM to native INT8 MobileNetV3.",
+        "Zero-Cost Edge Gate: Instant 24.34 ms on-device safety lockout blocks hazardous submissions.",
+        "Active MEMS Interlock: Shutter locked outside 90 deg +/- 10 deg normal to eliminate keystone tilt.",
+        "Two-Tier Decoupled Sync: 1.82 KB Tier-1 JSON dispatches in 1.14 s; photo upload deferred to Wi-Fi.",
+        "99.12% OPEX Reduction: Slashes recurring cloud bills from Rs. 77,132/mo (GPUs) to Rs. 675/mo."
+    ], os.path.join(figures_dir, "sync_throughput_comparison.png"), img_top_in=1.3, img_width_in=4.3,
+       caption="Fig 1: Cellular Sync Throughput Comparison across 2G/EDGE")
 
     # =========================================================================
     # SLIDE 8: PROPOSED SOLUTION - SYSTEM ARCHITECTURE
     # =========================================================================
     s8 = prs.slides[7]
-    fill_content_box(s8.shapes[1], "System Architecture: Hybrid Edge-Cloud Topology", [
-        "Tier 1 - Edge Handset: Camera Viewfinder with MEMS leveling, onLayout reticle math, INT8 wire safety.",
-        "Tier 2 - Verification & Polygon Cropper: Dual-box HUD + CamScanner 4-dot polygon cropper with 2.8x floating loupe & 2x zoom.",
-        "Tier 3 - SQLite WAL SSOT: On-device storage with startup recovery pragmas resetting orphaned sync states.",
-        "Tier 4 - FastAPI Ingestion Gateway: Ephemeral ASGI backend computing SHA-256 evidence seals & disaster recovery sync-back.",
-        "Tier 5 - Cloud VLM Auditor: Multimodal Gemini 3.8 Flash scoring 4-point physical QC with non-blocking async audit."
-    ])
+    fill_split_slide(s8, s8.shapes[1], "End-to-End System Architecture", [
+        "Tier 1 (Edge Handset): Camera Viewfinder with MEMS leveling, onLayout reticles & INT8 wire safety.",
+        "Tier 2 (Verification HUD): Dual-box HUD + CamScanner polygon cropper with 2.8x loupe & 2x zoom.",
+        "Tier 3 (Local SQLite WAL): Atomicity with startup recovery pragmas resetting orphaned sync states.",
+        "Tier 4 (FastAPI Gateway): Ephemeral ASGI gateway computing SHA-256 evidence seals & fleet sync-back.",
+        "Tier 5 (Cloud VLM Auditor): Gemini 3.8 Flash evaluating 4-point physical QC via async task worker."
+    ], os.path.join(figures_dir, "system_architecture.png"), img_top_in=1.15, img_width_in=4.35,
+       caption="Fig 2: Hybrid Edge-Cloud Modular System Architecture")
 
     # =========================================================================
     # SLIDE 9: PROPOSED SOLUTION - KEY MODULES
     # =========================================================================
     s9 = prs.slides[8]
-    fill_content_box(s9.shapes[1], "Key Components & Functional Modules", [
-        "1. Dynamic Viewfinder Overlay: Sensor tilt indicator + normalized percentage crop without window offsets.",
-        "2. Wire Safety Classifier: 1.24 MB INT8 MobileNetV3 detecting conductor stripping (P_hazard >= 0.65).",
-        "3. Sim-to-Real Digit Recognizer: ML Kit OCR + 7-segment automaton + height-ratio decimal recovery (r < 0.82).",
-        "4. CamScanner Polygon Cropper: 4-point polygon isolation with 2.8x floating loupe, 2x canvas zoom, and affine tilt de-skewing.",
-        "5. Decoupled Asynchronous Sync: Stage-aware telemetry bar with immediate completion and non-blocking background VLM audit."
-    ])
+    fill_split_slide(s9, s9.shapes[1], "Key Subsystems & Functional Modules", [
+        "1. Dynamic Viewfinder Overlay: Sensor tilt indicator + normalized coordinate reticle cropping.",
+        "2. Wire Safety Classifier: 1.24 MB INT8 MobileNetV3 detecting conductor stripping (P >= 0.65).",
+        "3. Sim-to-Real Digit Recognizer: ML Kit OCR + 7-segment automaton + height-ratio decimal recovery.",
+        "4. CamScanner Polygon Cropper: 4-point polygon isolation with 2.8x floating loupe & 2x canvas zoom.",
+        "5. Decoupled Asynchronous Sync: Stage-aware telemetry bar with non-blocking background VLM audit."
+    ], os.path.join(figures_dir, "ocr_ablation_accuracy.png"), img_top_in=1.3, img_width_in=4.3,
+       caption="Fig 3: Sim-to-Real OCR Automaton Ablation Benchmarking")
 
     # =========================================================================
     # SLIDE 10: PROPOSED SOLUTION - ALGORITHMS & TOOLS
@@ -232,39 +332,54 @@ def populate_presentation():
     # SLIDE 11: IMPLEMENTATION & RESULTS - DATASETS
     # =========================================================================
     s11 = prs.slides[10]
-    fill_content_box(s11.shapes[1], "Dataset Descriptions & Evaluation Setup", [
-        "Curated Master Dataset: 3,220 multi-source field photographs across authentic Indian operating conditions.",
-        "OEM Meter Models: Salzer, Genus Smart, Secure Premier 300, HPL Single Phase, and L&T AMI meters.",
-        "Hazard Partition: 1,420 annotated hazardous mountings (stripped copper, loose screws, unseated covers).",
+    fill_split_slide(s11, s11.shapes[1], "Dataset Structure & Testbed Setup", [
+        "Curated Master Dataset: 3,220 field photographs across authentic Indian operational conditions.",
+        "OEM Meter Models: Salzer, Genus Smart, Secure Premier 300, HPL Single Phase, and L&T AMI.",
+        "Hazard Partition: 1,420 annotated hazardous mountings (stripped copper, loose screws, open bays).",
         "Compliant Partition: 1,800 compliant installations verified against IS 16444 specifications.",
-        "Contractor Testbed Handset: Xiaomi Redmi 12 (MediaTek Helio G88, 4 GB LPDDR4X RAM, Android 14)."
-    ])
+        "Evaluation Handset: Low-cost Xiaomi Redmi 12 (MediaTek Helio G88, 4 GB RAM, Android 14)."
+    ], os.path.join(figures_dir, "hazard_classification_matrix.png"), img_top_in=1.1, img_width_in=4.2,
+       caption="Fig 4: Wire Safety Confusion Matrix on Test Partition")
 
     # =========================================================================
     # SLIDE 12: IMPLEMENTATION & RESULTS - PARAMETERS
     # =========================================================================
     s12 = prs.slides[11]
-    fill_content_box(s12.shapes[1], "Operational System Parameters & Thresholds", [
-        "Tilt Cutoff Threshold: Perpendicular plane (90 deg +/- 10 deg) relative to meter normal.",
-        "Hazard Lockout Threshold: P_hazard >= 0.65 enforces un-dismissible submission lock.",
-        "Decimal Height-Ratio Boundary: r = h_dot / h_digit < 0.82 triggers fractional decimal insertion.",
-        "VLM Reconciliation Tolerance: | kWh_edge - kWh_cloud | <= 1.0 kWh validates edge transcription.",
-        "Tier-1 Batch Boundary: 15 inspections per minified JSON array (payload size: 1.82 KB).",
-        "Telemetry Heartbeat Interval: 30 seconds; 246 bytes per packet (<236 KB per 8-hour shift)."
-    ])
+    s12.shapes[1].text_frame.clear()
+    s12.shapes[1].left = Inches(0.5)
+    s12.shapes[1].top = Inches(1.0)
+    s12.shapes[1].width = Inches(9.0)
+    s12.shapes[1].height = Inches(0.4)
+    p_s12 = s12.shapes[1].text_frame.paragraphs[0]
+    p_s12.text = "Empirically Calibrated System Parameters & Enforced Safety Thresholds"
+    p_s12.font.bold = True
+    p_s12.font.size = Pt(13)
+    p_s12.font.color.rgb = DARK_BLUE
+
+    table_headers = ["Subsystem / Interlock", "Calibrated Threshold", "Technical Rationale & Safety Enforcement"]
+    table_rows = [
+        ["Viewfinder MEMS Interlock", "90 deg +/- 10 deg normal", "Eliminates severe perspective keystone distortion prior to OCR segmentation."],
+        ["Wire Safety Classifier", "P_hazard >= 0.65", "1.24 MB MobileNetV3 enforces un-dismissible lock on exposed copper/loose screws."],
+        ["Decimal Height Boundary", "r = h_dot / h_digit < 0.82", "Distinguishes decimal dots from noise; prevents false whole-number decimal shifts."],
+        ["Cloud VLM Reconciliation", "|Delta kWh| <= 1.0 kWh", "Gemini 3.8 Flash audits edge OCR reading against high-res photo; detects tampering."],
+        ["Tier-1 Sync Buffer", "15 records (~1.82 KB)", "Minified JSON array guarantees deterministic 1.14 s dispatch over 2G/EDGE networks."],
+        ["Telemetry Heartbeat", "30 s / 246 bytes pkt", "Real-time supervisor dispatch tracking; draws <236 KB across an 8-hour field shift."]
+    ]
+    create_styled_table(s12, Inches(0.5), Inches(1.5), Inches(9.0), Inches(3.4), table_headers, table_rows, [Inches(2.3), Inches(2.0), Inches(4.7)])
 
     # =========================================================================
     # SLIDE 13: IMPLEMENTATION & RESULTS - EXPERIMENTAL OUTCOMES
     # =========================================================================
     s13 = prs.slides[12]
-    fill_content_box(s13.shapes[1], "Empirical Benchmarking & Experimental Outcomes", [
-        "Edge Inference Latency: 24.34 ms (10.2x margin under 250 ms ceiling; 50.9x speedup vs WASM).",
-        "Peak Heap Footprint: 4.59 MB RAM (7.6x margin under 35 MB RAM constraint; 8.4x drop vs WASM).",
-        "Hazard Lockout Enforcement: 100.0% lockout rate on 1,420 hazardous cases with zero false negatives.",
-        "OCR Error Rate: Reduced CER from 24.8% to 1.2% with 0.0% silent digit hallucinations.",
-        "2G Cellular Sync: 100.0% success rate in 1.14 s (vs 13.3% success for conventional photo uploads).",
-        "Cloud VLM Physical QC: 97.98% overall accuracy on terminal covers, seals, and casing integrity."
-    ])
+    fill_split_slide(s13, s13.shapes[1], "Empirical Benchmarking & Performance Outcomes", [
+        "Edge Latency: 24.34 ms (10.2x margin under 250 ms SLA; 50.9x faster than WASM).",
+        "Memory Consumption: 4.59 MB RAM (7.6x under 35 MB ceiling; 8.4x drop vs WASM).",
+        "Hazard Lockout: 100.0% lockout rate on 1,420 hazardous cases (zero false negatives).",
+        "OCR Accuracy: CER slashed from 24.8% to 1.2% with 0.0% silent hallucinations.",
+        "2G Sync Reliability: 100.0% in 1.14 s (vs 13.3% for conventional full-image uploads).",
+        "Cloud Multimodal QC: 97.98% overall precision on seals, covers, and tamper markers."
+    ], os.path.join(figures_dir, "latency_memory_benchmark.png"), img_top_in=1.3, img_width_in=4.35,
+       caption="Fig 5: Edge Latency & Heap Memory Benchmark Across Hardware Tiers")
 
     # =========================================================================
     # SLIDE 14: SUMMARY - FINDINGS, LIMITATIONS & FUTURE

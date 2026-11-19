@@ -293,7 +293,8 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \end{spacing}
 
 % ------------------------------------------------------------------------------
-% 7. LIST OF ABBREVIATIONS (Strictly single-page two-column layout)
+% ------------------------------------------------------------------------------
+% 7. LIST OF ABBREVIATIONS (Split cleanly across two pages to prevent footer collision)
 % ------------------------------------------------------------------------------
 \chapter*{LIST OF ABBREVIATIONS}
 \addcontentsline{toc}{chapter}{List of Abbreviations}
@@ -301,30 +302,42 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 
 \vspace{0.4cm}
 \noindent
-\begin{spacing}{1.15}
+\begin{spacing}{1.2}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lp{5.6cm}@{\hspace{0.8cm}}lp{5.6cm}@{}}
-\textbf{AMI}   & Advanced Metering Infrastructure        & \textbf{JSON}  & JavaScript Object Notation \\
-\textbf{AMR}   & Automatic Meter Reading                & \textbf{kWh}   & Kilowatt-hour \\
-\textbf{AQL}   & Acceptance Quality Limit               & \textbf{LCD}   & Liquid Crystal Display \\
-\textbf{ASGI}  & Asynchronous Server Gateway Interface  & \textbf{MEMS}  & Micro-Electro-Mechanical Systems \\
-\textbf{BIS}   & Bureau of Indian Standards             & \textbf{ML}    & Machine Learning \\
-\textbf{BaaS}  & Backend-as-a-Service                   & \textbf{NNAPI} & Android Neural Networks API \\
-\textbf{CER}   & Character Error Rate                   & \textbf{OCR}   & Optical Character Recognition \\
-\textbf{CNN}   & Convolutional Neural Network           & \textbf{OEM}   & Original Equipment Manufacturer \\
-\textbf{CRNN}  & Convolutional Recurrent Neural Network & \textbf{ONNX}  & Open Neural Network Exchange \\
-\textbf{CTC}   & Connectionist Temporal Classification  & \textbf{OPEX}  & Operational Expenditure \\
-\textbf{DISCOM}& Electricity Distribution Company       & \textbf{QC}    & Quality Control \\
-\textbf{EDGE}  & Enhanced Data rates for GSM Evolution  & \textbf{RDSS}  & Revamped Distribution Sector Scheme \\
-\textbf{FQP}   & Field Quality Plan                     & \textbf{REC}   & Rural Electrification Corporation \\
-\textbf{GPRS}  & General Packet Radio Service           & \textbf{REST}  & Representational State Transfer \\
-\textbf{GSM}   & Global System for Mobile Comms         & \textbf{SHA}   & Secure Hash Algorithm \\
-\textbf{HUD}   & Heads-Up Display                       & \textbf{SSOT}  & Single Source of Truth \\
-\textbf{INT8}  & 8-Bit Integer Quantization             & \textbf{TFLite}& TensorFlow Lite \\
-\textbf{IoU}   & Intersection over Union                & \textbf{TPQMA} & Third Party Quality Monitoring \\
-\textbf{IS}    & Indian Standard                        & \textbf{UML}   & Unified Modeling Language \\
-\textbf{VLM}   & Vision-Language Model                  & \textbf{WAL}   & Write-Ahead Logging \\
-\textbf{WASM}  & WebAssembly                            & & \\
+\textbf{AMI}    & Advanced Metering Infrastructure        & \textbf{FQP}    & Field Quality Plan \\
+\textbf{AMR}    & Automatic Meter Reading                & \textbf{GPRS}   & General Packet Radio Service \\
+\textbf{AQL}    & Acceptance Quality Limit               & \textbf{GSM}    & Global System for Mobile Comms \\
+\textbf{ASGI}   & Asynchronous Server Gateway Interface  & \textbf{HUD}    & Heads-Up Display \\
+\textbf{BIS}    & Bureau of Indian Standards             & \textbf{INT8}   & 8-Bit Integer Quantization \\
+\textbf{BaaS}   & Backend-as-a-Service                   & \textbf{IoU}    & Intersection over Union \\
+\textbf{CER}    & Character Error Rate                   & \textbf{IS}     & Indian Standard \\
+\textbf{CNN}    & Convolutional Neural Network           & \textbf{JSON}   & JavaScript Object Notation \\
+\textbf{CRNN}   & Convolutional Recurrent Neural Network & \textbf{kWh}    & Kilowatt-hour \\
+\textbf{CTC}    & Connectionist Temporal Classification  & \textbf{LCD}    & Liquid Crystal Display \\
+\textbf{DISCOM} & Electricity Distribution Company       & \textbf{MEMS}   & Micro-Electro-Mechanical Systems \\
+\textbf{EDGE}   & Enhanced Data rates for GSM Evolution  & \textbf{ML}     & Machine Learning \\
+\end{tabular*}
+\end{spacing}
+
+\clearpage
+\thispagestyle{plain}
+
+\vspace*{0.2cm}
+\noindent
+\begin{spacing}{1.2}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lp{5.6cm}@{\hspace{0.8cm}}lp{5.6cm}@{}}
+\textbf{NNAPI}  & Android Neural Networks API            & \textbf{SSOT}   & Single Source of Truth \\
+\textbf{OCR}    & Optical Character Recognition          & \textbf{TFLite} & TensorFlow Lite \\
+\textbf{OEM}    & Original Equipment Manufacturer        & \textbf{TPQMA}  & Third Party Quality Monitoring Agency \\
+\textbf{ONNX}   & Open Neural Network Exchange           & \textbf{UML}    & Unified Modeling Language \\
+\textbf{OPEX}   & Operational Expenditure               & \textbf{VLM}    & Vision-Language Model \\
+\textbf{QC}     & Quality Control                        & \textbf{WAL}    & Write-Ahead Logging \\
+\textbf{RDSS}   & Revamped Distribution Sector Scheme    & \textbf{WASM}   & WebAssembly \\
+\textbf{REC}    & Rural Electrification Corporation      &                 & \\
+\textbf{REST}   & Representational State Transfer        &                 & \\
+\textbf{SHA}    & Secure Hash Algorithm                  &                 & \\
 \end{tabular*}
 \end{spacing}
 
@@ -1141,8 +1154,8 @@ def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
 \hspace{0.8cm}%
 \begin{minipage}[t]{12.5cm}
     \vspace{0pt}
-    \renewcommand{\arraystretch}{1.4}
-    \begin{tabular}{@{}p{4.8cm}l@{}}
+    \renewcommand{\arraystretch}{1.5}
+    \begin{tabular}{@{}ll@{}}
     \textbf{Name} & : Frank Mathew Sajan \\
     \textbf{Mobile Number} & : +91 9497182886 \\
     \textbf{E-mail} & : \texttt{sajan.23bce8713@vitapstudent.ac.in} \\

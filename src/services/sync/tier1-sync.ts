@@ -12,6 +12,14 @@ import {
 import { logger } from "../../core/logger";
 import type { ClientMessage } from "../../core/types/inspection";
 
+export interface Tier1MetadataProgress {
+	stage: "PREPARING" | "UPLOADING" | "SYNCED" | "EMPTY" | "ERROR";
+	recordCount: number;
+	attempt?: number;
+	maxAttempts?: number;
+	error?: string;
+}
+
 export interface Tier1SyncOptions {
 	maxRetries?: number;
 	initialDelayMs?: number;
@@ -26,6 +34,7 @@ export interface Tier1SyncOptions {
 		delayMs?: number;
 		error?: string;
 	}) => void;
+	onMetadataProgress?: (progress: Tier1MetadataProgress) => void;
 }
 
 export interface Tier1BackoffState {
@@ -125,6 +134,7 @@ export async function executeTier1Sync(
 		force = false,
 		onPingAttempt,
 		onProgress,
+		onMetadataProgress,
 	} = options;
 
 	const now = Date.now();
@@ -151,13 +161,27 @@ export async function executeTier1Sync(
 			"SyncTier1",
 			"Gateway ping failed after 3 attempts with exponential backoff.",
 		);
+		onMetadataProgress?.({
+			stage: "ERROR",
+			recordCount: 0,
+			error: lastError,
+		});
 		return false;
 	}
 
 	// 2. PREPARE BATCH
+	onMetadataProgress?.({
+		stage: "PREPARING",
+		recordCount: 0,
+	});
+
 	const batchData = await prepareTier1Batch(db, 15);
 	if (!batchData) {
 		logger.info("SyncTier1", "No pending records to dispatch");
+		onMetadataProgress?.({
+			stage: "EMPTY",
+			recordCount: 0,
+		});
 		return true;
 	}
 
@@ -186,6 +210,13 @@ export async function executeTier1Sync(
 					maxAttempts: totalAttempts,
 				});
 
+				onMetadataProgress?.({
+					stage: "UPLOADING",
+					recordCount: batchData.ids.length,
+					attempt: attempt + 1,
+					maxAttempts: totalAttempts,
+				});
+
 				const res = await fetch(`${gatewayUrl}/api/v1/inspections/batch`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -197,6 +228,12 @@ export async function executeTier1Sync(
 
 				if (res.ok) {
 					batchSuccess = true;
+					onMetadataProgress?.({
+						stage: "SYNCED",
+						recordCount: batchData.ids.length,
+						attempt: attempt + 1,
+						maxAttempts: totalAttempts,
+					});
 					break;
 				}
 
@@ -255,11 +292,22 @@ export async function executeTier1Sync(
 		);
 		cooldownUntilTimestamp = Date.now() + cooldownMs;
 		lastError = currentError;
+		onMetadataProgress?.({
+			stage: "ERROR",
+			recordCount: batchData.ids.length,
+			error: lastError || "Upload rejected by server",
+		});
 		return false;
 	} catch (fatalErr) {
 		logger.warn("SyncTier1", "Batch dispatch error", fatalErr);
 		await resolveTier1Batch(db, batchData.ids, false);
 		consecutiveFailures += 1;
+		onMetadataProgress?.({
+			stage: "ERROR",
+			recordCount: batchData.ids.length,
+			error:
+				fatalErr instanceof Error ? fatalErr.message : "Fatal dispatch error",
+		});
 		return false;
 	} finally {
 		isSyncing = false;

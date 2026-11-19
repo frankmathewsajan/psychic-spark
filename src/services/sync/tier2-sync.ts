@@ -7,10 +7,31 @@ interface PendingPhotoRecord {
 	image_local_path: string;
 }
 
+export interface Tier2MediaProgress {
+	current: number;
+	total: number;
+	inspectionId: string;
+	status: "SCANNING" | "UPLOADING" | "SUCCESS" | "FAILED" | "DONE";
+}
+
+export interface Tier2SyncOptions {
+	onProgress?: (progress: Tier2MediaProgress) => void;
+}
+
 export async function executeTier2MediaSync(
 	db: SQLiteDatabase,
 	gatewayUrl: string,
+	options: Tier2SyncOptions = {},
 ): Promise<boolean> {
+	const { onProgress } = options;
+
+	onProgress?.({
+		current: 0,
+		total: 0,
+		inspectionId: "",
+		status: "SCANNING",
+	});
+
 	const pending = await db.getAllAsync<PendingPhotoRecord>(
 		`SELECT id, image_local_path FROM inspections 
 		 WHERE sync_tier2_status = 'PENDING' AND image_local_path IS NOT NULL 
@@ -19,12 +40,28 @@ export async function executeTier2MediaSync(
 
 	if (pending.length === 0) {
 		logger.info("SyncTier2", "No pending audit photos to sync");
+		onProgress?.({
+			current: 0,
+			total: 0,
+			inspectionId: "",
+			status: "DONE",
+		});
 		return true;
 	}
 
 	logger.info("SyncTier2", `Syncing ${pending.length} pending audit photos`);
 
-	for (const item of pending) {
+	for (let i = 0; i < pending.length; i++) {
+		const item = pending[i];
+		const currentIdx = i + 1;
+
+		onProgress?.({
+			current: currentIdx,
+			total: pending.length,
+			inspectionId: item.id,
+			status: "UPLOADING",
+		});
+
 		let file = new File(item.image_local_path);
 		if (!file.exists) {
 			logger.warn(
@@ -64,11 +101,23 @@ export async function executeTier2MediaSync(
 					[item.id],
 				);
 				logger.info("SyncTier2", `Synced image for inspection ${item.id}`);
+				onProgress?.({
+					current: currentIdx,
+					total: pending.length,
+					inspectionId: item.id,
+					status: "SUCCESS",
+				});
 			} else {
 				logger.warn(
 					"SyncTier2",
 					`Server rejected image for ${item.id} with status ${res.status}`,
 				);
+				onProgress?.({
+					current: currentIdx,
+					total: pending.length,
+					inspectionId: item.id,
+					status: "FAILED",
+				});
 			}
 		} catch (err) {
 			logger.warn(
@@ -76,9 +125,22 @@ export async function executeTier2MediaSync(
 				`Network failure syncing image for ${item.id}`,
 				err,
 			);
+			onProgress?.({
+				current: currentIdx,
+				total: pending.length,
+				inspectionId: item.id,
+				status: "FAILED",
+			});
 			return false;
 		}
 	}
+
+	onProgress?.({
+		current: pending.length,
+		total: pending.length,
+		inspectionId: "",
+		status: "DONE",
+	});
 
 	return true;
 }

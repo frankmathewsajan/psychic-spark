@@ -14,6 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
+import {
+	CloudSyncProgressBar,
+	type SyncProgressData,
+} from "@/components/cloud-sync-progress-bar";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import {
@@ -51,7 +55,13 @@ export default function DashboardScreen() {
 	const [wsStatus, setWsStatus] = useState<WsStatus>("DISCONNECTED");
 	const [search, setSearch] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
-	const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+	const [syncProgress, setSyncProgress] = useState<SyncProgressData>({
+		active: false,
+		stage: "IDLE",
+		progress: 0,
+		title: "",
+		subtitle: "",
+	});
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_GATEWAY_URL);
 	const [metrics, setMetrics] = useState<QueueMetrics>({
@@ -142,37 +152,194 @@ export default function DashboardScreen() {
 		if (isSyncing) return;
 		setIsSyncing(true);
 		setRefreshing(true);
-		setSyncFeedback("Ping (1/4)...");
+		setSyncProgress({
+			active: true,
+			stage: "CONNECTING",
+			progress: 0.05,
+			title: "CONNECTING TO GATEWAY",
+			subtitle: "Testing gateway handshake (attempt 1/4)...",
+			detail: "Gateway Ping",
+			badgeText: "PING",
+		});
+
 		const db = await getDb();
 		const devId = await getOrCreateDeviceId(db);
 
 		const tier1Success = await executeTier1Sync(db, gatewayUrl, {
 			force: true,
 			onPingAttempt: (attempt, max) => {
-				setSyncFeedback(`Ping (${attempt}/${max})...`);
+				const prog = 0.05 + (attempt / max) * 0.15;
+				setSyncProgress((prev) => ({
+					...prev,
+					stage: "CONNECTING",
+					progress: prog,
+					title: "CONNECTING TO GATEWAY",
+					subtitle: `Connecting to cloud (attempt ${attempt}/${max})...`,
+					detail: `Ping ${attempt}/${max}`,
+					badgeText: "PING",
+				}));
+			},
+			onMetadataProgress: (meta) => {
+				if (meta.stage === "PREPARING") {
+					setSyncProgress((prev) => ({
+						...prev,
+						stage: "METADATA",
+						progress: 0.22,
+						title: "PREPARING METADATA",
+						subtitle: "Scanning local queue for pending inspections...",
+						detail: "Tier-1 Queue",
+						badgeText: "SCANNING",
+					}));
+				} else if (meta.stage === "EMPTY") {
+					setSyncProgress((prev) => ({
+						...prev,
+						stage: "METADATA",
+						progress: 0.45,
+						title: "METADATA UP TO DATE",
+						subtitle: "0 pending inspection records to send",
+						detail: "Queue Empty",
+						badgeText: "UP TO DATE",
+					}));
+				} else if (meta.stage === "UPLOADING") {
+					const attemptStr = meta.attempt
+						? ` (try ${meta.attempt}/${meta.maxAttempts})`
+						: "";
+					setSyncProgress((prev) => ({
+						...prev,
+						stage: "METADATA",
+						progress: 0.35,
+						title: "UPLOADING METADATA",
+						subtitle: `Dispatching ${meta.recordCount} inspection record${meta.recordCount > 1 ? "s" : ""} to gateway${attemptStr}...`,
+						detail: `${meta.recordCount} records`,
+						badgeText: "TIER-1 DATA",
+					}));
+				} else if (meta.stage === "SYNCED") {
+					setSyncProgress((prev) => ({
+						...prev,
+						stage: "METADATA",
+						progress: 0.5,
+						title: "METADATA ACKNOWLEDGED",
+						subtitle: `${meta.recordCount} record${meta.recordCount > 1 ? "s" : ""} confirmed by cloud`,
+						detail: "Batch OK",
+						badgeText: "ACKNOWLEDGED",
+					}));
+				} else if (meta.stage === "ERROR") {
+					setSyncProgress((prev) => ({
+						...prev,
+						stage: "ERROR",
+						progress: 0.3,
+						title: "METADATA DISPATCH FAILED",
+						subtitle: meta.error || "Failed to dispatch batch",
+						detail: "Error",
+						badgeText: "FAILED",
+						error: true,
+					}));
+				}
 			},
 		});
 
 		if (tier1Success) {
-			setSyncFeedback("Synced ✓");
-			await executeTier2MediaSync(db, gatewayUrl);
+			setSyncProgress({
+				active: true,
+				stage: "MEDIA",
+				progress: 0.52,
+				title: "SCANNING AUDIT PHOTOS",
+				subtitle: "Scanning local database for pending meter photos...",
+				detail: "Tier-2 Media",
+				badgeText: "SCANNING",
+			});
+
+			await executeTier2MediaSync(db, gatewayUrl, {
+				onProgress: (photo) => {
+					if (photo.status === "DONE" && photo.total === 0) {
+						setSyncProgress((prev) => ({
+							...prev,
+							stage: "MEDIA",
+							progress: 0.8,
+							title: "PHOTOS UP TO DATE",
+							subtitle: "All meter photos previously synced to cloud",
+							detail: "0 pending photos",
+							badgeText: "UP TO DATE",
+						}));
+					} else if (photo.status === "UPLOADING") {
+						const stepProg = 0.52 + ((photo.current - 1) / photo.total) * 0.28;
+						setSyncProgress((prev) => ({
+							...prev,
+							stage: "MEDIA",
+							progress: stepProg,
+							title: `UPLOADING PHOTO ${photo.current} OF ${photo.total}`,
+							subtitle: `Uploading audit casing image (${photo.inspectionId})...`,
+							detail: `Photo ${photo.current}/${photo.total}`,
+							badgeText: "TIER-2 MEDIA",
+						}));
+					} else if (photo.status === "SUCCESS") {
+						const stepProg = 0.52 + (photo.current / photo.total) * 0.28;
+						setSyncProgress((prev) => ({
+							...prev,
+							stage: "MEDIA",
+							progress: stepProg,
+							title: `PHOTO ${photo.current} OF ${photo.total} SYNCED`,
+							subtitle: `Audit casing image uploaded (${photo.inspectionId})`,
+							detail: `${photo.current}/${photo.total}`,
+							badgeText: "UPLOADED",
+						}));
+					}
+				},
+			});
+
 			// Reconcile Cloud VLM audit stage, verified reading, or restore wiped records
+			setSyncProgress({
+				active: true,
+				stage: "RECONCILING",
+				progress: 0.88,
+				title: "RECONCILING CLOUD VLM",
+				subtitle: "Auditing cloud VLM readings & fleet directives...",
+				detail: "VLM Audit",
+				badgeText: "RECONCILING",
+			});
+
 			await reconcileCloudAuditStatus(db, gatewayUrl, devId);
 			// Poll new admin directives & flush offline acks
 			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
+
+			setSyncProgress({
+				active: true,
+				stage: "COMPLETE",
+				progress: 1.0,
+				title: "CLOUD SYNC COMPLETE",
+				subtitle: "All telemetry, meter photos, and VLM audit flags synced",
+				detail: "100%",
+				badgeText: "COMPLETE",
+			});
 		} else {
 			const backoff = getTier1BackoffInfo();
-			if (backoff.lastError === "Server not reachable") {
-				setSyncFeedback("Server not there");
-			} else {
-				setSyncFeedback(`Offline (${backoff.cooldownSecondsRemaining}s)`);
-			}
+			const errMsg =
+				backoff.lastError === "Server not reachable"
+					? "Server not reachable"
+					: `Offline (${backoff.cooldownSecondsRemaining}s cooldown)`;
+
+			setSyncProgress({
+				active: true,
+				stage: "ERROR",
+				progress: 0.25,
+				title: "GATEWAY OFFLINE",
+				subtitle: errMsg,
+				detail: "Network Error",
+				badgeText: "OFFLINE",
+				error: true,
+			});
 		}
 
 		await loadData();
 		setRefreshing(false);
 		setIsSyncing(false);
-		setTimeout(() => setSyncFeedback(null), 3500);
+		setTimeout(() => {
+			setSyncProgress((prev) =>
+				prev.stage === "COMPLETE"
+					? { ...prev, active: false, stage: "IDLE" }
+					: prev,
+			);
+		}, 3800);
 	};
 
 	const openInspectionEditor = (item: InspectionRecord) => {
@@ -386,12 +553,17 @@ export default function DashboardScreen() {
 				</View>
 			</View>
 
-			{/* SYNC STATUS TOAST */}
-			{syncFeedback ? (
-				<View style={styles.syncBar}>
-					<Text style={styles.syncBarText}>{syncFeedback}</Text>
-				</View>
-			) : null}
+			{/* CLOUD SYNC PROGRESS BAR */}
+			<CloudSyncProgressBar
+				data={syncProgress}
+				onDismiss={() =>
+					setSyncProgress((prev) => ({
+						...prev,
+						active: false,
+						stage: "IDLE",
+					}))
+				}
+			/>
 
 			{/* SEARCH BAR */}
 			<View

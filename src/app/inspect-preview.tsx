@@ -85,28 +85,42 @@ export default function InspectPreviewScreen() {
 
 	const isInitialized = useRef(false);
 
+	const runOcrOnCrop = async (targetUri?: string | null) => {
+		const uri = targetUri || croppedUri;
+		if (!uri) return;
+		try {
+			setStatusStage("ocr");
+			setStatusText("Reading cropped LCD display...");
+			const ocr = await runCroppedLcdOcr(uri);
+			setOcrResult(ocr);
+			if (ocr.kwh !== null) {
+				setKwhInput(String(ocr.kwh));
+			}
+			setStatusStage("ready");
+			setStatusText(
+				ocr.kwh !== null
+					? "Verification complete"
+					: "No digits found — check crop",
+			);
+		} catch (err) {
+			logger.error("InspectPreview", "OCR failed", err);
+			setStatusStage("ready");
+		}
+	};
+
 	const handleManualCropConfirm = async (
 		bounds: [number, number, number, number],
 		points: [Point, Point, Point, Point],
 	) => {
 		try {
+			setIsCropperVisible(false);
 			setCurrentCropBounds(bounds);
 			setCurrentQuadPoints(points);
 			setStatusStage("cropping");
 			setStatusText("Applying clean LCD polygon crop...");
 			const newCropped = await cropLcdQuad(photoUri, points);
 			setCroppedUri(newCropped);
-
-			// Re-run OCR on clean crop
-			setStatusStage("ocr");
-			setStatusText("Re-reading clean LCD crop...");
-			const ocr = await runCroppedLcdOcr(newCropped);
-			setOcrResult(ocr);
-			if (ocr.kwh !== null) {
-				setKwhInput(String(ocr.kwh));
-			}
-			setStatusStage("ready");
-			setStatusText("Verification complete");
+			await runOcrOnCrop(newCropped);
 		} catch (err) {
 			logger.error("InspectPreview", "Failed applying manual crop", err);
 			setStatusStage("ready");
@@ -145,23 +159,11 @@ export default function InspectPreviewScreen() {
 				setSafetyResult(safety);
 
 				// 3. Cropped LCD OCR (ML Kit)
-				setStatusStage("ocr");
-				setStatusText("Reading cropped LCD display...");
-				const ocr = await runCroppedLcdOcr(cropped);
-				setOcrResult(ocr);
-
-				// Auto-fill kWh if detected
-				if (ocr.kwh !== null) {
-					setKwhInput(String(ocr.kwh));
-				}
+				await runOcrOnCrop(cropped);
 
 				// If no barcode was provided, generate or derive default serial
 				if (!initialBarcode) {
-					const suffix =
-						ocr.kwh !== null
-							? String(ocr.kwh).replace(/\D/g, "").slice(-6)
-							: `${(Date.now() % 900000) + 100000}`;
-					setSerialInput(`EB${suffix}`);
+					setSerialInput(`EB${(Date.now() % 900000) + 100000}`);
 				}
 
 				setStatusStage("ready");
@@ -368,13 +370,23 @@ export default function InspectPreviewScreen() {
 										<Text style={styles.mlkitBadgeText}>ML Kit Input</Text>
 									</View>
 								</View>
-								<Pressable
-									style={styles.adjustCropBtn}
-									onPress={() => setIsCropperVisible(true)}
-								>
-									<AppSymbol name="edit" size={13} color="#1D4ED8" />
-									<Text style={styles.adjustCropBtnText}>Adjust Crop ✎</Text>
-								</Pressable>
+								<View style={styles.cropActionsRow}>
+									<Pressable
+										style={styles.adjustCropBtn}
+										onPress={() => setIsCropperVisible(true)}
+									>
+										<AppSymbol name="edit" size={12} color="#1D4ED8" />
+										<Text style={styles.adjustCropBtnText}>Adjust ✎</Text>
+									</Pressable>
+									<Pressable
+										style={styles.recheckBtn}
+										onPress={() => runOcrOnCrop()}
+										disabled={isProcessing || !croppedUri}
+									>
+										<AppSymbol name="sync" size={12} color="#0D9488" />
+										<Text style={styles.recheckBtnText}>Re-check ⟳</Text>
+									</Pressable>
+								</View>
 							</View>
 						</View>
 					</View>
@@ -736,21 +748,44 @@ const styles = StyleSheet.create({
 		fontSize: 9,
 		fontWeight: "600",
 	},
+	cropActionsRow: {
+		flexDirection: "row",
+		gap: 6,
+		marginTop: 4,
+	},
 	adjustCropBtn: {
+		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 6,
+		gap: 4,
 		backgroundColor: "#EFF6FF",
 		paddingVertical: 6,
-		paddingHorizontal: 8,
+		paddingHorizontal: 4,
 		borderRadius: 6,
 		borderWidth: 1,
 		borderColor: "#BFDBFE",
-		marginTop: 4,
 	},
 	adjustCropBtnText: {
 		color: "#1D4ED8",
+		fontSize: 11,
+		fontWeight: "600",
+	},
+	recheckBtn: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 4,
+		backgroundColor: "#F0FDFA",
+		paddingVertical: 6,
+		paddingHorizontal: 4,
+		borderRadius: 6,
+		borderWidth: 1,
+		borderColor: "#99F6E4",
+	},
+	recheckBtnText: {
+		color: "#0F766E",
 		fontSize: 11,
 		fontWeight: "600",
 	},

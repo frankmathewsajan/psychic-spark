@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
+import { CamScannerCropperModal } from "@/components/camscanner-cropper-modal";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import { insertInspection } from "@/core/db/repository";
@@ -60,8 +61,48 @@ export default function InspectPreviewScreen() {
 	const [kwhInput, setKwhInput] = useState("");
 	const [serialInput, setSerialInput] = useState(initialBarcode);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isCropperVisible, setIsCropperVisible] = useState(false);
+	const [currentCropBounds, setCurrentCropBounds] = useState<
+		[number, number, number, number]
+	>(() => {
+		if (params.cropBoundsJson) {
+			try {
+				const parsed = JSON.parse(params.cropBoundsJson);
+				if (Array.isArray(parsed) && parsed.length === 4) {
+					return parsed as [number, number, number, number];
+				}
+			} catch {}
+		}
+		return [0.18, 0.28, 0.64, 0.22];
+	});
 
 	const isInitialized = useRef(false);
+
+	const handleManualCropConfirm = async (
+		bounds: [number, number, number, number],
+	) => {
+		try {
+			setCurrentCropBounds(bounds);
+			setStatusStage("cropping");
+			setStatusText("Applying clean LCD crop...");
+			const newCropped = await cropLcdReticle(photoUri, bounds);
+			setCroppedUri(newCropped);
+
+			// Re-run OCR on clean crop
+			setStatusStage("ocr");
+			setStatusText("Re-reading clean LCD crop...");
+			const ocr = await runCroppedLcdOcr(newCropped);
+			setOcrResult(ocr);
+			if (ocr.kwh !== null) {
+				setKwhInput(String(ocr.kwh));
+			}
+			setStatusStage("ready");
+			setStatusText("Verification complete");
+		} catch (err) {
+			logger.error("InspectPreview", "Failed applying manual crop", err);
+			setStatusStage("ready");
+		}
+	};
 
 	useEffect(() => {
 		if (isInitialized.current || !photoUri) return;
@@ -212,7 +253,7 @@ export default function InspectPreviewScreen() {
 				sync_tier1_status: "PENDING",
 				sync_tier2_status: "PENDING",
 				tilt_deg: tiltDeg,
-				crop_bounds_json: params.cropBoundsJson || null,
+				crop_bounds_json: JSON.stringify(currentCropBounds),
 			});
 
 			logger.info(
@@ -318,6 +359,13 @@ export default function InspectPreviewScreen() {
 										<Text style={styles.mlkitBadgeText}>ML Kit Input</Text>
 									</View>
 								</View>
+								<Pressable
+									style={styles.adjustCropBtn}
+									onPress={() => setIsCropperVisible(true)}
+								>
+									<AppSymbol name="edit" size={13} color="#1D4ED8" />
+									<Text style={styles.adjustCropBtnText}>Adjust Crop ✎</Text>
+								</Pressable>
 							</View>
 						</View>
 					</View>
@@ -501,6 +549,15 @@ export default function InspectPreviewScreen() {
 					)}
 				</View>
 			</KeyboardAvoidingView>
+
+			{/* CAMSCANNER-STYLE MANUAL LCD CROPPER MODAL */}
+			<CamScannerCropperModal
+				visible={isCropperVisible}
+				imageUri={photoUri}
+				initialBounds={currentCropBounds}
+				onClose={() => setIsCropperVisible(false)}
+				onConfirmCrop={handleManualCropConfirm}
+			/>
 		</SafeAreaView>
 	);
 }
@@ -667,6 +724,24 @@ const styles = StyleSheet.create({
 	mlkitBadgeText: {
 		color: "#93C5FD",
 		fontSize: 9,
+		fontWeight: "600",
+	},
+	adjustCropBtn: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 6,
+		backgroundColor: "#EFF6FF",
+		paddingVertical: 6,
+		paddingHorizontal: 8,
+		borderRadius: 6,
+		borderWidth: 1,
+		borderColor: "#BFDBFE",
+		marginTop: 4,
+	},
+	adjustCropBtnText: {
+		color: "#1D4ED8",
+		fontSize: 11,
 		fontWeight: "600",
 	},
 

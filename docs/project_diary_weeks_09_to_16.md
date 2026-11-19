@@ -2,7 +2,7 @@
 ## Capstone Project Weekly Progress Sheets (Weeks 09 to 16)
 ### Project Details
 - **Capstone SDP ID:** CAPSTONE - 4001
-- **Project Title:** A Safety-Gated Hybrid Edge–Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification in Bandwidth-Constrained Environments
+- **Project Title:** Hybrid Edge-Cloud Visual Inspection System for Utility Meter Verification
 - **Student Name:** Frank Mathew Sajan
 - **Registration Number:** 23BCE8713
 - **Programme & Specialization:** B.Tech Computer Science and Engineering (AIML)

@@ -1,7 +1,10 @@
 r"""
 Generate the official 16-slide VIT-AP University Capstone Final Review Presentation.
-Populates C:\Users\frank\Downloads\Capstone_PPT_Template.pptx and saves to
-docs/presentation/Capstone_Final_Review_Presentation.pptx.
+Strictly adheres to:
+1. Official External Guide Reports (Review 1 & Review 2 from Adani AI Labs)
+   - Exact Title: "Hybrid Edge-Cloud Visual Inspection System for Utility Meter Verification"
+   - Official metrics, guidelines (IS 2500, REC TPQMA), formulas, and architecture.
+2. Official VIT-AP SCOPE Capstone Presentation Template (C:\Users\frank\Downloads\Capstone_PPT_Template.pptx)
 """
 
 import os
@@ -25,7 +28,6 @@ def populate_presentation():
     CHARCOAL = RGBColor(40, 40, 40)
     ACCENT_BLUE = RGBColor(41, 128, 185)
 
-    # Helper function to clear and add formatted bullets
     def fill_content_box(shape, subtitle_text, bullets):
         tf = shape.text_frame
         tf.clear()
@@ -34,17 +36,17 @@ def populate_presentation():
         p0 = tf.paragraphs[0]
         p0.text = subtitle_text
         p0.font.bold = True
-        p0.font.size = Pt(17)
+        p0.font.size = Pt(16)
         p0.font.color.rgb = DARK_BLUE
-        p0.space_after = Pt(10)
+        p0.space_after = Pt(8)
         
         # Add bullet paragraphs
         for b_text in bullets:
             p = tf.add_paragraph()
             p.text = b_text
-            p.font.size = Pt(13)
+            p.font.size = Pt(12.5)
             p.font.color.rgb = CHARCOAL
-            p.space_after = Pt(6)
+            p.space_after = Pt(5)
             p.level = 0
 
     # =========================================================================
@@ -60,7 +62,7 @@ def populate_presentation():
     p_rev.font.color.rgb = ACCENT_BLUE
 
     p_title = s1.shapes[0].text_frame.add_paragraph()
-    p_title.text = "A Safety-Gated Hybrid Edge-Cloud Visual Inspection Framework for Point-of-Work Smart Meter Verification"
+    p_title.text = "Hybrid Edge-Cloud Visual Inspection System for Utility Meter Verification"
     p_title.font.bold = True
     p_title.font.size = Pt(18)
     p_title.font.color.rgb = DARK_BLUE
@@ -145,11 +147,11 @@ def populate_presentation():
     # =========================================================================
     s4 = prs.slides[3]
     fill_content_box(s4.shapes[1], "Problem Statement & Motivations", [
-        "Lot Sampling Blind Spot: IS 2500 audits only 10-20% of installations; 80-90% remain uninspected.",
+        "Lot Sampling Blind Spot: IS 2500 & REC TPQMA audit only 10-20%; 80-90% remain uninspected.",
         "Terminal Burnout Threat: Loose terminal screws and exposed wires cause >30% of early meter meltdowns.",
-        "Optical Glare & Sim-to-Real Gap: Polycarbonate reflections cause CRNNs to hallucinate digits (14.2%).",
-        "Bandwidth Disconnect: 2-5 MB image uploads fail in basements; contractors enter fraudulent manual logs.",
-        "Lack of Evidentiary Audit: Absence of cryptographic verification prevents legal dispute resolution."
+        "Sealing & Transcription Errors: Missing seals in 4-8% of setups; manual OCR has 4-7% error rate.",
+        "Bandwidth Disconnect: 20-25% meters sit in RF dead zones; multi-MB uploads fail with socket timeouts.",
+        "High Remediation Costs: Catching errors post-hoc costs more than the initial installation deployment."
     ])
 
     # =========================================================================
@@ -157,12 +159,12 @@ def populate_presentation():
     # =========================================================================
     s5 = prs.slides[4]
     fill_content_box(s5.shapes[1], "Objectives & Expected Impact", [
-        "1. Enforce Safety at Point of Work: Prevent terminal burnouts via real-time on-device hazard lockout.",
-        "2. Eliminate Perspective & Glare: Constrain capture geometry via hardware MEMS accelerometer leveling.",
-        "3. Eliminate Silent Misreads: Guarantee 0.0% silent hallucinations via 7-segment character automaton.",
+        "1. Point-of-Work Safety Gate: Prevent terminal burnouts via real-time on-device hazard lockout.",
+        "2. Viewfinder Leveling: Lock shutter until phone is perpendicular (90 deg +/- 10 deg) to meter face.",
+        "3. Zero Silent Misreads: Guarantee 0.0% silent hallucinations via 7-segment character automaton.",
         "4. Instant Field UX: Provide <250 ms zero-delay shutter pushing to Intermediary Verification Screen.",
-        "5. Offline-First Resilience: Guarantee 100% telemetry dispatch over fragile 2G links (<2 KB payload).",
-        "6. Multimodal Cloud QC: Perform secondary 4-point physical QC and reading reconciliation via Gemini VLM."
+        "5. Two-Tier SQLite Sync: sub-2 KB Tier-1 JSON dispatches in 1.14 s; Tier-2 images deferred to Wi-Fi.",
+        "6. Multimodal Cloud QC: Secondary 4-point physical QC checklist evaluation via Google Gemini VLM."
     ])
 
     # =========================================================================
@@ -184,7 +186,7 @@ def populate_presentation():
     fill_content_box(s7.shapes[1], "Improvements Over Existing Solutions", [
         "Two-Phase Engineering Evolution: Evolved from heavy 2-stage YOLOv8 ONNX WASM to native INT8 MobileNetV3.",
         "Zero-Cost Edge Safety Gate: Enforces immediate submission block on exposed wiring (1.24 MB, 24.34 ms).",
-        "Active Accelerometer Interlock: Disables shutter if tilt angle >20 deg, eliminating specular solar glare.",
+        "Active Accelerometer Interlock: tilt = arctan(Z / hypot(X, Y)) * 180 / pi locks shutter outside 90 deg +/- 10 deg.",
         "Two-Tier Decoupled Sync: Sub-2 KB Tier-1 JSON dispatches in 1.14 s; high-res image sync deferred to Wi-Fi.",
         "99.12% Cloud OPEX Reduction: Slashes compute fees from Rs. 77,132/mo (GPUs) to Rs. 675/mo (serverless)."
     ])
@@ -196,7 +198,7 @@ def populate_presentation():
     fill_content_box(s8.shapes[1], "System Architecture: Hybrid Edge-Cloud Topology", [
         "Tier 1 - Edge Handset: Camera Viewfinder with MEMS leveling, onLayout reticle math, INT8 wire safety.",
         "Tier 2 - Verification Screen: inspect-preview.tsx dual-box HUD (Step A safety banner, Step B editable kWh).",
-        "Tier 3 - SQLite WAL SSOT: On-device ACID storage persisting records before network dispatch.",
+        "Tier 3 - SQLite WAL SSOT: On-device storage with startup recovery pragmas resetting orphaned sync states.",
         "Tier 4 - FastAPI Ingestion Gateway: Ephemeral ASGI backend computing SHA-256 evidence seals.",
         "Tier 5 - Cloud VLM Auditor: Multimodal Gemini 3.8 Flash scoring 4-point physical QC with auto-fallback."
     ])
@@ -243,7 +245,7 @@ def populate_presentation():
     # =========================================================================
     s12 = prs.slides[11]
     fill_content_box(s12.shapes[1], "Operational System Parameters & Thresholds", [
-        "Tilt Cutoff Threshold: theta <= 20.0 deg relative to perpendicular normal (MEMS accelerometer).",
+        "Tilt Cutoff Threshold: Perpendicular plane (90 deg +/- 10 deg) relative to meter normal.",
         "Hazard Lockout Threshold: P_hazard >= 0.65 enforces un-dismissible submission lock.",
         "Decimal Height-Ratio Boundary: r = h_dot / h_digit < 0.82 triggers fractional decimal insertion.",
         "VLM Reconciliation Tolerance: | kWh_edge - kWh_cloud | <= 1.0 kWh validates edge transcription.",
@@ -256,8 +258,8 @@ def populate_presentation():
     # =========================================================================
     s13 = prs.slides[12]
     fill_content_box(s13.shapes[1], "Empirical Benchmarking & Experimental Outcomes", [
-        "Edge Inference Latency: 24.34 ms (INT8 MobileNetV3) vs 1,240.0 ms (Phase 1 WASM) -> 50.9x speedup.",
-        "Peak Heap Footprint: 4.59 MB RAM (INT8 MobileNetV3) vs 38.60 MB (WASM) -> 8.4x reduction.",
+        "Edge Inference Latency: 24.34 ms (10.2x margin under 250 ms ceiling; 50.9x speedup vs WASM).",
+        "Peak Heap Footprint: 4.59 MB RAM (7.6x margin under 35 MB RAM constraint; 8.4x drop vs WASM).",
         "Hazard Lockout Enforcement: 100.0% lockout rate on 1,420 hazardous cases with zero false negatives.",
         "OCR Error Rate: Reduced CER from 24.8% to 1.2% with 0.0% silent digit hallucinations.",
         "2G Cellular Sync: 100.0% success rate in 1.14 s (vs 13.3% success for conventional photo uploads).",
@@ -275,9 +277,9 @@ def populate_presentation():
     p_kf_t = tf14.paragraphs[0]
     p_kf_t.text = "Key Findings"
     p_kf_t.font.bold = True
-    p_kf_t.font.size = Pt(15)
+    p_kf_t.font.size = Pt(14.5)
     p_kf_t.font.color.rgb = DARK_BLUE
-    p_kf_t.space_after = Pt(4)
+    p_kf_t.space_after = Pt(3)
 
     for bullet in [
         "Eliminates 30% terminal burnout failure mode directly at the point of work.",
@@ -285,36 +287,36 @@ def populate_presentation():
     ]:
         p = tf14.add_paragraph()
         p.text = bullet
-        p.font.size = Pt(12)
+        p.font.size = Pt(11.5)
         p.font.color.rgb = CHARCOAL
-        p.space_after = Pt(3)
+        p.space_after = Pt(2)
 
     # Limitations
     p_lim_t = tf14.add_paragraph()
     p_lim_t.text = "Limitations"
     p_lim_t.font.bold = True
-    p_lim_t.font.size = Pt(15)
+    p_lim_t.font.size = Pt(14.5)
     p_lim_t.font.color.rgb = DARK_BLUE
-    p_lim_t.space_before = Pt(8)
-    p_lim_t.space_after = Pt(4)
+    p_lim_t.space_before = Pt(6)
+    p_lim_t.space_after = Pt(3)
 
     for bullet in [
         "Optical OCR requires minimum ambient illumination (>= 25 lux); heavily scratched lenses require manual verify."
     ]:
         p = tf14.add_paragraph()
         p.text = bullet
-        p.font.size = Pt(12)
+        p.font.size = Pt(11.5)
         p.font.color.rgb = CHARCOAL
-        p.space_after = Pt(3)
+        p.space_after = Pt(2)
 
     # Future Directions
     p_fut_t = tf14.add_paragraph()
     p_fut_t.text = "Future Directions"
     p_fut_t.font.bold = True
-    p_fut_t.font.size = Pt(15)
+    p_fut_t.font.size = Pt(14.5)
     p_fut_t.font.color.rgb = DARK_BLUE
-    p_fut_t.space_before = Pt(8)
-    p_fut_t.space_after = Pt(4)
+    p_fut_t.space_before = Pt(6)
+    p_fut_t.space_after = Pt(3)
 
     for bullet in [
         "Thermal Bolometer Fusion: Smartphone LWIR sensor fusion to detect I^2 R contact resistance heating.",
@@ -322,21 +324,19 @@ def populate_presentation():
     ]:
         p = tf14.add_paragraph()
         p.text = bullet
-        p.font.size = Pt(12)
+        p.font.size = Pt(11.5)
         p.font.color.rgb = CHARCOAL
-        p.space_after = Pt(3)
+        p.space_after = Pt(2)
 
     # =========================================================================
     # SLIDE 15: BIBLIOGRAPHY
     # =========================================================================
     s15 = prs.slides[14]
-    # Check title shape
     s15.shapes[0].text_frame.text = "Bibliography"
     s15.shapes[0].text_frame.paragraphs[0].font.bold = True
     s15.shapes[0].text_frame.paragraphs[0].font.size = Pt(20)
     s15.shapes[0].text_frame.paragraphs[0].font.color.rgb = DARK_BLUE
 
-    # Content box (Shape 1)
     tf15 = s15.shapes[1].text_frame
     tf15.clear()
     refs = [

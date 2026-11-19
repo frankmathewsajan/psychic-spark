@@ -147,6 +147,88 @@ export async function cropLcdReticle(
 	return lcdCrop.uri;
 }
 
+export interface QuadPoint {
+	x: number;
+	y: number;
+}
+
+/**
+ * Crops and rectifies the 4-point polygon region enclosed by the CamScanner dots.
+ */
+export async function cropLcdQuad(
+	imageUri: string,
+	points: [QuadPoint, QuadPoint, QuadPoint, QuadPoint],
+): Promise<string> {
+	const probe = await manipulateAsync(imageUri, []);
+	const origW = probe.width;
+	const origH = probe.height;
+
+	const p0 = { x: points[0].x * origW, y: points[0].y * origH };
+	const p1 = { x: points[1].x * origW, y: points[1].y * origH };
+	const p2 = { x: points[2].x * origW, y: points[2].y * origH };
+	const p3 = { x: points[3].x * origW, y: points[3].y * origH };
+
+	// Calculate tilt angle of the top edge P0 -> P1
+	const dx = p1.x - p0.x;
+	const dy = p1.y - p0.y;
+	const thetaRad = Math.atan2(dy, dx);
+	const thetaDeg = Math.round(thetaRad * (180 / Math.PI));
+
+	// Bounding envelope enclosing the 4 points
+	const minX = Math.max(0, Math.min(p0.x, p1.x, p2.x, p3.x));
+	const minY = Math.max(0, Math.min(p0.y, p1.y, p2.y, p3.y));
+	const maxX = Math.min(origW, Math.max(p0.x, p1.x, p2.x, p3.x));
+	const maxY = Math.min(origH, Math.max(p0.y, p1.y, p2.y, p3.y));
+
+	const cropOriginX = Math.max(0, Math.round(minX));
+	const cropOriginY = Math.max(0, Math.round(minY));
+	const cropW = Math.max(
+		10,
+		Math.min(origW - cropOriginX, Math.round(maxX - minX)),
+	);
+	const cropH = Math.max(
+		10,
+		Math.min(origH - cropOriginY, Math.round(maxY - minY)),
+	);
+
+	logger.info(
+		"Inference",
+		`CamScanner quad crop: px=[${cropOriginX},${cropOriginY},${cropW}x${cropH}], tilt=${thetaDeg}deg`,
+	);
+
+	const actions: Array<
+		| {
+				crop: {
+					originX: number;
+					originY: number;
+					width: number;
+					height: number;
+				};
+		  }
+		| { rotate: number }
+	> = [
+		{
+			crop: {
+				originX: cropOriginX,
+				originY: cropOriginY,
+				width: cropW,
+				height: cropH,
+			},
+		},
+	];
+
+	if (Math.abs(thetaDeg) >= 2 && Math.abs(thetaDeg) <= 60) {
+		actions.push({ rotate: -thetaDeg });
+	}
+
+	const lcdCrop = await manipulateAsync(imageUri, actions, {
+		compress: 0.92,
+		format: SaveFormat.JPEG,
+	});
+
+	return lcdCrop.uri;
+}
+
 // ---------------------------------------------------------------------------
 // Exported Helper 2: runWireSafetyCheck
 // ---------------------------------------------------------------------------

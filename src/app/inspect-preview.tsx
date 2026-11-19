@@ -16,7 +16,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppSymbol } from "@/components/app-symbol";
-import { CamScannerCropperModal } from "@/components/camscanner-cropper-modal";
+import {
+	CamScannerCropperModal,
+	type Point,
+} from "@/components/camscanner-cropper-modal";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
 import { insertInspection } from "@/core/db/repository";
@@ -24,6 +27,7 @@ import { getCachedCoordinates, getCurrentCoordinates } from "@/core/location";
 import { logger } from "@/core/logger";
 import {
 	type CroppedLcdOcrResult,
+	cropLcdQuad,
 	cropLcdReticle,
 	runCroppedLcdOcr,
 	runWireSafetyCheck,
@@ -75,17 +79,22 @@ export default function InspectPreviewScreen() {
 		}
 		return [0.18, 0.28, 0.64, 0.22];
 	});
+	const [currentQuadPoints, setCurrentQuadPoints] = useState<
+		[Point, Point, Point, Point] | null
+	>(null);
 
 	const isInitialized = useRef(false);
 
 	const handleManualCropConfirm = async (
 		bounds: [number, number, number, number],
+		points: [Point, Point, Point, Point],
 	) => {
 		try {
 			setCurrentCropBounds(bounds);
+			setCurrentQuadPoints(points);
 			setStatusStage("cropping");
-			setStatusText("Applying clean LCD crop...");
-			const newCropped = await cropLcdReticle(photoUri, bounds);
+			setStatusText("Applying clean LCD polygon crop...");
+			const newCropped = await cropLcdQuad(photoUri, points);
 			setCroppedUri(newCropped);
 
 			// Re-run OCR on clean crop
@@ -555,6 +564,7 @@ export default function InspectPreviewScreen() {
 				visible={isCropperVisible}
 				imageUri={photoUri}
 				initialBounds={currentCropBounds}
+				initialPoints={currentQuadPoints}
 				onClose={() => setIsCropperVisible(false)}
 				onConfirmCrop={handleManualCropConfirm}
 			/>

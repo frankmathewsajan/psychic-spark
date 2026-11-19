@@ -14,65 +14,136 @@ import {
 import { AppSymbol } from "@/components/app-symbol";
 import { Fonts } from "@/constants/theme";
 
+export interface Point {
+	x: number;
+	y: number;
+}
+
 export interface CamScannerCropperModalProps {
 	visible: boolean;
 	imageUri: string;
 	initialBounds?: [number, number, number, number] | null;
+	initialPoints?: [Point, Point, Point, Point] | null;
 	onClose: () => void;
-	onConfirmCrop: (bounds: [number, number, number, number]) => void;
+	onConfirmCrop: (
+		bounds: [number, number, number, number],
+		points: [Point, Point, Point, Point],
+	) => void;
 }
 
-type DragTarget = "TL" | "TR" | "BL" | "BR" | "CENTER" | null;
+type DragTarget =
+	| "P0"
+	| "P1"
+	| "P2"
+	| "P3"
+	| "M01"
+	| "M12"
+	| "M23"
+	| "M30"
+	| "CENTER"
+	| null;
 
-const HANDLE_SIZE = 28;
-const MIN_BOX_SIZE = 40;
+const PIN_SIZE = 30;
+const EDGE_HANDLE_SIZE = 18;
+
+// Hardware-accelerated connecting vector line component
+function VectorLine({
+	x1,
+	y1,
+	x2,
+	y2,
+}: {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+}) {
+	const dx = x2 - x1;
+	const dy = y2 - y1;
+	const length = Math.hypot(dx, dy);
+	if (length <= 0) return null;
+	const angle = Math.atan2(dy, dx);
+	const midX = (x1 + x2) / 2;
+	const midY = (y1 + y2) / 2;
+
+	return (
+		<View
+			style={[
+				styles.vectorLine,
+				{
+					left: midX - length / 2,
+					top: midY - 1.25,
+					width: length,
+					transform: [{ rotate: `${angle}rad` }],
+				},
+			]}
+			pointerEvents="none"
+		/>
+	);
+}
 
 export function CamScannerCropperModal({
 	visible,
 	imageUri,
 	initialBounds,
+	initialPoints,
 	onClose,
 	onConfirmCrop,
 }: CamScannerCropperModalProps) {
-	const [imageDims, setImageDims] = useState<{
-		w: number;
-		h: number;
-	} | null>(null);
-	const [layoutDims, setLayoutDims] = useState<{
-		w: number;
-		h: number;
-	} | null>(null);
-
-	// Normalized bounds [normX, normY, normW, normH] in range 0..1
-	const [normBounds, setNormBounds] = useState<
-		[number, number, number, number]
-	>(
-		initialBounds && initialBounds.length === 4
-			? [
-					Math.max(0, Math.min(0.9, initialBounds[0])),
-					Math.max(0, Math.min(0.9, initialBounds[1])),
-					Math.max(0.05, Math.min(1 - initialBounds[0], initialBounds[2])),
-					Math.max(0.05, Math.min(1 - initialBounds[1], initialBounds[3])),
-				]
-			: [0.18, 0.28, 0.64, 0.22],
+	const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
+		null,
 	);
+	const [layoutDims, setLayoutDims] = useState<{ w: number; h: number } | null>(
+		null,
+	);
+
+	// 4 independent normalized points: P0=TL, P1=TR, P2=BR, P3=BL (0..1 range)
+	const [points, setPoints] = useState<[Point, Point, Point, Point]>(() => {
+		if (initialPoints && initialPoints.length === 4) {
+			return initialPoints;
+		}
+		if (initialBounds && initialBounds.length === 4) {
+			const [x, y, w, h] = initialBounds;
+			return [
+				{ x, y },
+				{ x: x + w, y },
+				{ x: x + w, y: y + h },
+				{ x, y: y + h },
+			];
+		}
+		return [
+			{ x: 0.18, y: 0.28 },
+			{ x: 0.82, y: 0.28 },
+			{ x: 0.82, y: 0.5 },
+			{ x: 0.18, y: 0.5 },
+		];
+	});
 
 	const [activeTarget, setActiveTarget] = useState<DragTarget>(null);
 
-	// Ref to hold mutable state during gesture drags without re-binding panResponder
+	// Ref to hold live mutable state during 60fps pan gestures
 	const dragRef = useRef({
-		normBounds: [0.18, 0.28, 0.64, 0.22] as [number, number, number, number],
-		activeTarget: null as DragTarget,
+		points: [
+			{ x: 0.18, y: 0.28 },
+			{ x: 0.82, y: 0.28 },
+			{ x: 0.82, y: 0.5 },
+			{ x: 0.18, y: 0.5 },
+		] as [Point, Point, Point, Point],
+		startPoints: [
+			{ x: 0.18, y: 0.28 },
+			{ x: 0.82, y: 0.28 },
+			{ x: 0.82, y: 0.5 },
+			{ x: 0.18, y: 0.5 },
+		] as [Point, Point, Point, Point],
 		startX: 0,
 		startY: 0,
-		startBounds: [0.18, 0.28, 0.64, 0.22] as [number, number, number, number],
 		dispX: 0,
 		dispY: 0,
 		dispW: 1,
 		dispH: 1,
 	});
 
-	// Load image dimensions via manipulateAsync probe
+	// Load image dimensions
 	useEffect(() => {
 		if (!imageUri || !visible) return;
 		manipulateAsync(imageUri, [])
@@ -80,32 +151,41 @@ export function CamScannerCropperModal({
 			.catch(() => setImageDims({ w: 1080, h: 1920 }));
 	}, [imageUri, visible]);
 
-	// Initialize bounds when modal becomes visible or initialBounds changes
+	// Initialize points on show
 	useEffect(() => {
 		if (visible) {
-			const b: [number, number, number, number] =
-				initialBounds && initialBounds.length === 4
-					? [
-							Math.max(0, Math.min(0.9, initialBounds[0])),
-							Math.max(0, Math.min(0.9, initialBounds[1])),
-							Math.max(0.05, Math.min(1 - initialBounds[0], initialBounds[2])),
-							Math.max(0.05, Math.min(1 - initialBounds[1], initialBounds[3])),
-						]
-					: [0.18, 0.28, 0.64, 0.22];
-			setNormBounds(b);
-			dragRef.current.normBounds = b;
+			let pts: [Point, Point, Point, Point];
+			if (initialPoints && initialPoints.length === 4) {
+				pts = initialPoints;
+			} else if (initialBounds && initialBounds.length === 4) {
+				const [x, y, w, h] = initialBounds;
+				pts = [
+					{ x, y },
+					{ x: x + w, y },
+					{ x: x + w, y: y + h },
+					{ x, y: y + h },
+				];
+			} else {
+				pts = [
+					{ x: 0.18, y: 0.28 },
+					{ x: 0.82, y: 0.28 },
+					{ x: 0.82, y: 0.5 },
+					{ x: 0.18, y: 0.5 },
+				];
+			}
+			setPoints(pts);
+			dragRef.current.points = pts;
 		}
-	}, [visible, initialBounds]);
+	}, [visible, initialBounds, initialPoints]);
 
-	// Update ref
 	useEffect(() => {
-		dragRef.current.normBounds = normBounds;
-	}, [normBounds]);
+		dragRef.current.points = points;
+	}, [points]);
 
-	// Compute displayed geometry
+	// Geometry calculations
 	const getGeometry = () => {
 		if (!imageDims || !layoutDims || layoutDims.w === 0 || layoutDims.h === 0) {
-			return { dispX: 0, dispY: 0, dispW: 1, dispH: 1, scale: 1 };
+			return { dispX: 0, dispY: 0, dispW: 1, dispH: 1 };
 		}
 		const scale = Math.min(
 			layoutDims.w / imageDims.w,
@@ -115,7 +195,7 @@ export function CamScannerCropperModal({
 		const dispH = imageDims.h * scale;
 		const dispX = (layoutDims.w - dispW) / 2;
 		const dispY = (layoutDims.h - dispH) / 2;
-		return { dispX, dispY, dispW, dispH, scale };
+		return { dispX, dispY, dispW, dispH };
 	};
 
 	const { dispX, dispY, dispW, dispH } = getGeometry();
@@ -124,23 +204,48 @@ export function CamScannerCropperModal({
 	dragRef.current.dispW = dispW;
 	dragRef.current.dispH = dispH;
 
-	// Absolute screen coords of active crop box
-	const boxLeft = dispX + normBounds[0] * dispW;
-	const boxTop = dispY + normBounds[1] * dispH;
-	const boxWidth = normBounds[2] * dispW;
-	const boxHeight = normBounds[3] * dispH;
+	// Screen coordinates for each of the 4 independent points
+	const sP0 = {
+		x: dispX + points[0].x * dispW,
+		y: dispY + points[0].y * dispH,
+	};
+	const sP1 = {
+		x: dispX + points[1].x * dispW,
+		y: dispY + points[1].y * dispH,
+	};
+	const sP2 = {
+		x: dispX + points[2].x * dispW,
+		y: dispY + points[2].y * dispH,
+	};
+	const sP3 = {
+		x: dispX + points[3].x * dispW,
+		y: dispY + points[3].y * dispH,
+	};
 
-	// PanResponder for corner handles and center drag
-	const createCornerResponder = (target: DragTarget) => {
+	// Edge midpoints
+	const sM01 = { x: (sP0.x + sP1.x) / 2, y: (sP0.y + sP1.y) / 2 };
+	const sM12 = { x: (sP1.x + sP2.x) / 2, y: (sP1.y + sP2.y) / 2 };
+	const sM23 = { x: (sP2.x + sP3.x) / 2, y: (sP2.y + sP3.y) / 2 };
+	const sM30 = { x: (sP3.x + sP0.x) / 2, y: (sP3.y + sP0.y) / 2 };
+
+	// Polygon centroid
+	const sCenter = {
+		x: (sP0.x + sP1.x + sP2.x + sP3.x) / 4,
+		y: (sP0.y + sP1.y + sP2.y + sP3.y) / 4,
+	};
+
+	// Universal PanResponder factory for independent corner and edge dragging
+	const createTargetResponder = (target: DragTarget) => {
 		return PanResponder.create({
 			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: () => true,
 			onPanResponderGrant: (evt) => {
 				setActiveTarget(target);
-				dragRef.current.activeTarget = target;
 				dragRef.current.startX = evt.nativeEvent.pageX;
 				dragRef.current.startY = evt.nativeEvent.pageY;
-				dragRef.current.startBounds = [...dragRef.current.normBounds];
+				dragRef.current.startPoints = dragRef.current.points.map((p) => ({
+					...p,
+				})) as [Point, Point, Point, Point];
 			},
 			onPanResponderMove: (evt) => {
 				const dx = evt.nativeEvent.pageX - dragRef.current.startX;
@@ -151,104 +256,137 @@ export function CamScannerCropperModal({
 
 				const normDx = dx / curDispW;
 				const normDy = dy / curDispH;
-				const [sX, sY, sW, sH] = dragRef.current.startBounds;
+				const startPts = dragRef.current.startPoints;
 
-				let nX = sX;
-				let nY = sY;
-				let nW = sW;
-				let nH = sH;
+				const next: [Point, Point, Point, Point] = [
+					{ ...startPts[0] },
+					{ ...startPts[1] },
+					{ ...startPts[2] },
+					{ ...startPts[3] },
+				];
 
-				const minNormW = MIN_BOX_SIZE / curDispW;
-				const minNormH = MIN_BOX_SIZE / curDispH;
+				const clamp = (v: number) => Math.max(0, Math.min(1.0, v));
 
-				if (target === "TL") {
-					const candidateX = Math.max(
-						0,
-						Math.min(sX + sW - minNormW, sX + normDx),
-					);
-					const candidateY = Math.max(
-						0,
-						Math.min(sY + sH - minNormH, sY + normDy),
-					);
-					nX = candidateX;
-					nY = candidateY;
-					nW = sX + sW - candidateX;
-					nH = sY + sH - candidateY;
-				} else if (target === "TR") {
-					const candidateR = Math.max(
-						sX + minNormW,
-						Math.min(1.0, sX + sW + normDx),
-					);
-					const candidateY = Math.max(
-						0,
-						Math.min(sY + sH - minNormH, sY + normDy),
-					);
-					nX = sX;
-					nY = candidateY;
-					nW = candidateR - sX;
-					nH = sY + sH - candidateY;
-				} else if (target === "BL") {
-					const candidateX = Math.max(
-						0,
-						Math.min(sX + sW - minNormW, sX + normDx),
-					);
-					const candidateB = Math.max(
-						sY + minNormH,
-						Math.min(1.0, sY + sH + normDy),
-					);
-					nX = candidateX;
-					nY = sY;
-					nW = sX + sW - candidateX;
-					nH = candidateB - sY;
-				} else if (target === "BR") {
-					const candidateR = Math.max(
-						sX + minNormW,
-						Math.min(1.0, sX + sW + normDx),
-					);
-					const candidateB = Math.max(
-						sY + minNormH,
-						Math.min(1.0, sY + sH + normDy),
-					);
-					nX = sX;
-					nY = sY;
-					nW = candidateR - sX;
-					nH = candidateB - sY;
+				if (target === "P0") {
+					// Free movement of Top-Left dot
+					next[0] = {
+						x: clamp(startPts[0].x + normDx),
+						y: clamp(startPts[0].y + normDy),
+					};
+				} else if (target === "P1") {
+					// Free movement of Top-Right dot
+					next[1] = {
+						x: clamp(startPts[1].x + normDx),
+						y: clamp(startPts[1].y + normDy),
+					};
+				} else if (target === "P2") {
+					// Free movement of Bottom-Right dot
+					next[2] = {
+						x: clamp(startPts[2].x + normDx),
+						y: clamp(startPts[2].y + normDy),
+					};
+				} else if (target === "P3") {
+					// Free movement of Bottom-Left dot
+					next[3] = {
+						x: clamp(startPts[3].x + normDx),
+						y: clamp(startPts[3].y + normDy),
+					};
+				} else if (target === "M01") {
+					// Move top edge (P0 and P1 in parallel)
+					next[0] = {
+						x: clamp(startPts[0].x + normDx),
+						y: clamp(startPts[0].y + normDy),
+					};
+					next[1] = {
+						x: clamp(startPts[1].x + normDx),
+						y: clamp(startPts[1].y + normDy),
+					};
+				} else if (target === "M12") {
+					// Move right edge (P1 and P2 in parallel)
+					next[1] = {
+						x: clamp(startPts[1].x + normDx),
+						y: clamp(startPts[1].y + normDy),
+					};
+					next[2] = {
+						x: clamp(startPts[2].x + normDx),
+						y: clamp(startPts[2].y + normDy),
+					};
+				} else if (target === "M23") {
+					// Move bottom edge (P2 and P3 in parallel)
+					next[2] = {
+						x: clamp(startPts[2].x + normDx),
+						y: clamp(startPts[2].y + normDy),
+					};
+					next[3] = {
+						x: clamp(startPts[3].x + normDx),
+						y: clamp(startPts[3].y + normDy),
+					};
+				} else if (target === "M30") {
+					// Move left edge (P3 and P0 in parallel)
+					next[3] = {
+						x: clamp(startPts[3].x + normDx),
+						y: clamp(startPts[3].y + normDy),
+					};
+					next[0] = {
+						x: clamp(startPts[0].x + normDx),
+						y: clamp(startPts[0].y + normDy),
+					};
 				} else if (target === "CENTER") {
-					nX = Math.max(0, Math.min(1.0 - sW, sX + normDx));
-					nY = Math.max(0, Math.min(1.0 - sH, sY + normDy));
-					nW = sW;
-					nH = sH;
+					// Translate whole quadrilateral
+					for (let i = 0; i < 4; i++) {
+						next[i] = {
+							x: clamp(startPts[i].x + normDx),
+							y: clamp(startPts[i].y + normDy),
+						};
+					}
 				}
 
-				const next: [number, number, number, number] = [nX, nY, nW, nH];
-				setNormBounds(next);
-				dragRef.current.normBounds = next;
+				setPoints(next);
+				dragRef.current.points = next;
 			},
 			onPanResponderRelease: () => {
 				setActiveTarget(null);
-				dragRef.current.activeTarget = null;
 			},
 			onPanResponderTerminate: () => {
 				setActiveTarget(null);
-				dragRef.current.activeTarget = null;
 			},
 		});
 	};
 
-	const responderTL = useRef(createCornerResponder("TL")).current;
-	const responderTR = useRef(createCornerResponder("TR")).current;
-	const responderBL = useRef(createCornerResponder("BL")).current;
-	const responderBR = useRef(createCornerResponder("BR")).current;
-	const responderCenter = useRef(createCornerResponder("CENTER")).current;
+	const respP0 = useRef(createTargetResponder("P0")).current;
+	const respP1 = useRef(createTargetResponder("P1")).current;
+	const respP2 = useRef(createTargetResponder("P2")).current;
+	const respP3 = useRef(createTargetResponder("P3")).current;
+	const respM01 = useRef(createTargetResponder("M01")).current;
+	const respM12 = useRef(createTargetResponder("M12")).current;
+	const respM23 = useRef(createTargetResponder("M23")).current;
+	const respM30 = useRef(createTargetResponder("M30")).current;
+	const respCenter = useRef(createTargetResponder("CENTER")).current;
 
 	const handleReset = () => {
-		const def: [number, number, number, number] = [0.18, 0.28, 0.64, 0.22];
-		setNormBounds(def);
-		dragRef.current.normBounds = def;
+		const def: [Point, Point, Point, Point] = [
+			{ x: 0.18, y: 0.28 },
+			{ x: 0.82, y: 0.28 },
+			{ x: 0.82, y: 0.5 },
+			{ x: 0.18, y: 0.5 },
+		];
+		setPoints(def);
+		dragRef.current.points = def;
 	};
 
 	const handleApply = () => {
-		onConfirmCrop(normBounds);
+		// Calculate the axis-aligned envelope bounds [minX, minY, width, height]
+		const minX = Math.min(points[0].x, points[1].x, points[2].x, points[3].x);
+		const minY = Math.min(points[0].y, points[1].y, points[2].y, points[3].y);
+		const maxX = Math.max(points[0].x, points[1].x, points[2].x, points[3].x);
+		const maxY = Math.max(points[0].y, points[1].y, points[2].y, points[3].y);
+		const bounds: [number, number, number, number] = [
+			minX,
+			minY,
+			Math.max(0.05, maxX - minX),
+			Math.max(0.05, maxY - minY),
+		];
+		onConfirmCrop(bounds, points);
 		onClose();
 	};
 
@@ -266,9 +404,9 @@ export function CamScannerCropperModal({
 						<Text style={styles.headerBtnText}>Cancel</Text>
 					</Pressable>
 					<View style={styles.headerTitleWrap}>
-						<Text style={styles.headerTitle}>Manual LCD Cropper</Text>
+						<Text style={styles.headerTitle}>CamScanner 4-Dot Crop</Text>
 						<Text style={styles.headerSub}>
-							Drag corners to frame LCD digits
+							Move dots freely to frame LCD display
 						</Text>
 					</View>
 					<Pressable
@@ -280,7 +418,7 @@ export function CamScannerCropperModal({
 					</Pressable>
 				</View>
 
-				{/* INTERACTIVE CROP CANVAS */}
+				{/* CANVAS CONTAINER */}
 				<View
 					style={styles.canvas}
 					onLayout={(e) => {
@@ -297,173 +435,184 @@ export function CamScannerCropperModal({
 						/>
 					) : (
 						<View style={styles.loaderCenter}>
-							<ActivityIndicator size="large" color="#2563EB" />
+							<ActivityIndicator size="large" color="#0284C7" />
 						</View>
 					)}
 
-					{/* CAMSCANNER DIMMED MASK OVERLAYS */}
 					{layoutDims && imageDims && (
 						<>
-							{/* Top Dimmed Area */}
-							<View
-								style={[
-									styles.dimmedArea,
-									{ top: 0, left: 0, right: 0, height: Math.max(0, boxTop) },
-								]}
-								pointerEvents="none"
-							/>
-							{/* Bottom Dimmed Area */}
-							<View
-								style={[
-									styles.dimmedArea,
-									{
-										top: boxTop + boxHeight,
-										left: 0,
-										right: 0,
-										bottom: 0,
-									},
-								]}
-								pointerEvents="none"
-							/>
-							{/* Left Dimmed Area */}
-							<View
-								style={[
-									styles.dimmedArea,
-									{
-										top: boxTop,
-										left: 0,
-										width: Math.max(0, boxLeft),
-										height: boxHeight,
-									},
-								]}
-								pointerEvents="none"
-							/>
-							{/* Right Dimmed Area */}
-							<View
-								style={[
-									styles.dimmedArea,
-									{
-										top: boxTop,
-										left: boxLeft + boxWidth,
-										right: 0,
-										height: boxHeight,
-									},
-								]}
-								pointerEvents="none"
-							/>
+							{/* 4 DYNAMIC VECTOR CONNECTING LINES */}
+							<VectorLine x1={sP0.x} y1={sP0.y} x2={sP1.x} y2={sP1.y} />
+							<VectorLine x1={sP1.x} y1={sP1.y} x2={sP2.x} y2={sP2.y} />
+							<VectorLine x1={sP2.x} y1={sP2.y} x2={sP3.x} y2={sP3.y} />
+							<VectorLine x1={sP3.x} y1={sP3.y} x2={sP0.x} y2={sP0.y} />
 
-							{/* ACTIVE LCD CROP BOX */}
+							{/* CENTER PAN DRAGGER */}
 							<View
 								style={[
-									styles.cropBox,
+									styles.centerDragger,
 									{
-										left: boxLeft,
-										top: boxTop,
-										width: boxWidth,
-										height: boxHeight,
+										left: sCenter.x - 45,
+										top: sCenter.y - 14,
 									},
 								]}
-								{...responderCenter.panHandlers}
+								{...respCenter.panHandlers}
 							>
-								{/* Grid Rule-of-Thirds Lines */}
-								<View style={styles.gridH1} pointerEvents="none" />
-								<View style={styles.gridH2} pointerEvents="none" />
-								<View style={styles.gridV1} pointerEvents="none" />
-								<View style={styles.gridV2} pointerEvents="none" />
+								<AppSymbol name="meter" size={12} color="#60A5FA" />
+								<Text style={styles.centerDraggerText}>MOVE ALL</Text>
+							</View>
 
-								{/* Center drag hint badge */}
-								<View style={styles.centerBadge} pointerEvents="none">
-									<AppSymbol name="meter" size={12} color="#60A5FA" />
-									<Text style={styles.centerBadgeText}>LCD ACTIVE REGION</Text>
+							{/* 4 EDGE MIDPOINT HANDLERS */}
+							{/* Top Edge Handle */}
+							<View
+								style={[
+									styles.edgeHandleWrap,
+									{
+										left: sM01.x - EDGE_HANDLE_SIZE / 2 - 10,
+										top: sM01.y - EDGE_HANDLE_SIZE / 2 - 10,
+									},
+								]}
+								{...respM01.panHandlers}
+							>
+								<View style={styles.edgeHandlePin} />
+							</View>
+
+							{/* Right Edge Handle */}
+							<View
+								style={[
+									styles.edgeHandleWrap,
+									{
+										left: sM12.x - EDGE_HANDLE_SIZE / 2 - 10,
+										top: sM12.y - EDGE_HANDLE_SIZE / 2 - 10,
+									},
+								]}
+								{...respM12.panHandlers}
+							>
+								<View style={styles.edgeHandlePin} />
+							</View>
+
+							{/* Bottom Edge Handle */}
+							<View
+								style={[
+									styles.edgeHandleWrap,
+									{
+										left: sM23.x - EDGE_HANDLE_SIZE / 2 - 10,
+										top: sM23.y - EDGE_HANDLE_SIZE / 2 - 10,
+									},
+								]}
+								{...respM23.panHandlers}
+							>
+								<View style={styles.edgeHandlePin} />
+							</View>
+
+							{/* Left Edge Handle */}
+							<View
+								style={[
+									styles.edgeHandleWrap,
+									{
+										left: sM30.x - EDGE_HANDLE_SIZE / 2 - 10,
+										top: sM30.y - EDGE_HANDLE_SIZE / 2 - 10,
+									},
+								]}
+								{...respM30.panHandlers}
+							>
+								<View style={styles.edgeHandlePin} />
+							</View>
+
+							{/* 4 INDEPENDENT CORNER PINS (FREELY MOVABLE) */}
+							{/* P0: Top-Left */}
+							<View
+								style={[
+									styles.pinWrap,
+									{
+										left: sP0.x - (PIN_SIZE + 24) / 2,
+										top: sP0.y - (PIN_SIZE + 24) / 2,
+									},
+								]}
+								{...respP0.panHandlers}
+							>
+								<View
+									style={[
+										styles.pinDot,
+										activeTarget === "P0" && styles.pinDotActive,
+									]}
+								>
+									<View style={styles.pinInnerDot} />
 								</View>
 							</View>
 
-							{/* CORNER TOUCH HANDLERS (4 PINS) */}
-							{/* Top-Left */}
+							{/* P1: Top-Right */}
 							<View
 								style={[
-									styles.handleWrapper,
+									styles.pinWrap,
 									{
-										left: boxLeft - HANDLE_SIZE / 2,
-										top: boxTop - HANDLE_SIZE / 2,
+										left: sP1.x - (PIN_SIZE + 24) / 2,
+										top: sP1.y - (PIN_SIZE + 24) / 2,
 									},
 								]}
-								{...responderTL.panHandlers}
+								{...respP1.panHandlers}
 							>
 								<View
 									style={[
-										styles.handlePin,
-										activeTarget === "TL" && styles.handlePinActive,
+										styles.pinDot,
+										activeTarget === "P1" && styles.pinDotActive,
 									]}
-								/>
+								>
+									<View style={styles.pinInnerDot} />
+								</View>
 							</View>
 
-							{/* Top-Right */}
+							{/* P2: Bottom-Right */}
 							<View
 								style={[
-									styles.handleWrapper,
+									styles.pinWrap,
 									{
-										left: boxLeft + boxWidth - HANDLE_SIZE / 2,
-										top: boxTop - HANDLE_SIZE / 2,
+										left: sP2.x - (PIN_SIZE + 24) / 2,
+										top: sP2.y - (PIN_SIZE + 24) / 2,
 									},
 								]}
-								{...responderTR.panHandlers}
+								{...respP2.panHandlers}
 							>
 								<View
 									style={[
-										styles.handlePin,
-										activeTarget === "TR" && styles.handlePinActive,
+										styles.pinDot,
+										activeTarget === "P2" && styles.pinDotActive,
 									]}
-								/>
+								>
+									<View style={styles.pinInnerDot} />
+								</View>
 							</View>
 
-							{/* Bottom-Left */}
+							{/* P3: Bottom-Left */}
 							<View
 								style={[
-									styles.handleWrapper,
+									styles.pinWrap,
 									{
-										left: boxLeft - HANDLE_SIZE / 2,
-										top: boxTop + boxHeight - HANDLE_SIZE / 2,
+										left: sP3.x - (PIN_SIZE + 24) / 2,
+										top: sP3.y - (PIN_SIZE + 24) / 2,
 									},
 								]}
-								{...responderBL.panHandlers}
+								{...respP3.panHandlers}
 							>
 								<View
 									style={[
-										styles.handlePin,
-										activeTarget === "BL" && styles.handlePinActive,
+										styles.pinDot,
+										activeTarget === "P3" && styles.pinDotActive,
 									]}
-								/>
-							</View>
-
-							{/* Bottom-Right */}
-							<View
-								style={[
-									styles.handleWrapper,
-									{
-										left: boxLeft + boxWidth - HANDLE_SIZE / 2,
-										top: boxTop + boxHeight - HANDLE_SIZE / 2,
-									},
-								]}
-								{...responderBR.panHandlers}
-							>
-								<View
-									style={[
-										styles.handlePin,
-										activeTarget === "BR" && styles.handlePinActive,
-									]}
-								/>
+								>
+									<View style={styles.pinInnerDot} />
+								</View>
 							</View>
 						</>
 					)}
 				</View>
 
-				{/* BOTTOM ACTIONS BAR */}
+				{/* BOTTOM CONTROL ACTIONS */}
 				<View style={styles.bottomBar}>
 					<View style={styles.bottomTipRow}>
 						<AppSymbol name="check" size={14} color="#10B981" />
 						<Text style={styles.bottomTipText}>
-							Excludes spec bars (240V, 50Hz) and serial barcodes
+							Encloses 4-point polygon & rectifies perspective distortion
 						</Text>
 					</View>
 
@@ -535,94 +684,86 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	dimmedArea: {
+	vectorLine: {
 		position: "absolute",
-		backgroundColor: "rgba(0, 0, 0, 0.68)",
+		height: 2.5,
+		backgroundColor: "#38BDF8",
+		elevation: 4,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.5,
+		shadowRadius: 2,
 	},
-	cropBox: {
+	pinWrap: {
 		position: "absolute",
-		borderWidth: 2,
-		borderColor: "#38BDF8",
-		backgroundColor: "rgba(56, 189, 248, 0.08)",
-	},
-	gridH1: {
-		position: "absolute",
-		top: "33.3%",
-		left: 0,
-		right: 0,
-		height: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.25)",
-	},
-	gridH2: {
-		position: "absolute",
-		top: "66.6%",
-		left: 0,
-		right: 0,
-		height: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.25)",
-	},
-	gridV1: {
-		position: "absolute",
-		left: "33.3%",
-		top: 0,
-		bottom: 0,
-		width: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.25)",
-	},
-	gridV2: {
-		position: "absolute",
-		left: "66.6%",
-		top: 0,
-		bottom: 0,
-		width: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.25)",
-	},
-	centerBadge: {
-		position: "absolute",
-		top: 6,
-		left: 8,
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 4,
-		backgroundColor: "rgba(15, 23, 42, 0.8)",
-		paddingHorizontal: 6,
-		paddingVertical: 2,
-		borderRadius: 4,
-		borderWidth: 1,
-		borderColor: "rgba(56, 189, 248, 0.3)",
-	},
-	centerBadgeText: {
-		color: "#60A5FA",
-		fontSize: 9,
-		fontFamily: Fonts.mono,
-		fontWeight: "700",
-		letterSpacing: 0.5,
-	},
-	handleWrapper: {
-		position: "absolute",
-		width: HANDLE_SIZE + 24,
-		height: HANDLE_SIZE + 24,
+		width: PIN_SIZE + 24,
+		height: PIN_SIZE + 24,
 		justifyContent: "center",
 		alignItems: "center",
-		zIndex: 50,
+		zIndex: 100,
 	},
-	handlePin: {
-		width: HANDLE_SIZE,
-		height: HANDLE_SIZE,
-		borderRadius: HANDLE_SIZE / 2,
+	pinDot: {
+		width: PIN_SIZE,
+		height: PIN_SIZE,
+		borderRadius: PIN_SIZE / 2,
 		backgroundColor: "#FFFFFF",
 		borderWidth: 4,
 		borderColor: "#0284C7",
-		elevation: 6,
+		justifyContent: "center",
+		alignItems: "center",
+		elevation: 8,
 		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.4,
-		shadowRadius: 3,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.5,
+		shadowRadius: 4,
 	},
-	handlePinActive: {
-		transform: [{ scale: 1.25 }],
+	pinDotActive: {
+		transform: [{ scale: 1.3 }],
 		borderColor: "#38BDF8",
 		backgroundColor: "#E0F2FE",
+	},
+	pinInnerDot: {
+		width: 8,
+		height: 8,
+		borderRadius: 4,
+		backgroundColor: "#0284C7",
+	},
+	edgeHandleWrap: {
+		position: "absolute",
+		width: EDGE_HANDLE_SIZE + 20,
+		height: EDGE_HANDLE_SIZE + 20,
+		justifyContent: "center",
+		alignItems: "center",
+		zIndex: 80,
+	},
+	edgeHandlePin: {
+		width: EDGE_HANDLE_SIZE,
+		height: EDGE_HANDLE_SIZE,
+		borderRadius: EDGE_HANDLE_SIZE / 2,
+		backgroundColor: "#38BDF8",
+		borderWidth: 2,
+		borderColor: "#FFFFFF",
+		elevation: 6,
+	},
+	centerDragger: {
+		position: "absolute",
+		width: 90,
+		height: 28,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 4,
+		backgroundColor: "rgba(15, 23, 42, 0.85)",
+		borderRadius: 6,
+		borderWidth: 1,
+		borderColor: "rgba(56, 189, 248, 0.4)",
+		zIndex: 70,
+	},
+	centerDraggerText: {
+		color: "#60A5FA",
+		fontSize: 10,
+		fontFamily: Fonts.mono,
+		fontWeight: "700",
 	},
 	bottomBar: {
 		paddingHorizontal: 16,

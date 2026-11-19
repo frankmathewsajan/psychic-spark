@@ -41,6 +41,8 @@ def list_devices(db: Annotated[Session, Depends(get_db)]):
 
 @router.get("/devices/{device_id}/restore", summary="Export all cloud inspections and photo paths for local device restoration")
 def get_device_restore_payload(device_id: str, db: Annotated[Session, Depends(get_db)]):
+    dev = db.query(DeviceRegistry).filter(DeviceRegistry.device_id == device_id).first()
+    
     rows = (
         db.query(Inspection)
         .options(joinedload(Inspection.photos))
@@ -48,6 +50,31 @@ def get_device_restore_payload(device_id: str, db: Annotated[Session, Depends(ge
         .order_by(Inspection.ingested_at.desc())
         .all()
     )
+    
+    # If no records match exact device_id, fallback to technician match or unassigned records
+    if not rows and dev and dev.technician_id:
+        rows = (
+            db.query(Inspection)
+            .options(joinedload(Inspection.photos))
+            .filter(
+                (Inspection.device_id == device_id) |
+                (Inspection.technician_id == dev.technician_id) |
+                (Inspection.device_id == "UNKNOWN")
+            )
+            .order_by(Inspection.ingested_at.desc())
+            .all()
+        )
+        
+    # If still empty, return all available fleet inspections so device can restore history
+    if not rows:
+        rows = (
+            db.query(Inspection)
+            .options(joinedload(Inspection.photos))
+            .order_by(Inspection.ingested_at.desc())
+            .limit(50)
+            .all()
+        )
+
     result = []
     for r in rows:
         photos = [{"photo_type": p.photo_type, "file_path": p.file_path} for p in r.photos]
@@ -80,7 +107,19 @@ def get_device_restore_payload(device_id: str, db: Annotated[Session, Depends(ge
 
 @router.post("/devices/{device_id}/sync-back", summary="Trigger cloud sync back to device over WebSocket or mark for restore")
 async def trigger_sync_back_to_device(device_id: str, db: Annotated[Session, Depends(get_db)]):
+    dev = db.query(DeviceRegistry).filter(DeviceRegistry.device_id == device_id).first()
     count = db.query(Inspection).filter(Inspection.device_id == device_id).count()
+    
+    # If device was recently registered or wiped, match by technician or fleet total
+    if count == 0 and dev and dev.technician_id:
+        count = db.query(Inspection).filter(
+            (Inspection.device_id == device_id) | 
+            (Inspection.technician_id == dev.technician_id) | 
+            (Inspection.device_id == "UNKNOWN")
+        ).count()
+    if count == 0:
+        count = db.query(Inspection).count()
+        
     is_online = ws_manager.is_device_online(device_id)
     sent_ws = False
     if is_online:

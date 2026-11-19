@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Cloud VLM settings
     GEMINI_API_KEY: str = ""
 
+    # Mapbox 3D settings
+    MAPBOX_ACCESS_TOKEN: str = ""
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=str(BASE_DIR / ".env"),

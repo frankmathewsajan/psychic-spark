@@ -370,21 +370,35 @@ export default function InspectPreviewScreen() {
 										<Text style={styles.mlkitBadgeText}>ML Kit Input</Text>
 									</View>
 								</View>
-								<View style={styles.cropActionsRow}>
+								<View style={styles.cropActionsBar}>
 									<Pressable
-										style={styles.adjustCropBtn}
+										style={({ pressed }) => [
+											styles.cropActionBtn,
+											pressed && styles.cropActionBtnPressed,
+										]}
 										onPress={() => setIsCropperVisible(true)}
 									>
-										<AppSymbol name="edit" size={12} color="#1D4ED8" />
-										<Text style={styles.adjustCropBtnText}>Adjust ✎</Text>
+										<AppSymbol name="edit" size={11} color="#475569" />
+										<Text style={styles.cropActionText}>Adjust</Text>
 									</Pressable>
+									<View style={styles.cropActionDivider} />
 									<Pressable
-										style={styles.recheckBtn}
+										style={({ pressed }) => [
+											styles.cropActionBtn,
+											pressed && styles.cropActionBtnPressed,
+											(isProcessing || !croppedUri) && styles.cropActionBtnDisabled,
+										]}
 										onPress={() => runOcrOnCrop()}
 										disabled={isProcessing || !croppedUri}
 									>
-										<AppSymbol name="sync" size={12} color="#0D9488" />
-										<Text style={styles.recheckBtnText}>Re-check ⟳</Text>
+										{isProcessing ? (
+											<ActivityIndicator size={10} color="#2563EB" />
+										) : (
+											<AppSymbol name="sync" size={11} color="#2563EB" />
+										)}
+										<Text style={[styles.cropActionText, styles.cropActionHighlightText]}>
+											{isProcessing ? "Reading..." : "Re-check"}
+										</Text>
 									</Pressable>
 								</View>
 							</View>
@@ -748,46 +762,44 @@ const styles = StyleSheet.create({
 		fontSize: 9,
 		fontWeight: "600",
 	},
-	cropActionsRow: {
+	cropActionsBar: {
 		flexDirection: "row",
-		gap: 6,
-		marginTop: 4,
+		alignItems: "center",
+		backgroundColor: "#F8FAFC",
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+		marginTop: 6,
+		overflow: "hidden",
 	},
-	adjustCropBtn: {
+	cropActionBtn: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 4,
-		backgroundColor: "#EFF6FF",
-		paddingVertical: 6,
-		paddingHorizontal: 4,
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#BFDBFE",
+		paddingVertical: 7,
+		paddingHorizontal: 8,
+		gap: 5,
 	},
-	adjustCropBtnText: {
+	cropActionBtnPressed: {
+		backgroundColor: "#EEF2F6",
+	},
+	cropActionBtnDisabled: {
+		opacity: 0.5,
+	},
+	cropActionDivider: {
+		width: 1,
+		height: 14,
+		backgroundColor: "#CBD5E1",
+	},
+	cropActionText: {
+		fontSize: 11,
+		fontWeight: "600",
+		color: "#475569",
+		letterSpacing: 0.2,
+	},
+	cropActionHighlightText: {
 		color: "#1D4ED8",
-		fontSize: 11,
-		fontWeight: "600",
-	},
-	recheckBtn: {
-		flex: 1,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 4,
-		backgroundColor: "#F0FDFA",
-		paddingVertical: 6,
-		paddingHorizontal: 4,
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#99F6E4",
-	},
-	recheckBtnText: {
-		color: "#0F766E",
-		fontSize: 11,
-		fontWeight: "600",
 	},
 
 	sectionCard: {

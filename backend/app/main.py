@@ -57,6 +57,8 @@ ADMIN_HTML = r"""<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -164,6 +166,55 @@ ADMIN_HTML = r"""<!DOCTYPE html>
     }
     html.light .leaflet-popup-tip {
       background: #ffffff !important;
+    }
+
+    /* Mapbox 3D Styling */
+    .mapboxgl-popup-content {
+      background: #0e1014 !important;
+      color: #e4e4e7 !important;
+      border: 1px solid #27272a !important;
+      border-radius: 6px !important;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7) !important;
+      padding: 10px !important;
+    }
+    .mapboxgl-popup-tip {
+      border-top-color: #0e1014 !important;
+      border-bottom-color: #0e1014 !important;
+    }
+    html.light .mapboxgl-popup-content {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    }
+    html.light .mapboxgl-popup-tip {
+      border-top-color: #ffffff !important;
+      border-bottom-color: #ffffff !important;
+    }
+
+    /* Slate Theme */
+    html.slate body {
+      background-color: #0f172a !important;
+    }
+    html.slate .bg-\[\#090a0d\] {
+      background-color: #0f172a !important;
+    }
+    html.slate .bg-\[\#0e1014\] {
+      background-color: #1e293b !important;
+    }
+    html.slate .bg-\[\#13161c\] {
+      background-color: #334155 !important;
+    }
+    html.slate .border-zinc-800\/60, html.slate .border-zinc-800\/80, html.slate .border-zinc-800\/40 {
+      border-color: #334155 !important;
+    }
+    html.slate .mapboxgl-popup-content {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    html.slate .mapboxgl-popup-tip {
+      border-top-color: #1e293b !important;
+      border-bottom-color: #1e293b !important;
     }
   </style>
 </head>
@@ -317,9 +368,64 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         </div>
       </section>
 
-      <!-- MAP -->
-      <div class="bg-[#0e1014] rounded border border-zinc-800/60 p-2 mb-4">
-        <div id="fleet-map" style="height: 420px; width: 100%; border-radius: 4px;" class="bg-[#090a0d] z-10"></div>
+      <!-- MAP CONTROL TOOLBAR & VIEW SWITCHER -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2 px-0.5">
+        <!-- View Mode Switcher -->
+        <div class="inline-flex items-center bg-[#13161c] p-0.5 rounded border border-zinc-800/80 text-xs font-mono">
+          <button id="btn-view-2d" onclick="setMapViewMode('2d')" class="px-3 py-1.5 rounded text-zinc-100 bg-zinc-800 font-medium transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            2D Classic
+          </button>
+          <button id="btn-view-3d" onclick="setMapViewMode('3d')" class="px-3 py-1.5 rounded text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Modern 3D View
+          </button>
+        </div>
+
+        <!-- 3D Specialized Controls -->
+        <div id="controls-3d" class="hidden flex flex-wrap items-center gap-2 text-xs font-mono">
+          <!-- Floor Slicer -->
+          <div class="inline-flex items-center bg-[#13161c] p-0.5 rounded border border-zinc-800/80">
+            <span class="px-2 text-zinc-500 text-[11px]">Floor:</span>
+            <button onclick="setFloorFilter('ALL')" id="floor-btn-all" class="px-2 py-1 rounded text-zinc-100 bg-zinc-800 text-[11px] font-semibold">All</button>
+            <button onclick="setFloorFilter('L0')" id="floor-btn-l0" class="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px]">L0 Yard</button>
+            <button onclick="setFloorFilter('L1')" id="floor-btn-l1" class="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px]">L1 Switch</button>
+            <button onclick="setFloorFilter('L2')" id="floor-btn-l2" class="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px]">L2 Lab</button>
+            <button onclick="setFloorFilter('L3')" id="floor-btn-l3" class="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px]">L3 Roof</button>
+          </div>
+
+          <!-- Auto-Rotate Orbit Button -->
+          <button id="btn-orbit" onclick="toggleAutoRotate()" class="px-2.5 py-1.5 bg-[#13161c] hover:bg-zinc-800 text-zinc-300 hover:text-white rounded border border-zinc-800/80 transition flex items-center gap-1.5 text-xs">
+            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span id="orbit-status-text">Orbit: OFF</span>
+          </button>
+
+          <!-- Simulate Fleet Button -->
+          <button id="btn-simulate" onclick="toggleSimulation()" class="px-2.5 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 hover:text-indigo-100 rounded border border-indigo-700/50 transition flex items-center gap-1.5 text-xs font-semibold">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span id="sim-status-text">Simulate Fleet</span>
+          </button>
+
+          <!-- Key Management -->
+          <button onclick="promptMapboxToken()" title="Mapbox Access Token" class="p-1.5 bg-[#13161c] hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 rounded border border-zinc-800/80 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- MAP CONTAINER -->
+      <div class="bg-[#0e1014] rounded border border-zinc-800/60 p-2 mb-4 relative overflow-hidden">
+        <!-- 2D Leaflet Container -->
+        <div id="fleet-map" style="height: 480px; width: 100%; border-radius: 4px;" class="bg-[#090a0d] z-10"></div>
+
+        <!-- 3D Mapbox Container -->
+        <div id="fleet-mapbox-3d" style="height: 480px; width: 100%; border-radius: 4px;" class="hidden bg-[#090a0d] z-10"></div>
+
+        <!-- Floating Simulation HUD Pill -->
+        <div id="sim-banner" class="hidden absolute top-4 left-4 z-20 bg-zinc-950/85 backdrop-blur-md px-3 py-1.5 rounded border border-indigo-500/40 text-xs font-mono text-zinc-200 flex items-center gap-2 shadow-lg">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Simulation Active: <strong id="sim-tech-count" class="text-indigo-300">8</strong> Techs &bull; <span id="sim-floor-label" class="text-zinc-400">All Floors</span></span>
+        </div>
       </div>
 
       <!-- DEVICES LIST -->
@@ -541,25 +647,43 @@ ADMIN_HTML = r"""<!DOCTYPE html>
     let tileLayer = null;
     let mapMarkers = {};
 
+    // Mapbox 3D State
+    let currentMapView = '2d';
+    let mapbox3d = null;
+    let mapboxInitialized = false;
+    let isOrbiting = false;
+    let orbitAnimationId = null;
+    let currentFloorFilter = 'ALL';
+    let isSimulationRunning = false;
+    let simIntervalId = null;
+    let mapboxMarkers = {};
+    let simulatedTechs = [];
+
     function applyTheme(theme) {
       currentTheme = theme;
       localStorage.setItem('novo_theme', theme);
+      const btn = document.getElementById('theme-btn');
+      
+      document.documentElement.classList.remove('light', 'dark', 'slate');
       if (theme === 'light') {
-        document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
-        const btn = document.getElementById('theme-btn');
         if (btn) btn.textContent = 'Theme: Light';
+      } else if (theme === 'slate') {
+        document.documentElement.classList.add('dark', 'slate');
+        if (btn) btn.textContent = 'Theme: Slate';
       } else {
-        document.documentElement.classList.remove('light');
         document.documentElement.classList.add('dark');
-        const btn = document.getElementById('theme-btn');
         if (btn) btn.textContent = 'Theme: Dark';
       }
+
       updateMapTileLayer();
+      updateMapboxLighting();
     }
 
     function toggleTheme() {
-      applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      // Cycle: dark -> slate -> light -> dark
+      const next = currentTheme === 'dark' ? 'slate' : currentTheme === 'slate' ? 'light' : 'dark';
+      applyTheme(next);
     }
 
     function toggleExportMenu(e) {
@@ -609,9 +733,18 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
       if (tab === 'fleet') {
         setTimeout(() => {
-          initMap();
-          if (map) map.invalidateSize();
-          renderFleetMap();
+          if (currentMapView === '2d') {
+            initMap();
+            if (map) map.invalidateSize();
+            renderFleetMap();
+          } else {
+            if (mapbox3d) {
+              mapbox3d.resize();
+              render3DMarkers();
+            } else {
+              initMapbox3D();
+            }
+          }
         }, 100);
       }
     }
@@ -755,6 +888,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
       renderFleetTable();
       renderFleetMap();
+      render3DMarkers();
     }
 
     function findLatestActivityForDevice(deviceId) {
@@ -838,8 +972,9 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           <td class="p-2.5">${activityHtml}</td>
           <td class="p-2.5 text-zinc-400 font-mono">${batteryText}</td>
           <td class="p-2.5 text-right flex items-center justify-end gap-1.5">
-            <button onclick="triggerDeviceSyncBack('${escapeHtml(d.device_id)}')" title="Restore cloud inspections and photos to this device" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-[11px] font-mono transition flex items-center gap-1">
-              <span>↺</span> Sync Back
+            <button onclick="triggerDeviceSyncBack('${escapeHtml(d.device_id)}')" title="Restore cloud inspections and photos to this device" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-[11px] font-mono transition flex items-center gap-1.5">
+              <svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Sync Back</span>
             </button>
             <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="px-2 py-1 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-[11px] font-mono rounded transition">Alert &rarr;</button>
           </td>
@@ -891,6 +1026,478 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         map.setView(validPoints[0], 15);
       } else if (validPoints.length > 1) {
         map.fitBounds(L.latLngBounds(validPoints).pad(0.2));
+      }
+    }
+
+    // =========================================================================
+    // MAPBOX 3D FLEET & MULTI-FLOOR DIGITAL TWIN
+    // =========================================================================
+
+    function getMapboxToken() {
+      const serverToken = "__SERVER_MAPBOX_TOKEN__";
+      if (serverToken && !serverToken.startsWith("__SERVER_")) return serverToken;
+      return localStorage.getItem('novo_mapbox_token') || "";
+    }
+
+    function promptMapboxToken() {
+      const current = getMapboxToken();
+      const entered = prompt("Enter your Mapbox Access Token (pk.eyJ...):", current);
+      if (entered !== null) {
+        const cleaned = entered.trim();
+        if (cleaned) {
+          localStorage.setItem('novo_mapbox_token', cleaned);
+          alert("Mapbox token saved. Initializing 3D engine...");
+          if (mapbox3d) {
+            mapbox3d.remove();
+            mapbox3d = null;
+            mapboxInitialized = false;
+          }
+          initMapbox3D();
+        }
+      }
+    }
+
+    function setMapViewMode(mode) {
+      currentMapView = mode;
+      const btn2d = document.getElementById('btn-view-2d');
+      const btn3d = document.getElementById('btn-view-3d');
+      const controls3d = document.getElementById('controls-3d');
+      const el2d = document.getElementById('fleet-map');
+      const el3d = document.getElementById('fleet-mapbox-3d');
+
+      if (mode === '2d') {
+        btn2d.className = 'px-3 py-1.5 rounded text-zinc-100 bg-zinc-800 font-medium transition flex items-center gap-1.5';
+        btn3d.className = 'px-3 py-1.5 rounded text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1.5';
+        controls3d.classList.add('hidden');
+        controls3d.classList.remove('flex');
+        el3d.classList.add('hidden');
+        el2d.classList.remove('hidden');
+        if (isOrbiting) toggleAutoRotate();
+        if (map) map.invalidateSize();
+      } else {
+        btn3d.className = 'px-3 py-1.5 rounded text-zinc-100 bg-sky-900/60 border border-sky-500/40 font-medium transition flex items-center gap-1.5';
+        btn2d.className = 'px-3 py-1.5 rounded text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1.5';
+        controls3d.classList.remove('hidden');
+        controls3d.classList.add('flex');
+        el2d.classList.add('hidden');
+        el3d.classList.remove('hidden');
+        initMapbox3D();
+      }
+    }
+
+    function updateMapboxLighting() {
+      if (!mapbox3d || !mapboxInitialized) return;
+      try {
+        const preset = currentTheme === 'light' ? 'day' : currentTheme === 'slate' ? 'dusk' : 'night';
+        mapbox3d.setConfigProperty('basemap', 'lightPreset', preset);
+      } catch (e) {}
+    }
+
+    // GeoJSON Model: Ahmedabad Central Substation & Testing Depot Multi-Story Facility
+    const DEPOT_FACILITY_GEOJSON = {
+      type: 'FeatureCollection',
+      features: [
+        // Level 0: 66kV Transformer Yard & Heavy Fleet Bay (0m - 4m)
+        {
+          type: 'Feature',
+          properties: {
+            floor: 'L0',
+            name: 'L0: Transformer Yard & Fleet Bay',
+            height: 4,
+            base: 0,
+            color: '#1e293b'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [72.5706, 23.0219],
+              [72.5720, 23.0219],
+              [72.5720, 23.0229],
+              [72.5706, 23.0229],
+              [72.5706, 23.0219]
+            ]]
+          }
+        },
+        // Level 1: Switchgear & Feeder Automation Lab (4m - 8m)
+        {
+          type: 'Feature',
+          properties: {
+            floor: 'L1',
+            name: 'L1: Feeder Switchgear & Control',
+            height: 8,
+            base: 4,
+            color: '#0e7490'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [72.5708, 23.0221],
+              [72.5718, 23.0221],
+              [72.5718, 23.0227],
+              [72.5708, 23.0227],
+              [72.5708, 23.0221]
+            ]]
+          }
+        },
+        // Level 2: Smart Meter Calibration & VLM Verification Lab (8m - 12m)
+        {
+          type: 'Feature',
+          properties: {
+            floor: 'L2',
+            name: 'L2: Smart Meter QA Lab',
+            height: 12,
+            base: 8,
+            color: '#047857'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [72.5710, 23.0222],
+              [72.5716, 23.0222],
+              [72.5716, 23.0226],
+              [72.5710, 23.0226],
+              [72.5710, 23.0222]
+            ]]
+          }
+        },
+        // Level 3: Rooftop Solar Array & Battery Inverter Deck (12m - 15m)
+        {
+          type: 'Feature',
+          properties: {
+            floor: 'L3',
+            name: 'L3: Solar Rooftop & Inverters',
+            height: 15,
+            base: 12,
+            color: '#b45309'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [72.5711, 23.0223],
+              [72.5715, 23.0223],
+              [72.5715, 23.0225],
+              [72.5711, 23.0225],
+              [72.5711, 23.0223]
+            ]]
+          }
+        },
+        // Maintenance Garage & EV Charging Annex (0m - 5m)
+        {
+          type: 'Feature',
+          properties: {
+            floor: 'L0',
+            name: 'L0: EV Fleet Charging Garage',
+            height: 5,
+            base: 0,
+            color: '#334155'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [72.5722, 23.0220],
+              [72.5729, 23.0220],
+              [72.5729, 23.0228],
+              [72.5722, 23.0228],
+              [72.5722, 23.0220]
+            ]]
+          }
+        }
+      ]
+    };
+
+    function setupFacility3DLayers() {
+      if (!mapbox3d) return;
+      if (mapbox3d.getSource('depot-facility')) return;
+
+      mapbox3d.addSource('depot-facility', {
+        type: 'geojson',
+        data: DEPOT_FACILITY_GEOJSON
+      });
+
+      mapbox3d.addLayer({
+        id: 'depot-floors-3d',
+        type: 'fill-extrusion',
+        source: 'depot-facility',
+        paint: {
+          'fill-extrusion-color': ['get', 'color'],
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': ['get', 'base'],
+          'fill-extrusion-opacity': 0.82
+        }
+      });
+    }
+
+    function initMapbox3D() {
+      if (mapboxInitialized && mapbox3d) {
+        mapbox3d.resize();
+        render3DMarkers();
+        return;
+      }
+
+      const token = getMapboxToken();
+      if (!token) {
+        promptMapboxToken();
+        return;
+      }
+
+      if (typeof mapboxgl === 'undefined') {
+        alert("Mapbox GL JS is still loading. Please wait a second.");
+        return;
+      }
+
+      mapboxgl.accessToken = token;
+
+      try {
+        mapbox3d = new mapboxgl.Map({
+          container: 'fleet-mapbox-3d',
+          style: 'mapbox://styles/mapbox/standard',
+          center: [72.5714, 23.0225], // Ahmedabad Substation Depot
+          zoom: 16.5,
+          pitch: 62,
+          bearing: -24,
+          antialias: true
+        });
+
+        mapbox3d.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+
+        mapbox3d.on('style.load', () => {
+          mapboxInitialized = true;
+          updateMapboxLighting();
+          setupFacility3DLayers();
+          render3DMarkers();
+        });
+
+        mapbox3d.on('error', (e) => {
+          console.warn("Mapbox 3D error:", e);
+        });
+      } catch (err) {
+        console.error("Mapbox init failed:", err);
+      }
+    }
+
+    function setFloorFilter(floor) {
+      currentFloorFilter = floor;
+      ['all', 'l0', 'l1', 'l2', 'l3'].forEach(f => {
+        const btn = document.getElementById('floor-btn-' + f);
+        if (!btn) return;
+        if (f.toUpperCase() === floor) {
+          btn.className = 'px-2 py-1 rounded text-zinc-100 bg-zinc-800 text-[11px] font-semibold border border-zinc-700';
+        } else {
+          btn.className = 'px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px]';
+        }
+      });
+
+      const label = document.getElementById('sim-floor-label');
+      if (label) label.textContent = floor === 'ALL' ? 'All Floors' : `Floor ${floor}`;
+
+      if (mapbox3d && mapbox3d.getLayer('depot-floors-3d')) {
+        if (floor === 'ALL') {
+          mapbox3d.setFilter('depot-floors-3d', null);
+        } else {
+          mapbox3d.setFilter('depot-floors-3d', ['==', ['get', 'floor'], floor]);
+        }
+      }
+
+      render3DMarkers();
+    }
+
+    function toggleAutoRotate() {
+      isOrbiting = !isOrbiting;
+      const btn = document.getElementById('btn-orbit');
+      const txt = document.getElementById('orbit-status-text');
+      if (isOrbiting) {
+        if (txt) txt.textContent = 'Orbit: ON';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 hover:text-emerald-100 rounded border border-emerald-500/50 transition flex items-center gap-1.5 text-xs font-semibold';
+        rotateCamera();
+      } else {
+        if (txt) txt.textContent = 'Orbit: OFF';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-[#13161c] hover:bg-zinc-800 text-zinc-300 hover:text-white rounded border border-zinc-800/80 transition flex items-center gap-1.5 text-xs';
+        if (orbitAnimationId) {
+          cancelAnimationFrame(orbitAnimationId);
+          orbitAnimationId = null;
+        }
+      }
+    }
+
+    function rotateCamera() {
+      if (!isOrbiting || !mapbox3d) return;
+      const currentBearing = mapbox3d.getBearing();
+      mapbox3d.setBearing((currentBearing + 0.12) % 360);
+      orbitAnimationId = requestAnimationFrame(rotateCamera);
+    }
+
+    // =========================================================================
+    // MULTI-FLOOR IN-MEMORY SIMULATION ENGINE
+    // =========================================================================
+
+    const SIMULATED_TECH_TEMPLATES = [
+      { id: 'sim_tech_01', name: 'TECH-01 (Ahmed)', floor: 'L1', lat: 23.0225, lng: 72.5712, task: 'Feeder Switchgear Test', status: 'PASS', battery: 88, angle: 0 },
+      { id: 'sim_tech_02', name: 'TECH-02 (Pooja)', floor: 'L2', lat: 23.0223, lng: 72.5715, task: 'Smart Meter Calib Bay 4', status: 'INSPECTING', battery: 74, angle: 1 },
+      { id: 'sim_tech_03', name: 'TECH-03 (Rahul)', floor: 'L0', lat: 23.0227, lng: 72.5710, task: '66kV Step-Down Transformer', status: 'ALERT', battery: 61, angle: 2 },
+      { id: 'sim_tech_04', name: 'TECH-04 (Fatima)', floor: 'L3', lat: 23.0224, lng: 72.5713, task: 'Rooftop Inverter Check', status: 'PASS', battery: 92, angle: 3 },
+      { id: 'sim_tech_05', name: 'TECH-05 (Vikram)', floor: 'L1', lat: 23.0226, lng: 72.5716, task: 'Busbar Insulation Test', status: 'PASS', battery: 83, angle: 4 },
+      { id: 'sim_tech_06', name: 'TECH-06 (Ananya)', floor: 'L2', lat: 23.0221, lng: 72.5714, task: 'VLM OCR Verification', status: 'INSPECTING', battery: 95, angle: 5 },
+      { id: 'sim_tech_07', name: 'TECH-07 (Dev)', floor: 'L0', lat: 23.0225, lng: 72.5725, task: 'EV Fleet Diagnostic Port', status: 'PASS', battery: 69, angle: 6 },
+      { id: 'sim_tech_08', name: 'TECH-08 (Kiran)', floor: 'L1', lat: 23.0224, lng: 72.5709, task: 'Current Transformer Ratio', status: 'PASS', battery: 79, angle: 7 },
+    ];
+
+    function toggleSimulation() {
+      isSimulationRunning = !isSimulationRunning;
+      const btn = document.getElementById('btn-simulate');
+      const banner = document.getElementById('sim-banner');
+      const txt = document.getElementById('sim-status-text');
+
+      if (isSimulationRunning) {
+        simulatedTechs = JSON.parse(JSON.stringify(SIMULATED_TECH_TEMPLATES));
+        if (txt) txt.textContent = 'Stop Simulation';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 rounded border border-rose-500/50 transition flex items-center gap-1.5 text-xs font-semibold';
+        if (banner) banner.classList.remove('hidden');
+
+        // Center 3D view on depot facility
+        if (mapbox3d) {
+          mapbox3d.flyTo({
+            center: [72.5714, 23.0225],
+            zoom: 16.6,
+            pitch: 62,
+            bearing: -24,
+            essential: true
+          });
+        }
+
+        render3DMarkers();
+        simIntervalId = setInterval(tickSimulation, 1600);
+      } else {
+        if (simIntervalId) clearInterval(simIntervalId);
+        simIntervalId = null;
+        simulatedTechs = [];
+        if (txt) txt.textContent = 'Simulate Fleet';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 hover:text-indigo-100 rounded border border-indigo-700/50 transition flex items-center gap-1.5 text-xs font-semibold';
+        if (banner) banner.classList.add('hidden');
+        render3DMarkers();
+      }
+    }
+
+    function tickSimulation() {
+      if (!isSimulationRunning) return;
+      simulatedTechs.forEach(t => {
+        t.angle += 0.25;
+        const radius = 0.00015;
+        t.lat += Math.sin(t.angle) * radius * 0.25;
+        t.lng += Math.cos(t.angle) * radius * 0.25;
+        
+        // Random slight battery discharge
+        if (Math.random() < 0.2 && t.battery > 15) {
+          t.battery -= 1;
+        }
+
+        // Occasional status or floor shift
+        if (Math.random() < 0.05) {
+          const floors = ['L0', 'L1', 'L2', 'L3'];
+          t.floor = floors[Math.floor(Math.random() * floors.length)];
+        }
+      });
+      render3DMarkers();
+    }
+
+    function render3DMarkers() {
+      if (!mapbox3d || !mapboxInitialized) return;
+
+      // Clear previous markers
+      Object.keys(mapboxMarkers).forEach(k => {
+        mapboxMarkers[k].remove();
+        delete mapboxMarkers[k];
+      });
+
+      // 1. Render real registered devices
+      allDevices.forEach(d => {
+        const lat = d.latitude || 23.0225;
+        const lon = d.longitude || 72.5714;
+        const key = 'real_' + d.device_id;
+        const isOnline = d.is_online;
+
+        const el = document.createElement('div');
+        el.className = 'cursor-pointer group';
+        el.innerHTML = `
+          <div class="relative flex items-center justify-center">
+            <span class="absolute w-6 h-6 rounded-full ${isOnline ? 'bg-emerald-500/30 animate-ping' : 'bg-zinc-600/20'}"></span>
+            <div class="w-4 h-4 rounded-full ${isOnline ? 'bg-emerald-500 border-2 border-zinc-950' : 'bg-zinc-600 border-2 border-zinc-950'} flex items-center justify-center shadow-lg"></div>
+            <div class="absolute -bottom-5 whitespace-nowrap bg-zinc-950/90 text-zinc-300 font-mono text-[10px] px-1 rounded border border-zinc-800 shadow pointer-events-none">
+              ${escapeHtml(d.technician_id || 'Tech')}
+            </div>
+          </div>
+        `;
+
+        const popupHtml = `
+          <div class="p-1 font-mono text-xs">
+            <div class="flex items-center gap-1.5 font-semibold ${isOnline ? 'text-emerald-400' : 'text-zinc-400'}">
+              <span class="w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-zinc-500'}"></span>
+              ${escapeHtml(d.technician_id || 'Tech')} (${isOnline ? 'Online' : 'Offline'})
+            </div>
+            <div class="text-[11px] text-zinc-500 mt-1">Device: ${escapeHtml(d.device_id)}</div>
+            <div class="text-[11px] text-zinc-400">Coords: ${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
+            <div class="mt-2 pt-2 border-t border-zinc-800">
+              <button onclick="dispatchDirectToDevice('${escapeHtml(d.device_id)}')" class="w-full py-1 bg-zinc-200 hover:bg-white text-zinc-950 rounded text-center text-xs font-semibold">
+                Alert Device
+              </button>
+            </div>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(popupHtml);
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([lon, lat])
+          .setPopup(popup)
+          .addTo(mapbox3d);
+
+        mapboxMarkers[key] = marker;
+      });
+
+      // 2. Render simulated devices
+      if (isSimulationRunning) {
+        simulatedTechs.forEach(t => {
+          if (currentFloorFilter !== 'ALL' && t.floor !== currentFloorFilter) {
+            return;
+          }
+
+          const key = 'sim_' + t.id;
+          const statusColor = t.status === 'ALERT' ? 'bg-rose-500' : t.status === 'INSPECTING' ? 'bg-amber-400' : 'bg-sky-400';
+          const pingColor = t.status === 'ALERT' ? 'bg-rose-500/40' : t.status === 'INSPECTING' ? 'bg-amber-400/40' : 'bg-sky-400/40';
+
+          const el = document.createElement('div');
+          el.className = 'cursor-pointer group';
+          el.innerHTML = `
+            <div class="relative flex items-center justify-center">
+              <span class="absolute w-7 h-7 rounded-full ${pingColor} animate-ping"></span>
+              <div class="w-4 h-4 rounded-full ${statusColor} border-2 border-zinc-950 flex items-center justify-center shadow-md">
+                <span class="text-[7px] text-zinc-950 font-bold">${t.floor}</span>
+              </div>
+              <div class="absolute -bottom-5 whitespace-nowrap bg-indigo-950/90 text-indigo-200 font-mono text-[9px] px-1 rounded border border-indigo-700/60 shadow pointer-events-none">
+                ${escapeHtml(t.name)} &bull; ${t.floor}
+              </div>
+            </div>
+          `;
+
+          const popupHtml = `
+            <div class="p-1 font-mono text-xs">
+              <div class="flex items-center justify-between gap-2 border-b border-zinc-800 pb-1 mb-1.5">
+                <span class="font-bold text-indigo-300">[SIMULATED] ${escapeHtml(t.name)}</span>
+                <span class="px-1 bg-zinc-800 rounded text-[10px] text-zinc-300 font-semibold">${t.floor}</span>
+              </div>
+              <div class="text-[11px] text-zinc-400"><strong class="text-zinc-300">Task:</strong> ${escapeHtml(t.task)}</div>
+              <div class="text-[11px] text-zinc-400"><strong class="text-zinc-300">Status:</strong> <span class="${t.status === 'ALERT' ? 'text-rose-400' : t.status === 'INSPECTING' ? 'text-amber-300' : 'text-emerald-400'}">${t.status}</span></div>
+              <div class="text-[11px] text-zinc-400"><strong class="text-zinc-300">Battery:</strong> ${t.battery}%</div>
+              <div class="text-[10px] text-zinc-500 mt-1 italic">In-memory telemetry agent &bull; Zero DB impact</div>
+            </div>
+          `;
+
+          const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(popupHtml);
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([t.lng, t.lat])
+            .setPopup(popup)
+            .addTo(mapbox3d);
+
+          mapboxMarkers[key] = marker;
+        });
       }
     }
 
@@ -1242,9 +1849,17 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 </html>
 """
 
+@app.get("/api/v1/config/mapbox")
+def get_mapbox_config():
+    token = settings.MAPBOX_ACCESS_TOKEN or os.getenv("MAPBOX_ACCESS_TOKEN", "")
+    return {"token": token}
+
+
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 def admin_dashboard():
-    return HTMLResponse(content=ADMIN_HTML)
+    token = settings.MAPBOX_ACCESS_TOKEN or os.getenv("MAPBOX_ACCESS_TOKEN", "")
+    rendered = ADMIN_HTML.replace("__SERVER_MAPBOX_TOKEN__", token)
+    return HTMLResponse(content=rendered)
 
 
 if __name__ == "__main__":

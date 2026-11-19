@@ -47,7 +47,7 @@ import {
 	type WsStatus,
 } from "@/services/sync/websocket-client";
 
-const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
+const DEFAULT_GATEWAY_URL = "https://psychic-spark.onrender.com";
 
 export default function DashboardScreen() {
 	const router = useRouter();
@@ -60,7 +60,7 @@ export default function DashboardScreen() {
 		stage: "IDLE",
 		progress: 0,
 		title: "",
-		subtitle: "",
+		message: "",
 	});
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_GATEWAY_URL);
@@ -156,10 +156,8 @@ export default function DashboardScreen() {
 			active: true,
 			stage: "CONNECTING",
 			progress: 0.05,
-			title: "CONNECTING TO GATEWAY",
-			subtitle: "Testing gateway handshake (attempt 1/4)...",
-			detail: "Gateway Ping",
-			badgeText: "PING",
+			title: "GATEWAY PING",
+			message: "Connecting to cloud gateway...",
 		});
 
 		const db = await getDb();
@@ -168,15 +166,12 @@ export default function DashboardScreen() {
 		const tier1Success = await executeTier1Sync(db, gatewayUrl, {
 			force: true,
 			onPingAttempt: (attempt, max) => {
-				const prog = 0.05 + (attempt / max) * 0.15;
 				setSyncProgress((prev) => ({
 					...prev,
 					stage: "CONNECTING",
-					progress: prog,
-					title: "CONNECTING TO GATEWAY",
-					subtitle: `Connecting to cloud (attempt ${attempt}/${max})...`,
-					detail: `Ping ${attempt}/${max}`,
-					badgeText: "PING",
+					progress: 0.05 + (attempt / max) * 0.15,
+					title: "GATEWAY PING",
+					message: `Testing cloud latency (${attempt}/${max})...`,
 				}));
 			},
 			onMetadataProgress: (meta) => {
@@ -185,53 +180,40 @@ export default function DashboardScreen() {
 						...prev,
 						stage: "METADATA",
 						progress: 0.22,
-						title: "PREPARING METADATA",
-						subtitle: "Scanning local queue for pending inspections...",
-						detail: "Tier-1 Queue",
-						badgeText: "SCANNING",
+						title: "METADATA SYNC",
+						message: "Scanning pending queue...",
 					}));
 				} else if (meta.stage === "EMPTY") {
 					setSyncProgress((prev) => ({
 						...prev,
 						stage: "METADATA",
 						progress: 0.45,
-						title: "METADATA UP TO DATE",
-						subtitle: "0 pending inspection records to send",
-						detail: "Queue Empty",
-						badgeText: "UP TO DATE",
+						title: "METADATA SYNC",
+						message: "0 pending inspection records",
 					}));
 				} else if (meta.stage === "UPLOADING") {
-					const attemptStr = meta.attempt
-						? ` (try ${meta.attempt}/${meta.maxAttempts})`
-						: "";
 					setSyncProgress((prev) => ({
 						...prev,
 						stage: "METADATA",
 						progress: 0.35,
-						title: "UPLOADING METADATA",
-						subtitle: `Dispatching ${meta.recordCount} inspection record${meta.recordCount > 1 ? "s" : ""} to gateway${attemptStr}...`,
-						detail: `${meta.recordCount} records`,
-						badgeText: "TIER-1 DATA",
+						title: "METADATA SYNC",
+						message: `Uploading ${meta.recordCount} inspection record${meta.recordCount > 1 ? "s" : ""}...`,
 					}));
 				} else if (meta.stage === "SYNCED") {
 					setSyncProgress((prev) => ({
 						...prev,
 						stage: "METADATA",
 						progress: 0.5,
-						title: "METADATA ACKNOWLEDGED",
-						subtitle: `${meta.recordCount} record${meta.recordCount > 1 ? "s" : ""} confirmed by cloud`,
-						detail: "Batch OK",
-						badgeText: "ACKNOWLEDGED",
+						title: "METADATA SYNC",
+						message: `${meta.recordCount} record${meta.recordCount > 1 ? "s" : ""} acknowledged`,
 					}));
 				} else if (meta.stage === "ERROR") {
 					setSyncProgress((prev) => ({
 						...prev,
 						stage: "ERROR",
 						progress: 0.3,
-						title: "METADATA DISPATCH FAILED",
-						subtitle: meta.error || "Failed to dispatch batch",
-						detail: "Error",
-						badgeText: "FAILED",
+						title: "SYNC ERROR",
+						message: meta.error || "Batch dispatch rejected",
 						error: true,
 					}));
 				}
@@ -243,10 +225,8 @@ export default function DashboardScreen() {
 				active: true,
 				stage: "MEDIA",
 				progress: 0.52,
-				title: "SCANNING AUDIT PHOTOS",
-				subtitle: "Scanning local database for pending meter photos...",
-				detail: "Tier-2 Media",
-				badgeText: "SCANNING",
+				title: "AUDIT PHOTOS",
+				message: "Checking pending casing photos...",
 			});
 
 			await executeTier2MediaSync(db, gatewayUrl, {
@@ -256,10 +236,8 @@ export default function DashboardScreen() {
 							...prev,
 							stage: "MEDIA",
 							progress: 0.8,
-							title: "PHOTOS UP TO DATE",
-							subtitle: "All meter photos previously synced to cloud",
-							detail: "0 pending photos",
-							badgeText: "UP TO DATE",
+							title: "AUDIT PHOTOS",
+							message: "All meter photos previously synced",
 						}));
 					} else if (photo.status === "UPLOADING") {
 						const stepProg = 0.52 + ((photo.current - 1) / photo.total) * 0.28;
@@ -267,10 +245,8 @@ export default function DashboardScreen() {
 							...prev,
 							stage: "MEDIA",
 							progress: stepProg,
-							title: `UPLOADING PHOTO ${photo.current} OF ${photo.total}`,
-							subtitle: `Uploading audit casing image (${photo.inspectionId})...`,
-							detail: `Photo ${photo.current}/${photo.total}`,
-							badgeText: "TIER-2 MEDIA",
+							title: "AUDIT PHOTOS",
+							message: `Uploading photo ${photo.current} of ${photo.total} (${photo.inspectionId})...`,
 						}));
 					} else if (photo.status === "SUCCESS") {
 						const stepProg = 0.52 + (photo.current / photo.total) * 0.28;
@@ -278,38 +254,30 @@ export default function DashboardScreen() {
 							...prev,
 							stage: "MEDIA",
 							progress: stepProg,
-							title: `PHOTO ${photo.current} OF ${photo.total} SYNCED`,
-							subtitle: `Audit casing image uploaded (${photo.inspectionId})`,
-							detail: `${photo.current}/${photo.total}`,
-							badgeText: "UPLOADED",
+							title: "AUDIT PHOTOS",
+							message: `Photo ${photo.current} of ${photo.total} uploaded`,
 						}));
 					}
 				},
 			});
 
-			// Reconcile Cloud VLM audit stage, verified reading, or restore wiped records
 			setSyncProgress({
 				active: true,
 				stage: "RECONCILING",
 				progress: 0.88,
-				title: "RECONCILING CLOUD VLM",
-				subtitle: "Auditing cloud VLM readings & fleet directives...",
-				detail: "VLM Audit",
-				badgeText: "RECONCILING",
+				title: "VLM RECONCILE",
+				message: "Auditing cloud VLM readings & directives...",
 			});
 
 			await reconcileCloudAuditStatus(db, gatewayUrl, devId);
-			// Poll new admin directives & flush offline acks
 			await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
 
 			setSyncProgress({
 				active: true,
 				stage: "COMPLETE",
 				progress: 1.0,
-				title: "CLOUD SYNC COMPLETE",
-				subtitle: "All telemetry, meter photos, and VLM audit flags synced",
-				detail: "100%",
-				badgeText: "COMPLETE",
+				title: "SYNC COMPLETE",
+				message: "All records and photos up to date",
 			});
 		} else {
 			const backoff = getTier1BackoffInfo();
@@ -323,9 +291,7 @@ export default function DashboardScreen() {
 				stage: "ERROR",
 				progress: 0.25,
 				title: "GATEWAY OFFLINE",
-				subtitle: errMsg,
-				detail: "Network Error",
-				badgeText: "OFFLINE",
+				message: errMsg,
 				error: true,
 			});
 		}
@@ -339,7 +305,7 @@ export default function DashboardScreen() {
 					? { ...prev, active: false, stage: "IDLE" }
 					: prev,
 			);
-		}, 3800);
+		}, 3500);
 	};
 
 	const openInspectionEditor = (item: InspectionRecord) => {
@@ -554,16 +520,7 @@ export default function DashboardScreen() {
 			</View>
 
 			{/* CLOUD SYNC PROGRESS BAR */}
-			<CloudSyncProgressBar
-				data={syncProgress}
-				onDismiss={() =>
-					setSyncProgress((prev) => ({
-						...prev,
-						active: false,
-						stage: "IDLE",
-					}))
-				}
-			/>
+			<CloudSyncProgressBar data={syncProgress} />
 
 			{/* SEARCH BAR */}
 			<View
@@ -1076,20 +1033,7 @@ const styles = StyleSheet.create({
 		color: MD3.color.onSurfaceVariant,
 		marginTop: 2,
 	},
-	syncBar: {
-		marginHorizontal: 16,
-		marginTop: 8,
-		paddingVertical: 6,
-		paddingHorizontal: 12,
-		backgroundColor: MD3.color.surfaceContainerHighest,
-		borderRadius: MD3.shape.cornerSmall,
-		alignItems: "center",
-	},
-	syncBarText: {
-		fontSize: 12,
-		color: MD3.color.onSurfaceVariant,
-		fontWeight: "500",
-	},
+
 	searchBar: {
 		flexDirection: "row",
 		alignItems: "center",

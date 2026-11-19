@@ -24,7 +24,7 @@ import {
 } from "@/core/db/repository";
 import { type ThemeMode, useTheme } from "@/core/theme-context";
 
-const DEFAULT_GATEWAY_URL = "http://100.108.9.95:8000";
+const DEFAULT_GATEWAY_URL = "https://psychic-spark.onrender.com";
 
 export default function SettingsScreen() {
 	const router = useRouter();
@@ -218,30 +218,6 @@ export default function SettingsScreen() {
 									borderColor: colors.border,
 									backgroundColor: colors.background,
 								},
-								gatewayUrl === "http://100.108.9.95:8000" &&
-									styles.presetChipActive,
-							]}
-							onPress={() => setGatewayUrl("http://100.108.9.95:8000")}
-						>
-							<Text
-								style={[
-									styles.presetText,
-									dynSub,
-									gatewayUrl === "http://100.108.9.95:8000" &&
-										styles.presetTextActive,
-								]}
-							>
-								Tailscale (IPv4)
-							</Text>
-						</Pressable>
-
-						<Pressable
-							style={[
-								styles.presetChip,
-								{
-									borderColor: colors.border,
-									backgroundColor: colors.background,
-								},
 								gatewayUrl.includes("onrender.com") && styles.presetChipActive,
 							]}
 							onPress={() =>
@@ -257,6 +233,30 @@ export default function SettingsScreen() {
 								]}
 							>
 								Render (Cloud)
+							</Text>
+						</Pressable>
+
+						<Pressable
+							style={[
+								styles.presetChip,
+								{
+									borderColor: colors.border,
+									backgroundColor: colors.background,
+								},
+								gatewayUrl === "http://100.108.9.95:8000" &&
+									styles.presetChipActive,
+							]}
+							onPress={() => setGatewayUrl("http://100.108.9.95:8000")}
+						>
+							<Text
+								style={[
+									styles.presetText,
+									dynSub,
+									gatewayUrl === "http://100.108.9.95:8000" &&
+										styles.presetTextActive,
+								]}
+							>
+								Tailscale (IPv4)
 							</Text>
 						</Pressable>
 

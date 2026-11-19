@@ -1,10 +1,10 @@
 \documentclass[12pt,a4paper,oneside]{report}
 
 \usepackage[utf8]{inputenc}
-% University thesis page geometry (Left 3.0cm for binding gutter, Right 1.9cm, Bottom 2.2cm, Top 2.0cm with header at 1.4cm)
+% Symmetric soft-copy page geometry (No binding gutter needed for electronic PDF submission)
 \usepackage[a4paper,
-            left=3.0cm,
-            right=1.9cm,
+            left=2.0cm,
+            right=2.0cm,
             top=2.0cm,
             bottom=2.2cm,
             headheight=15pt,
@@ -292,55 +292,39 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \end{spacing}
 
 % ------------------------------------------------------------------------------
-% 7. LIST OF ABBREVIATIONS (Must fit strictly on one single page)
+% 7. LIST OF ABBREVIATIONS (Strictly single-page two-column layout)
 % ------------------------------------------------------------------------------
 \chapter*{LIST OF ABBREVIATIONS}
 \addcontentsline{toc}{chapter}{List of Abbreviations}
 \thispagestyle{plain}
+
+\vspace{0.4cm}
+\noindent
 \begin{spacing}{1.15}
-\begin{tabular}{ll}
-\textbf{AMI} & Advanced Metering Infrastructure \\
-\textbf{AMR} & Automatic Meter Reading \\
-\textbf{AQL} & Acceptance Quality Limit \\
-\textbf{ASGI} & Asynchronous Server Gateway Interface \\
-\textbf{BIS} & Bureau of Indian Standards \\
-\textbf{BaaS} & Backend-as-a-Service \\
-\textbf{CER} & Character Error Rate \\
-\textbf{CNN} & Convolutional Neural Network \\
-\textbf{CRNN} & Convolutional Recurrent Neural Network \\
-\textbf{CTC} & Connectionist Temporal Classification \\
-\textbf{DISCOM} & Electricity Distribution Company \\
-\textbf{EDGE} & Enhanced Data rates for GSM Evolution \\
-\textbf{FQP} & Field Quality Plan \\
-\textbf{GPRS} & General Packet Radio Service \\
-\textbf{GSM} & Global System for Mobile Communications \\
-\textbf{HUD} & Heads-Up Display \\
-\textbf{INT8} & 8-Bit Integer Quantization \\
-\textbf{IoU} & Intersection over Union \\
-\textbf{IS} & Indian Standard \\
-\textbf{JSON} & JavaScript Object Notation \\
-\textbf{kWh} & Kilowatt-hour \\
-\textbf{LCD} & Liquid Crystal Display \\
-\textbf{MEMS} & Micro-Electro-Mechanical Systems \\
-\textbf{ML} & Machine Learning \\
-\textbf{NNAPI} & Android Neural Networks API \\
-\textbf{OCR} & Optical Character Recognition \\
-\textbf{OEM} & Original Equipment Manufacturer \\
-\textbf{ONNX} & Open Neural Network Exchange \\
-\textbf{OPEX} & Operational Expenditure \\
-\textbf{QC} & Quality Control \\
-\textbf{RDSS} & Revamped Distribution Sector Scheme \\
-\textbf{REC} & Rural Electrification Corporation \\
-\textbf{REST} & Representational State Transfer \\
-\textbf{SHA} & Secure Hash Algorithm \\
-\textbf{SSOT} & Single Source of Truth \\
-\textbf{TFLite} & TensorFlow Lite \\
-\textbf{TPQMA} & Third Party Quality Monitoring Agency \\
-\textbf{UML} & Unified Modeling Language \\
-\textbf{VLM} & Vision-Language Model \\
-\textbf{WAL} & Write-Ahead Logging \\
-\textbf{WASM} & WebAssembly \\
-\end{tabular}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lp{5.6cm}@{\hspace{0.8cm}}lp{5.6cm}@{}}
+\textbf{AMI}   & Advanced Metering Infrastructure        & \textbf{JSON}  & JavaScript Object Notation \\
+\textbf{AMR}   & Automatic Meter Reading                & \textbf{kWh}   & Kilowatt-hour \\
+\textbf{AQL}   & Acceptance Quality Limit               & \textbf{LCD}   & Liquid Crystal Display \\
+\textbf{ASGI}  & Asynchronous Server Gateway Interface  & \textbf{MEMS}  & Micro-Electro-Mechanical Systems \\
+\textbf{BIS}   & Bureau of Indian Standards             & \textbf{ML}    & Machine Learning \\
+\textbf{BaaS}  & Backend-as-a-Service                   & \textbf{NNAPI} & Android Neural Networks API \\
+\textbf{CER}   & Character Error Rate                   & \textbf{OCR}   & Optical Character Recognition \\
+\textbf{CNN}   & Convolutional Neural Network           & \textbf{OEM}   & Original Equipment Manufacturer \\
+\textbf{CRNN}  & Convolutional Recurrent Neural Network & \textbf{ONNX}  & Open Neural Network Exchange \\
+\textbf{CTC}   & Connectionist Temporal Classification  & \textbf{OPEX}  & Operational Expenditure \\
+\textbf{DISCOM}& Electricity Distribution Company       & \textbf{QC}    & Quality Control \\
+\textbf{EDGE}  & Enhanced Data rates for GSM Evolution  & \textbf{RDSS}  & Revamped Distribution Sector Scheme \\
+\textbf{FQP}   & Field Quality Plan                     & \textbf{REC}   & Rural Electrification Corporation \\
+\textbf{GPRS}  & General Packet Radio Service           & \textbf{REST}  & Representational State Transfer \\
+\textbf{GSM}   & Global System for Mobile Comms         & \textbf{SHA}   & Secure Hash Algorithm \\
+\textbf{HUD}   & Heads-Up Display                       & \textbf{SSOT}  & Single Source of Truth \\
+\textbf{INT8}  & 8-Bit Integer Quantization             & \textbf{TFLite}& TensorFlow Lite \\
+\textbf{IoU}   & Intersection over Union                & \textbf{TPQMA} & Third Party Quality Monitoring \\
+\textbf{IS}    & Indian Standard                        & \textbf{UML}   & Unified Modeling Language \\
+\textbf{VLM}   & Vision-Language Model                  & \textbf{WAL}   & Write-Ahead Logging \\
+\textbf{WASM}  & WebAssembly                            & & \\
+\end{tabular*}
 \end{spacing}
 
 \clearpage
@@ -1078,7 +1062,7 @@ def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
 \clearpage
 
 % ==============================================================================
-% BIODATA PAGE (Must fit strictly on one single final page)
+% BIODATA PAGE (Strictly single final page, matching template format)
 % ==============================================================================
 \chapter*{BIODATA}
 \addcontentsline{toc}{chapter}{Biodata}
@@ -1086,22 +1070,21 @@ def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
 
 \vspace{1.5cm}
 \noindent
-\begin{minipage}[t]{0.32\textwidth}
+\begin{minipage}[t]{3.6cm}
     \vspace{0pt}
     \setlength{\fboxsep}{0pt}
     \setlength{\fboxrule}{1pt}
     \fbox{\includegraphics[width=3.2cm, height=4.2cm]{figures/frank_photo.jpg}}
 \end{minipage}%
-\hfill
-\begin{minipage}[t]{0.65\textwidth}
+\hspace{0.8cm}%
+\begin{minipage}[t]{12.5cm}
     \vspace{0pt}
-    \renewcommand{\arraystretch}{1.3}
-    \begin{tabular}{ll}
+    \renewcommand{\arraystretch}{1.4}
+    \begin{tabular}{@{}p{3.8cm}l@{}}
     \textbf{Name} & : Frank Mathew Sajan \\
     \textbf{Mobile Number} & : +91 9497182886 \\
     \textbf{E-mail} & : \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
-    \textbf{Permanent Address} & : Neyyassery, Idukki, \\
-    & \phantom{:} Kerala, India \\
+    \textbf{Permanent Address} & : Neyyassery, Idukki, Kerala, India \\
     \end{tabular}
 \end{minipage}
 

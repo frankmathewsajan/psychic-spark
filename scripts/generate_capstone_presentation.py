@@ -100,6 +100,84 @@ def populate_presentation():
                 cp.font.color.rgb = CHARCOAL
                 cp.alignment = PP_ALIGN.CENTER
 
+    def fill_dual_image_slide(slide, text_shape, subtitle_text, bullets, img1_path, img2_path, caption=None):
+        text_shape.left = Inches(0.5)
+        text_shape.top = Inches(1.0)
+        text_shape.width = Inches(4.7)
+        text_shape.height = Inches(4.2)
+        
+        tf = text_shape.text_frame
+        tf.clear()
+        
+        p0 = tf.paragraphs[0]
+        p0.text = subtitle_text
+        p0.font.bold = True
+        p0.font.size = Pt(15)
+        p0.font.color.rgb = DARK_BLUE
+        p0.space_after = Pt(8)
+        
+        for b_text in bullets:
+            p = tf.add_paragraph()
+            p.text = b_text
+            p.font.size = Pt(11.0)
+            p.font.color.rgb = CHARCOAL
+            p.space_after = Pt(4)
+            p.level = 0
+            
+        if os.path.exists(img1_path) and os.path.exists(img2_path):
+            img_w = Inches(2.05)
+            slide.shapes.add_picture(img1_path, Inches(5.35), Inches(1.05), width=img_w)
+            slide.shapes.add_picture(img2_path, Inches(7.55), Inches(1.05), width=img_w)
+            if caption:
+                tx_box = slide.shapes.add_textbox(Inches(5.35), Inches(4.9), Inches(4.25), Inches(0.4))
+                c_tf = tx_box.text_frame
+                c_tf.clear()
+                cp = c_tf.paragraphs[0]
+                cp.text = caption
+                cp.font.size = Pt(9.0)
+                cp.font.italic = True
+                cp.font.color.rgb = CHARCOAL
+                cp.alignment = PP_ALIGN.CENTER
+
+    def fill_stacked_images_slide(slide, text_shape, subtitle_text, bullets, img1_path, img2_path, caption=None):
+        text_shape.left = Inches(0.5)
+        text_shape.top = Inches(1.0)
+        text_shape.width = Inches(4.6)
+        text_shape.height = Inches(4.2)
+        
+        tf = text_shape.text_frame
+        tf.clear()
+        
+        p0 = tf.paragraphs[0]
+        p0.text = subtitle_text
+        p0.font.bold = True
+        p0.font.size = Pt(15)
+        p0.font.color.rgb = DARK_BLUE
+        p0.space_after = Pt(8)
+        
+        for b_text in bullets:
+            p = tf.add_paragraph()
+            p.text = b_text
+            p.font.size = Pt(11.0)
+            p.font.color.rgb = CHARCOAL
+            p.space_after = Pt(4)
+            p.level = 0
+            
+        if os.path.exists(img1_path):
+            slide.shapes.add_picture(img1_path, Inches(5.3), Inches(1.05), width=Inches(4.35))
+        if os.path.exists(img2_path):
+            slide.shapes.add_picture(img2_path, Inches(5.3), Inches(3.0), width=Inches(4.35))
+        if caption:
+            tx_box = slide.shapes.add_textbox(Inches(5.3), Inches(5.0), Inches(4.35), Inches(0.35))
+            c_tf = tx_box.text_frame
+            c_tf.clear()
+            cp = c_tf.paragraphs[0]
+            cp.text = caption
+            cp.font.size = Pt(8.5)
+            cp.font.italic = True
+            cp.font.color.rgb = CHARCOAL
+            cp.alignment = PP_ALIGN.CENTER
+
     def create_styled_table(slide, left, top, width, height, headers, data, col_widths=None):
         table_shape = slide.shapes.add_table(len(data) + 1, len(headers), left, top, width, height)
         table = table_shape.table
@@ -303,30 +381,32 @@ def populate_presentation():
        caption="Fig 2: Hybrid Edge-Cloud Modular System Architecture")
 
     # =========================================================================
-    # SLIDE 9: PROPOSED SOLUTION - KEY MODULES
+    # SLIDE 9: PROPOSED SOLUTION - KEY MODULES & FIELD APP UI
     # =========================================================================
     s9 = prs.slides[8]
-    fill_split_slide(s9, s9.shapes[1], "Key Subsystems & Functional Modules", [
-        "1. Dynamic Viewfinder Overlay: Sensor tilt indicator + normalized coordinate reticle cropping.",
-        "2. Wire Safety Classifier: 1.24 MB INT8 MobileNetV3 detecting conductor stripping (P >= 0.65).",
-        "3. Sim-to-Real Digit Recognizer: ML Kit OCR + 7-segment automaton + height-ratio decimal recovery.",
-        "4. CamScanner Polygon Cropper: 4-point polygon isolation with 2.8x floating loupe & 2x canvas zoom.",
-        "5. Decoupled Asynchronous Sync: Stage-aware telemetry bar with non-blocking background VLM audit."
-    ], os.path.join(figures_dir, "ocr_ablation_accuracy.png"), img_top_in=1.3, img_width_in=4.3,
-       caption="Fig 3: Sim-to-Real OCR Automaton Ablation Benchmarking")
+    app_img1 = os.path.join(figures_dir, "app_screens", "app_verification_screen.jpeg")
+    app_img2 = os.path.join(figures_dir, "app_screens", "app_directive_alert.jpeg")
+    fill_dual_image_slide(s9, s9.shapes[1], "Mobile Edge Client & Technician Verification HUD", [
+        "Dynamic Viewfinder: Accelerometer leveling interlock (90 deg +/- 10 deg) + onLayout LCD reticle.",
+        "INT8 Wire Safety Gate: 1.24 MB MobileNetV3 (24.34 ms) blocks hazardous wiring submissions.",
+        "Sim-to-Real Digit Recognizer: Google ML Kit + 7-segment automaton + height-ratio decimal recovery.",
+        "Precision CamScanner Cropper: 4-point polygon isolation with 2.8x floating loupe & 2x canvas zoom.",
+        "Real-Time Push Directives: WebSocket alerts with instant one-touch technician ACK and field notes."
+    ], app_img1, app_img2, caption="Fig 3: Point-of-Work Verification Screen (Left) & Real-Time Push Directive HUD (Right)")
 
     # =========================================================================
-    # SLIDE 10: PROPOSED SOLUTION - ALGORITHMS & TOOLS
+    # SLIDE 10: PROPOSED SOLUTION - ALGORITHMS, TOOLS & ADMIN CONSOLE
     # =========================================================================
     s10 = prs.slides[9]
-    fill_content_box(s10.shapes[1], "Algorithms, Technologies & Frameworks Used", [
-        "Edge Machine Learning: INT8 Quantized MobileNetV3 on TensorFlow Lite with ARM NNAPI/XNNPACK.",
-        "Mobile Framework: React Native 0.76.7, Expo SDK 54, Expo Router v4, TypeScript 5.3.",
-        "Embedded Database: SQLite 3.45 with Write-Ahead Logging (WAL) and synchronous normal mode.",
-        "Cloud Ingestion Gateway: Python 3.12, FastAPI 0.115, Uvicorn ASGI, Pydantic v2 data contracts.",
-        "Multimodal Cloud AI: Google Gemini Interactions API (gemini-3.8-flash primary, gemini-4-hydrogen fallback).",
-        "Security & Cryptography: FIPS 180-4 SHA-256 evidence seals and remote fleet disaster recovery sync-back."
-    ])
+    admin_img1 = os.path.join(figures_dir, "admin_panel", "admin_inspections_feed.png")
+    admin_img2 = os.path.join(figures_dir, "admin_panel", "admin_directive_dispatch.png")
+    fill_stacked_images_slide(s10, s10.shapes[1], "Central Admin Dashboard & Fleet Operations", [
+        "Edge ML Framework: Quantized INT8 MobileNetV3 on TensorFlow Lite with ARM NNAPI delegates.",
+        "Mobile Engine: React Native 0.76.7, Expo SDK 54, SQLite 3.45 WAL single source of truth.",
+        "Cloud Ingestion Gateway: FastAPI 0.115 ASGI with SHA-256 tamper-evident media sealing.",
+        "Multimodal Cloud AI: Google Gemini 3.8 Flash scoring 4-point physical QC checklist asynchronously.",
+        "Live Fleet Intelligence: Interactive GIS map (2D/3D vertical floor clusters) & push broadcast modal."
+    ], admin_img1, admin_img2, caption="Fig 4: Live Central Admin Inspections Feed (Top) & Directives Dispatch Modal (Bottom)")
 
     # =========================================================================
     # SLIDE 11: IMPLEMENTATION & RESULTS - DATASETS
@@ -339,7 +419,7 @@ def populate_presentation():
         "Compliant Partition: 1,800 compliant installations verified against IS 16444 specifications.",
         "Evaluation Handset: Low-cost Xiaomi Redmi 12 (MediaTek Helio G88, 4 GB RAM, Android 14)."
     ], os.path.join(figures_dir, "hazard_classification_matrix.png"), img_top_in=1.1, img_width_in=4.2,
-       caption="Fig 4: Wire Safety Confusion Matrix on Test Partition")
+       caption="Fig 5: Wire Safety Confusion Matrix on Test Partition")
 
     # =========================================================================
     # SLIDE 12: IMPLEMENTATION & RESULTS - PARAMETERS
@@ -379,7 +459,7 @@ def populate_presentation():
         "2G Sync Reliability: 100.0% in 1.14 s (vs 13.3% for conventional full-image uploads).",
         "Cloud Multimodal QC: 97.98% overall precision on seals, covers, and tamper markers."
     ], os.path.join(figures_dir, "latency_memory_benchmark.png"), img_top_in=1.3, img_width_in=4.35,
-       caption="Fig 5: Edge Latency & Heap Memory Benchmark Across Hardware Tiers")
+       caption="Fig 6: Edge Latency & Heap Memory Benchmark Across Hardware Tiers")
 
     # =========================================================================
     # SLIDE 14: SUMMARY - FINDINGS, LIMITATIONS & FUTURE

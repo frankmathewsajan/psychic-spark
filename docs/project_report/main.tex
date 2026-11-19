@@ -17,6 +17,7 @@
 
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{longtable}
@@ -158,31 +159,37 @@
 
 This is to certify that the Capstone Project work titled \textbf{``HYBRID EDGE-CLOUD VISUAL INSPECTION SYSTEM FOR UTILITY METER VERIFICATION''} submitted by \textbf{FRANK MATHEW SAJAN} (Registration No: \textbf{23BCE8713}) in partial fulfillment of the requirements for the award of Bachelor of Technology in Computer Science and Engineering with Specialization in Artificial Intelligence and Machine Learning, is a record of bonafide work done under our guidance. The contents of this Project work, in full or in parts, have neither been taken from any other source nor have been submitted to any other Institute or University for award of any degree or diploma and the same is certified.
 
-\vspace{0.8cm}
+\vspace{0.6cm}
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+\rule{6.0cm}{0.5pt} & \rule{6.0cm}{0.5pt} \\
+\vspace{0.15cm} & \\
 \textbf{Dr. Sibi Chakkaravarthy S} & \textbf{Mr. Gowrav Shekar} \\
 Internal Academic Guide & External Industry Guide \\
 Associate Professor, SCOPE & Head of Technology \& AI Practices \\
 VIT-AP University & Adani AI Labs, Ahmedabad \\
 \end{tabular*}
 
-\vspace{0.7cm}
+\vspace{0.6cm}
 \noindent
 \textbf{The thesis is satisfactory / unsatisfactory}
 
-\vspace{0.8cm}
+\vspace{1.5cm}
 \noindent
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}cc}
+\rule{5.2cm}{0.5pt} & \rule{5.2cm}{0.5pt} \\
+\vspace{0.15cm} & \\
 \textbf{Examiner 1} & \textbf{Examiner 2} \\
 \end{tabular*}
 
-\vspace{0.7cm}
+\vspace{0.6cm}
 \noindent
 Approved by:
 
-\vspace{0.7cm}
+\vspace{0.6cm}
 \noindent
+\rule{6.5cm}{0.5pt} \\
+\vspace{0.15cm}
 \textbf{Dr. Reeja S R} \\
 Head of the Department, \\
 Department of Artificial Intelligence and Machine Learning (AIML), \\
@@ -498,6 +505,39 @@ The technician is immediately transitioned to \texttt{src/app/inspect-preview.ts
     \item \textbf{Instant Commit:} Tapping ``Save \& Done'' writes the inspection record to local SQLite with status \texttt{DONE} (or \texttt{PENDING} for cloud sync) and navigates back to the main dashboard in $<50\text{~ms}$.
 \end{itemize}
 
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/app_screens/app_verification_screen.jpeg}
+    \caption{Verification HUD}
+    \label{fig:app_verif}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/app_screens/app_directive_alert.jpeg}
+    \caption{Push Directive}
+    \label{fig:app_directive}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/app_screens/app_sync_telemetry.jpeg}
+    \caption{2-Tier Sync Ping}
+    \label{fig:app_sync}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/app_screens/app_inspections_feed.jpeg}
+    \caption{Local Audit Feed}
+    \label{fig:app_feed}
+\end{subfigure}
+\caption{Operational Mobile Client Workflow on Commodity Android Handset: (a) Dual-stream Point-of-Work Verification HUD showing sensor leveling tilt angle ($47^\circ$), full scene capture, cropped LCD preview, INT8 wiring safety check ($85.9\%$ confidence), and ML Kit digitized consumption reading ($51545551\text{~kWh}$); (b) Real-time supervisor push directive alert (`URGENT $\cdot$ ALERT: Inspect Region 3 meters') with one-touch acknowledgement; (c) Two-tier cellular synchronization telemetry HUD measuring cloud gateway latency; (d) Crash-resilient local SQLite inspection history feed displaying multi-meter verification statuses (\texttt{PASS}, \texttt{CRITICAL\_HAZARD}, \texttt{WARNING}, \texttt{Mismatch}) with asynchronous Tier-3 VLM audit badges.}
+\label{fig:mobile_app_workflow}
+\end{figure}
+
 \subsection{Stage 6: Two-Tier Decoupled Sync with Asynchronous Progress Tracking \& Disaster Recovery}
 To handle 2G/EDGE cellular dead zones in basements and electrical shafts, synchronization is decoupled into two tiers:
 \begin{itemize}
@@ -527,6 +567,32 @@ where $B_{\text{photo}}$ denotes the raw binary byte stream of the captured insp
 
 \subsection{Stage 9: Two-Way Administrative Safety Directives}
 The backend maintains a WebSocket and polling channel to dispatch real-time administrative directives from utility supervisors to field handsets. Directives support three target modalities (\texttt{BROADCAST}, \texttt{DEVICE}, \texttt{TECHNICIAN}) and three priority tiers (\texttt{LOW}, \texttt{NORMAL}, \texttt{URGENT}). Upon receipt, messages are cached in local SQLite, and the client returns an idempotent delivery acknowledgment (\texttt{DELIVERED}, \texttt{READ}, \texttt{ACTED}) containing remediation notes.
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/admin_panel/admin_inspections_feed.png}
+    \caption{Central Inspections Dashboard \& Audit Reconciliations}
+    \label{fig:admin_feed}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/admin_panel/admin_fleet_map.png}
+    \caption{Interactive GIS Fleet Map (2D/3D Multi-Floor Tracking)}
+    \label{fig:admin_map}
+\end{subfigure}
+\vspace{0.3cm}
+\begin{subfigure}[b]{0.68\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/admin_panel/admin_directive_dispatch.png}
+    \caption{Supervisor Broadcast Directives Dispatch Modal}
+    \label{fig:admin_directive}
+\end{subfigure}
+\caption{Novo Central Administrative Intelligence and Fleet Operations Console: (a) Live inspections management feed displaying 20 synchronized meter audits, comparative Edge OCR versus Cloud VLM digital reconciliations, technician attribution (\texttt{field\_tech}, \texttt{TECH-TEST}), and physical quality flags (\texttt{Pass}, \texttt{Verified}, \texttt{Warning}, \texttt{Hazard}); (b) Interactive GIS Fleet Map with 2D Leaflet and 3D Mapbox GL modes supporting vertical multi-floor zoning (L0 Yard, L1 Switchgear, L2 Lab, L3 Rooftop) and real-time technician battery/connection status; (c) Directives dispatch modal allowing supervisors to push broadcast alerts, prioritized re-inspections, or emergency lockout instructions directly to field devices with bidirectional delivery acknowledgment.}
+\label{fig:admin_console}
+\end{figure}
 
 \section{Governing Standards}
 The design, implementation, and evaluation of Novo strictly conform to applicable Indian and international engineering standards:
@@ -1080,7 +1146,7 @@ def compute_sha256_seal(file_bytes: bytes, serial: str, timestamp: str) -> str:
 \begin{minipage}[t]{12.5cm}
     \vspace{0pt}
     \renewcommand{\arraystretch}{1.4}
-    \begin{tabular}{@{}p{3.8cm}l@{}}
+    \begin{tabular}{@{}p{4.8cm}l@{}}
     \textbf{Name} & : Frank Mathew Sajan \\
     \textbf{Mobile Number} & : +91 9497182886 \\
     \textbf{E-mail} & : \texttt{sajan.23bce8713@vitapstudent.ac.in} \\

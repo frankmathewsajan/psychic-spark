@@ -765,9 +765,10 @@ ADMIN_HTML = r"""<!DOCTYPE html>
         if (matchingAck) {
           const time = matchingAck.actioned_at || matchingAck.delivered_at;
           const timeStr = time ? new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-          if (matchingAck.reply_note) {
+          const note = matchingAck.client_notes || matchingAck.reply_note;
+          if (note) {
             return {
-              text: matchingAck.reply_note,
+              text: note,
               time: timeStr,
               isReply: true
             };
@@ -951,7 +952,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
                   <span class="text-zinc-500 text-[10px]">(${escapeHtml(a.device_id || 'dev')})</span>
                   ${timeStr ? `<span class="text-zinc-500 text-[10px]">@ ${timeStr}</span>` : ''}
                 </div>
-                ${a.reply_note ? `<div class="mt-1 text-zinc-300 font-sans bg-zinc-900/60 p-1.5 rounded border border-zinc-800/50">&ldquo;${escapeHtml(a.reply_note)}&rdquo;</div>` : ''}
+                ${(a.client_notes || a.reply_note) ? `<div class="mt-1 text-zinc-300 font-sans bg-zinc-900/60 p-1.5 rounded border border-zinc-800/50">&ldquo;${escapeHtml(a.client_notes || a.reply_note)}&rdquo;</div>` : ''}
               </div>
             `;
           }).join('');

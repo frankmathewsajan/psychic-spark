@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS inspections (
     vlm_tags TEXT,
     qc_checklist_json TEXT,
     crop_bounds_json TEXT,
+    evidence_sha256 TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -165,6 +166,12 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 		try {
 			await db.runAsync(
 				`ALTER TABLE inspections ADD COLUMN crop_bounds_json TEXT;`,
+			);
+		} catch {}
+		// LIVE MIGRATION 2c: Add evidence_sha256 column if missing
+		try {
+			await db.runAsync(
+				`ALTER TABLE inspections ADD COLUMN evidence_sha256 TEXT;`,
 			);
 		} catch {}
 

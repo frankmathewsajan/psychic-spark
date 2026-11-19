@@ -199,7 +199,7 @@ def get_device_messages(
     status_code=status.HTTP_200_OK,
     summary="Record idempotent acknowledgment from mobile client",
 )
-def record_message_ack(
+async def record_message_ack(
     device_id: str,
     message_id: str,
     payload: ClientAckSubmit,
@@ -246,6 +246,16 @@ def record_message_ack(
     db.add(new_ack)
     db.commit()
     db.refresh(new_ack)
+
+    # Broadcast live to connected admin dashboards
+    await ws_manager.broadcast_to_admins({
+        "type": "MESSAGE_ACK",
+        "message_id": message_id,
+        "device_id": device_id,
+        "technician_id": payload.technician_id,
+        "status": payload.status,
+        "client_notes": payload.client_notes,
+    })
 
     return ClientAckResponse(
         status="ACKNOWLEDGED",

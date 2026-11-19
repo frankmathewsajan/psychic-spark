@@ -20,6 +20,7 @@ import {
 } from "@/components/cloud-sync-progress-bar";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
+import { logger } from "@/core/logger";
 import {
 	getActiveClientMessages,
 	getInspections,
@@ -148,10 +149,12 @@ export default function DashboardScreen() {
 		}
 	};
 
-	const handleSync = async () => {
+	const handleSync = async (fromPull: boolean = false) => {
 		if (isSyncing) return;
 		setIsSyncing(true);
-		setRefreshing(true);
+		if (fromPull) {
+			setRefreshing(true);
+		}
 		setSyncProgress({
 			active: true,
 			stage: "CONNECTING",
@@ -221,61 +224,78 @@ export default function DashboardScreen() {
 		});
 
 		if (tier1Success) {
-			setSyncProgress({
-				active: true,
-				stage: "MEDIA",
-				progress: 0.52,
-				title: "AUDIT PHOTOS",
-				message: "Checking pending casing photos...",
-			});
+			// Immediate point-of-work release: unblock button and pull-to-refresh spinner
+			await loadData();
+			setRefreshing(false);
+			setIsSyncing(false);
 
-			await executeTier2MediaSync(db, gatewayUrl, {
-				onProgress: (photo) => {
-					if (photo.status === "DONE" && photo.total === 0) {
-						setSyncProgress((prev) => ({
-							...prev,
-							stage: "MEDIA",
-							progress: 0.8,
-							title: "AUDIT PHOTOS",
-							message: "All meter photos previously synced",
-						}));
-					} else if (photo.status === "UPLOADING") {
-						const stepProg = 0.52 + ((photo.current - 1) / photo.total) * 0.28;
-						setSyncProgress((prev) => ({
-							...prev,
-							stage: "MEDIA",
-							progress: stepProg,
-							title: "AUDIT PHOTOS",
-							message: `Uploading photo ${photo.current} of ${photo.total} (${photo.inspectionId})...`,
-						}));
-					} else if (photo.status === "SUCCESS") {
-						const stepProg = 0.52 + (photo.current / photo.total) * 0.28;
-						setSyncProgress((prev) => ({
-							...prev,
-							stage: "MEDIA",
-							progress: stepProg,
-							title: "AUDIT PHOTOS",
-							message: `Photo ${photo.current} of ${photo.total} uploaded`,
-						}));
-					}
-				},
-			});
-
-			setSyncProgress({
-				active: true,
-				stage: "COMPLETE",
-				progress: 1.0,
-				title: "SYNC COMPLETE",
-				message: "All records and photos uploaded",
-			});
-
-			// Asynchronously audit VLM readings & flush directives in background
+			// Opportunistic background Tier-2 photo upload & cloud reconciliation
 			(async () => {
 				try {
+					setSyncProgress({
+						active: true,
+						stage: "MEDIA",
+						progress: 0.52,
+						title: "AUDIT PHOTOS",
+						message: "Checking pending casing photos...",
+					});
+
+					await executeTier2MediaSync(db, gatewayUrl, {
+						onProgress: (photo) => {
+							if (photo.status === "DONE" && photo.total === 0) {
+								setSyncProgress((prev) => ({
+									...prev,
+									stage: "MEDIA",
+									progress: 0.8,
+									title: "AUDIT PHOTOS",
+									message: "All meter photos previously synced",
+								}));
+							} else if (photo.status === "UPLOADING") {
+								const stepProg =
+									0.52 + ((photo.current - 1) / photo.total) * 0.28;
+								setSyncProgress((prev) => ({
+									...prev,
+									stage: "MEDIA",
+									progress: stepProg,
+									title: "AUDIT PHOTOS",
+									message: `Uploading photo ${photo.current} of ${photo.total} (${photo.inspectionId})...`,
+								}));
+							} else if (photo.status === "SUCCESS") {
+								const stepProg =
+									0.52 + (photo.current / photo.total) * 0.28;
+								setSyncProgress((prev) => ({
+									...prev,
+									stage: "MEDIA",
+									progress: stepProg,
+									title: "AUDIT PHOTOS",
+									message: `Photo ${photo.current} of ${photo.total} uploaded`,
+								}));
+							}
+						},
+					});
+
+					setSyncProgress({
+						active: true,
+						stage: "COMPLETE",
+						progress: 1.0,
+						title: "SYNC COMPLETE",
+						message: "All records and photos uploaded",
+					});
+
 					await reconcileCloudAuditStatus(db, gatewayUrl, devId);
 					await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
-					loadData();
-				} catch {}
+					await loadData();
+				} catch (err) {
+					logger.warn("Sync", "Background media sync/reconciliation error", err);
+				} finally {
+					setTimeout(() => {
+						setSyncProgress((prev) =>
+							prev.stage === "COMPLETE"
+								? { ...prev, active: false, stage: "IDLE" }
+								: prev,
+						);
+					}, 3500);
+				}
 			})();
 		} else {
 			const backoff = getTier1BackoffInfo();
@@ -292,18 +312,19 @@ export default function DashboardScreen() {
 				message: errMsg,
 				error: true,
 			});
-		}
 
-		await loadData();
-		setRefreshing(false);
-		setIsSyncing(false);
-		setTimeout(() => {
-			setSyncProgress((prev) =>
-				prev.stage === "COMPLETE"
-					? { ...prev, active: false, stage: "IDLE" }
-					: prev,
-			);
-		}, 3500);
+			await loadData();
+			setRefreshing(false);
+			setIsSyncing(false);
+
+			setTimeout(() => {
+				setSyncProgress((prev) =>
+					prev.stage === "ERROR"
+						? { ...prev, active: false, stage: "IDLE" }
+						: prev,
+				);
+			}, 4000);
+		}
 	};
 
 	const openInspectionEditor = (item: InspectionRecord) => {
@@ -546,7 +567,10 @@ export default function DashboardScreen() {
 				contentContainerStyle={styles.listArea}
 				keyboardShouldPersistTaps="handled"
 				refreshControl={
-					<RefreshControl refreshing={refreshing} onRefresh={handleSync} />
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={() => handleSync(true)}
+					/>
 				}
 			>
 				{/* REVIEW QUEUE */}
@@ -847,7 +871,7 @@ export default function DashboardScreen() {
 						isSyncing && styles.btnDisabled,
 						pressed && styles.btnPressed,
 					]}
-					onPress={handleSync}
+					onPress={() => handleSync(false)}
 				>
 					{isSyncing ? (
 						<ActivityIndicator size="small" color={MD3.color.primary} />

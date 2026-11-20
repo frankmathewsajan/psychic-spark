@@ -207,7 +207,7 @@ All contributions, datasets, software packages, and upstream models cited in thi
 
 \vspace{1.8cm}
 \noindent
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l}
+\begin{tabular}{@{}l@{}}
 \textbf{Frank Mathew Sajan} \\
 Registration No: \textbf{23BCE8713} \\
 School of Computer Science and Engineering \\
@@ -215,7 +215,7 @@ VIT-AP University, Amaravati -- 522237 \\
 Email: \texttt{sajan.23bce8713@vitapstudent.ac.in} \\
 Date: November 19, 2026 \\
 Place: Amaravati, Andhra Pradesh / Ahmedabad, Gujarat
-\end{tabular*}
+\end{tabular}
 
 \clearpage
 
@@ -267,7 +267,7 @@ The completed Novo platform delivers six primary engineering innovations:
 \begin{enumerate}
     \item \textbf{Hardware Sensor Leveling \& INT8 Safety Interlock:} Samples the mobile 3-axis MEMS accelerometer at 50~Hz ($\text{tilt} = \arctan(|g_z| / \sqrt{g_x^2 + g_y^2}) \times 180 / \pi$) and disables the shutter until the camera plane is perpendicular ($90^\circ \pm 10^\circ$) to the meter face. An ultra-compact ($1.24\text{~MB}$) INT8 MobileNetV3 classifier benchmarks at $24.34\text{~ms}$ on commodity ARM cores with $4.59\text{~MB}$ peak heap RAM, triggering an automated submission lockout upon detecting stripped phase conductors or loose terminal screws ($P_{\text{hazard}} \ge 0.65$).
     \item \textbf{Dynamic Viewfinder Calibration \& 7-Segment Automaton:} Computes LCD bounding coordinates from relative layout percentages, coupling reticle isolation with a deterministic character sanitization automaton and height-ratio decimal inference ($r = h_{\text{dot}} / h_{\text{digit}} < 0.82$) to eliminate optical noise and prevent silent digit misreads.
-    \item \textbf{Instant Shutter \& Intermediary Verification Screen:} Refactors capture into a zero-delay shutter ($<250\text{~ms}$) pushing to an intermediary screen (\texttt{src/app/inspect-preview.tsx}) that renders the cropped LCD image directly above an auto-filled kWh input field for rapid 1-second technician sign-off.
+    \item \textbf{Instant Shutter \& Intermediary Verification Screen:} Refactors capture into a zero-delay shutter ($<250\text{~ms}$) pushing to an intermediary screen (\texttt{src/app/}\allowbreak\texttt{inspect-preview.tsx}) that renders the cropped LCD image directly above an auto-filled kWh input field for rapid 1-second technician sign-off.
     \item \textbf{CamScanner Precision 4-Point Polygon Cropper:} Formulates an unconstrained 4-point polygon selector with a $2.8\times$ floating loupe tracking $85\text{~px}$ above the finger, $2\times$ canvas zoom, and affine tilt rectification ($\theta = \operatorname{atan2}(\Delta y, \Delta x)$) to isolate skewed display registers on-site.
     \item \textbf{Two-Tier Crash-Resilient SQLite SSOT Sync:} Anchored by an embedded SQLite database in Write-Ahead Logging (WAL) mode, Novo dispatches minified Tier-1 JSON telemetry batches ($1.82\text{~KB}$ for 15 records) in $1.14\text{~s}$ over 2G cellular dead zones (100\% success rate), deferring large audit images to depot Wi-Fi.
     \item \textbf{Cloud Multimodal VLM Quality Audit \& SHA-256 Sealing:} Employs Google Gemini foundation models (\texttt{gemini-3.8-flash} with \texttt{gemini-4-hydrogen} fallback) to evaluate a 4-point physical QC checklist (wire safety, terminal cover, tamper seal, casing) with 97.98\% accuracy, computing immutable SHA-256 evidence digests for legal non-repudiation.
@@ -306,7 +306,7 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \noindent
 \begin{spacing}{1.2}
 \small
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lp{5.6cm}@{\hspace{0.8cm}}lp{5.6cm}@{}}
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{5.4cm} @{\hspace{0.8cm}} l >{\raggedright\arraybackslash}p{5.4cm}@{}}
 \textbf{AMI}    & Advanced Metering Infrastructure        & \textbf{FQP}    & Field Quality Plan \\
 \textbf{AMR}    & Automatic Meter Reading                & \textbf{GPRS}   & General Packet Radio Service \\
 \textbf{AQL}    & Acceptance Quality Limit               & \textbf{GSM}    & Global System for Mobile Comms \\
@@ -319,7 +319,7 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \textbf{CTC}    & Connectionist Temporal Classification  & \textbf{LCD}    & Liquid Crystal Display \\
 \textbf{DISCOM} & Electricity Distribution Company       & \textbf{MEMS}   & Micro-Electro-Mechanical Systems \\
 \textbf{EDGE}   & Enhanced Data rates for GSM Evolution  & \textbf{ML}     & Machine Learning \\
-\end{tabular*}
+\end{tabular}
 \end{spacing}
 
 \clearpage
@@ -329,7 +329,7 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \noindent
 \begin{spacing}{1.2}
 \small
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lp{5.6cm}@{\hspace{0.8cm}}lp{5.6cm}@{}}
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{5.4cm} @{\hspace{0.8cm}} l >{\raggedright\arraybackslash}p{5.4cm}@{}}
 \textbf{NNAPI}  & Android Neural Networks API            & \textbf{SSOT}   & Single Source of Truth \\
 \textbf{OCR}    & Optical Character Recognition          & \textbf{TFLite} & TensorFlow Lite \\
 \textbf{OEM}    & Original Equipment Manufacturer        & \textbf{TPQMA}  & Third Party Quality Monitoring Agency \\
@@ -340,7 +340,7 @@ Empirical benchmarking across 3,220 field photographs confirms a \textbf{100.0\%
 \textbf{REC}    & Rural Electrification Corporation      &                 & \\
 \textbf{REST}   & Representational State Transfer        &                 & \\
 \textbf{SHA}    & Secure Hash Algorithm                  &                 & \\
-\end{tabular*}
+\end{tabular}
 \end{spacing}
 
 \clearpage

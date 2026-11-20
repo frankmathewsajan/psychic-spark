@@ -386,7 +386,7 @@ export async function restoreInspectionFromCloud(
 				qa_status = excluded.qa_status,
 				hazard_reason = excluded.hazard_reason,
 				extracted_kwh = COALESCE(excluded.extracted_kwh, inspections.extracted_kwh),
-				image_local_path = CASE WHEN inspections.image_local_path IS NOT NULL AND inspections.image_local_path != '' THEN inspections.image_local_path ELSE excluded.image_local_path END,
+				image_local_path = CASE WHEN excluded.image_local_path IS NOT NULL AND excluded.image_local_path != '' THEN excluded.image_local_path ELSE inspections.image_local_path END,
 				audit_stage = excluded.audit_stage,
 				vlm_kwh = excluded.vlm_kwh,
 				vlm_notes = excluded.vlm_notes,

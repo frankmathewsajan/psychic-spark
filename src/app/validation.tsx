@@ -142,6 +142,8 @@ export default function ValidationScreen() {
 								source={{ uri: imageUri }}
 								style={styles.previewImage}
 								contentFit="cover"
+								cachePolicy="memory-disk"
+								priority="high"
 								transition={200}
 							/>
 						</View>

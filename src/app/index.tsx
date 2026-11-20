@@ -1,3 +1,4 @@
+import { Directory, File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -50,6 +51,30 @@ import {
 
 const DEFAULT_GATEWAY_URL = "https://psychic-spark.onrender.com";
 
+function InspectionThumbnail({ uri }: { uri: string | null | undefined }) {
+	const [hasError, setHasError] = useState(false);
+
+	if (!uri || hasError) {
+		return (
+			<View style={styles.thumbPlaceholder}>
+				<AppSymbol name="meter" size={20} color={MD3.color.outline} />
+			</View>
+		);
+	}
+
+	return (
+		<Image
+			source={{ uri }}
+			style={styles.thumbImage}
+			contentFit="cover"
+			cachePolicy="memory-disk"
+			priority="high"
+			transition={200}
+			onError={() => setHasError(true)}
+		/>
+	);
+}
+
 export default function DashboardScreen() {
 	const router = useRouter();
 	const { isDark, colors } = useTheme();
@@ -91,6 +116,30 @@ export default function DashboardScreen() {
 		setReviewQueue(review);
 		setGatewayUrl(savedUrl);
 		setActiveMessages(msgs);
+
+		// Background caching for cloud-restored inspections that still point to remote URLs
+		rows.forEach((row) => {
+			if (row.image_local_path && row.image_local_path.startsWith("http")) {
+				(async () => {
+					try {
+						const capturesDir = new Directory(Paths.document, "captures");
+						if (!capturesDir.exists) capturesDir.create();
+						const destFile = new File(capturesDir, `${row.id}.jpg`);
+						if (!destFile.exists) {
+							await File.downloadFileAsync(row.image_local_path, destFile, {
+								idempotent: true,
+							});
+						}
+						if (destFile.exists) {
+							await db.runAsync(
+								"UPDATE inspections SET image_local_path = ? WHERE id = ?;",
+								[destFile.uri, row.id],
+							);
+						}
+					} catch {}
+				})();
+			}
+		});
 	}, [search]);
 
 	useEffect(() => {
@@ -599,22 +648,7 @@ export default function DashboardScreen() {
 								onPress={() => openInspectionEditor(item)}
 							>
 								<View style={styles.cardContentRow}>
-									{item.image_local_path ? (
-										<Image
-											source={{ uri: item.image_local_path }}
-											style={styles.thumbImage}
-											contentFit="cover"
-											transition={200}
-										/>
-									) : (
-										<View style={styles.thumbPlaceholder}>
-											<AppSymbol
-												name="meter"
-												size={20}
-												color={MD3.color.outline}
-											/>
-										</View>
-									)}
+									<InspectionThumbnail uri={item.image_local_path} />
 
 									<View style={styles.cardDetails}>
 										<View style={styles.cardRow}>
@@ -714,22 +748,7 @@ export default function DashboardScreen() {
 									onPress={() => openInspectionEditor(item)}
 								>
 									<View style={styles.cardContentRow}>
-										{item.image_local_path ? (
-											<Image
-												source={{ uri: item.image_local_path }}
-												style={styles.thumbImage}
-												contentFit="cover"
-												transition={200}
-											/>
-										) : (
-											<View style={styles.thumbPlaceholder}>
-												<AppSymbol
-													name="meter"
-													size={20}
-													color={MD3.color.outline}
-												/>
-											</View>
-										)}
+										<InspectionThumbnail uri={item.image_local_path} />
 
 										<View style={styles.cardDetails}>
 											<View style={styles.cardRow}>

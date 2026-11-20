@@ -1,3 +1,4 @@
+import { Directory, File, Paths } from "expo-file-system";
 import type { SQLiteDatabase } from "expo-sqlite";
 import {
 	getPendingMessageAcks,
@@ -379,11 +380,57 @@ export async function reconcileCloudAuditStatus(
 					: `${base}${p.startsWith("/") ? "" : "/"}${p}`;
 			}
 
+			// Check if local file actually exists on device
+			let localFileExists = false;
+			if (local?.image_local_path) {
+				if (
+					local.image_local_path.startsWith("file://") ||
+					local.image_local_path.startsWith("/")
+				) {
+					try {
+						const f = new File(local.image_local_path);
+						localFileExists = f.exists;
+					} catch {
+						localFileExists = false;
+					}
+				} else if (local.image_local_path.startsWith("http")) {
+					localFileExists = true;
+				}
+			}
+
+			let resolvedImagePath = local?.image_local_path || imageUrl || "";
+
+			// Attempt offline cache download for restored/missing photos
+			if ((!localFileExists || !local?.image_local_path) && imageUrl) {
+				try {
+					const capturesDir = new Directory(Paths.document, "captures");
+					if (!capturesDir.exists) capturesDir.create();
+					const destFile = new File(capturesDir, `${item.id}.jpg`);
+					if (!destFile.exists) {
+						await File.downloadFileAsync(imageUrl, destFile, {
+							idempotent: true,
+						});
+					}
+					if (destFile.exists) {
+						resolvedImagePath = destFile.uri;
+					} else {
+						resolvedImagePath = imageUrl;
+					}
+				} catch (dlErr) {
+					logger.warn(
+						"SyncTier1",
+						`Could not cache photo locally for ${item.id}, using cloud URL`,
+						dlErr,
+					);
+					resolvedImagePath = imageUrl;
+				}
+			}
+
 			if (!local) {
 				const restored = await restoreInspectionFromCloud(db, {
 					...item,
 					kwh_reading: item.kwh_reading ?? item.extracted_kwh ?? null,
-					image_url: imageUrl,
+					image_url: resolvedImagePath,
 				});
 				if (restored) updatedCount++;
 			} else {
@@ -399,10 +446,15 @@ export async function reconcileCloudAuditStatus(
 						item.qc_checklist_json ?? null,
 					);
 				}
-				if (!local.image_local_path && imageUrl) {
+				if (
+					(!localFileExists ||
+						!local.image_local_path ||
+						local.image_local_path !== resolvedImagePath) &&
+					resolvedImagePath
+				) {
 					await db.runAsync(
 						"UPDATE inspections SET image_local_path = ? WHERE id = ?;",
-						[imageUrl, item.id],
+						[resolvedImagePath, item.id],
 					);
 				}
 				updatedCount++;

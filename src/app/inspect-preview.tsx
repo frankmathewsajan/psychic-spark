@@ -2,7 +2,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	KeyboardAvoidingView,
@@ -85,28 +85,31 @@ export default function InspectPreviewScreen() {
 
 	const isInitialized = useRef(false);
 
-	const runOcrOnCrop = async (targetUri?: string | null) => {
-		const uri = targetUri || croppedUri;
-		if (!uri) return;
-		try {
-			setStatusStage("ocr");
-			setStatusText("Reading cropped LCD display...");
-			const ocr = await runCroppedLcdOcr(uri);
-			setOcrResult(ocr);
-			if (ocr.kwh !== null) {
-				setKwhInput(String(ocr.kwh));
+	const runOcrOnCrop = useCallback(
+		async (targetUri?: string | null) => {
+			const uri = targetUri || croppedUri;
+			if (!uri) return;
+			try {
+				setStatusStage("ocr");
+				setStatusText("Reading cropped LCD display...");
+				const ocr = await runCroppedLcdOcr(uri);
+				setOcrResult(ocr);
+				if (ocr.kwh !== null) {
+					setKwhInput(String(ocr.kwh));
+				}
+				setStatusStage("ready");
+				setStatusText(
+					ocr.kwh !== null
+						? "Verification complete"
+						: "No digits found — check crop",
+				);
+			} catch (err) {
+				logger.error("InspectPreview", "OCR failed", err);
+				setStatusStage("ready");
 			}
-			setStatusStage("ready");
-			setStatusText(
-				ocr.kwh !== null
-					? "Verification complete"
-					: "No digits found — check crop",
-			);
-		} catch (err) {
-			logger.error("InspectPreview", "OCR failed", err);
-			setStatusStage("ready");
-		}
-	};
+		},
+		[croppedUri],
+	);
 
 	const handleManualCropConfirm = async (
 		bounds: [number, number, number, number],
@@ -176,7 +179,7 @@ export default function InspectPreviewScreen() {
 		}
 
 		runPipeline();
-	}, [photoUri, params.cropBoundsJson, initialBarcode]);
+	}, [photoUri, params.cropBoundsJson, initialBarcode, runOcrOnCrop]);
 
 	const isHazard = safetyResult?.isHazard ?? false;
 	const isProcessing = statusStage !== "ready";
@@ -386,7 +389,8 @@ export default function InspectPreviewScreen() {
 										style={({ pressed }) => [
 											styles.cropActionBtn,
 											pressed && styles.cropActionBtnPressed,
-											(isProcessing || !croppedUri) && styles.cropActionBtnDisabled,
+											(isProcessing || !croppedUri) &&
+												styles.cropActionBtnDisabled,
 										]}
 										onPress={() => runOcrOnCrop()}
 										disabled={isProcessing || !croppedUri}
@@ -396,7 +400,12 @@ export default function InspectPreviewScreen() {
 										) : (
 											<AppSymbol name="sync" size={11} color="#2563EB" />
 										)}
-										<Text style={[styles.cropActionText, styles.cropActionHighlightText]}>
+										<Text
+											style={[
+												styles.cropActionText,
+												styles.cropActionHighlightText,
+											]}
+										>
 											{isProcessing ? "Reading..." : "Re-check"}
 										</Text>
 									</Pressable>

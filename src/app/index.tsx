@@ -20,7 +20,6 @@ import {
 } from "@/components/cloud-sync-progress-bar";
 import { Fonts, MD3 } from "@/constants/theme";
 import { getDb } from "@/core/db/client";
-import { logger } from "@/core/logger";
 import {
 	getActiveClientMessages,
 	getInspections,
@@ -30,6 +29,7 @@ import {
 	getSetting,
 	recordClientAck,
 } from "@/core/db/repository";
+import { logger } from "@/core/logger";
 import { useTheme } from "@/core/theme-context";
 import type {
 	ClientMessage,
@@ -261,8 +261,7 @@ export default function DashboardScreen() {
 									message: `Uploading photo ${photo.current} of ${photo.total} (${photo.inspectionId})...`,
 								}));
 							} else if (photo.status === "SUCCESS") {
-								const stepProg =
-									0.52 + (photo.current / photo.total) * 0.28;
+								const stepProg = 0.52 + (photo.current / photo.total) * 0.28;
 								setSyncProgress((prev) => ({
 									...prev,
 									stage: "MEDIA",
@@ -286,7 +285,11 @@ export default function DashboardScreen() {
 					await syncClientMessages(db, gatewayUrl, devId, "TECH-01");
 					await loadData();
 				} catch (err) {
-					logger.warn("Sync", "Background media sync/reconciliation error", err);
+					logger.warn(
+						"Sync",
+						"Background media sync/reconciliation error",
+						err,
+					);
 				} finally {
 					setTimeout(() => {
 						setSyncProgress((prev) =>

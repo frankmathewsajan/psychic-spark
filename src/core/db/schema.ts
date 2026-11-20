@@ -206,6 +206,8 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 					id TEXT PRIMARY KEY NOT NULL,
 					technician_id TEXT NOT NULL,
 					device_id TEXT NOT NULL,
+					device_model TEXT,
+					app_version TEXT,
 					meter_serial_number TEXT NOT NULL,
 					latitude REAL NOT NULL,
 					longitude REAL NOT NULL,
@@ -219,6 +221,14 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 					sync_tier2_status TEXT DEFAULT 'PENDING',
 					inference_status TEXT CHECK(inference_status IN ('PENDING_ML','PROCESSING','NEEDS_REVIEW','DONE')) DEFAULT 'DONE',
 					tilt_deg REAL DEFAULT 0.0,
+					audit_stage TEXT DEFAULT 'IMAGE_RECEIVED',
+					vlm_kwh REAL,
+					vlm_notes TEXT,
+					vlm_summary TEXT,
+					vlm_tags TEXT,
+					qc_checklist_json TEXT,
+					crop_bounds_json TEXT,
+					evidence_sha256 TEXT,
 					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 				);
 
@@ -251,6 +261,27 @@ export async function runDatabaseInit(db: SQLiteDatabase): Promise<void> {
 				"DB",
 				"inspections table successfully migrated without strict CHECK constraint",
 			);
+		}
+
+		// LIVE MIGRATION POST-CHECK: Guarantee all columns exist even on migrated or restored instances
+		const postCheckColumns = [
+			"device_model TEXT",
+			"app_version TEXT",
+			"audit_stage TEXT DEFAULT 'IMAGE_RECEIVED'",
+			"vlm_kwh REAL",
+			"vlm_notes TEXT",
+			"vlm_summary TEXT",
+			"vlm_tags TEXT",
+			"qc_checklist_json TEXT",
+			"crop_bounds_json TEXT",
+			"evidence_sha256 TEXT",
+		];
+		for (const colDef of postCheckColumns) {
+			try {
+				await db.runAsync(`ALTER TABLE inspections ADD COLUMN ${colDef};`);
+			} catch {
+				// Column already exists
+			}
 		}
 
 		// CRASH RECOVERY: Reset uncommitted rows left in SYNCING state

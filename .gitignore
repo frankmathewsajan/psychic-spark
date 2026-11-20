@@ -82,3 +82,5 @@ models/*.bin
 !models/training_report.md
 
 
+
+docs/presentation/slides_rendered/

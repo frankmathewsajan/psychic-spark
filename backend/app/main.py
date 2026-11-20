@@ -385,6 +385,18 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
         <!-- 3D Specialized Controls -->
         <div id="controls-3d" class="hidden flex flex-wrap items-center gap-2 text-xs font-mono">
+          <!-- Mapbox Style Switcher Group -->
+          <div role="group" aria-label="Mapbox Map Styles" class="inline-flex items-center bg-[#13161c] p-0.5 rounded border border-zinc-800/80 text-xs font-mono">
+            <span class="px-2 text-zinc-500 text-[11px]">Style:</span>
+            <button type="button" onclick="setMapboxStyle('standard')" id="style-btn-standard" aria-pressed="true" class="px-2.5 py-1 rounded text-zinc-100 bg-zinc-800 text-[11px] font-semibold border border-zinc-700 transition" title="3D Standard Dynamic Vector Style">Standard</button>
+            <button type="button" onclick="setMapboxStyle('streets')" id="style-btn-streets" aria-pressed="false" class="px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px] transition" title="Mapbox Streets Navigation Style">Streets</button>
+            <button type="button" onclick="setMapboxStyle('outdoors')" id="style-btn-outdoors" aria-pressed="false" class="px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px] transition" title="Mapbox Outdoors Topographical Style">Outdoors</button>
+            <button type="button" onclick="setMapboxStyle('satellite')" id="style-btn-satellite" aria-pressed="false" class="px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px] transition flex items-center gap-1" title="Toggle High-Resolution Satellite View">
+              <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Satellite
+            </button>
+          </div>
+
           <!-- Floor Slicer -->
           <div class="inline-flex items-center bg-[#13161c] p-0.5 rounded border border-zinc-800/80">
             <span class="px-2 text-zinc-500 text-[11px]">Floor:</span>
@@ -650,6 +662,14 @@ ADMIN_HTML = r"""<!DOCTYPE html>
 
     // Mapbox 3D State
     let currentMapView = '2d';
+    const MAPBOX_STYLES = {
+      standard: 'mapbox://styles/mapbox/standard',
+      streets: 'mapbox://styles/mapbox/streets-v12',
+      outdoors: 'mapbox://styles/mapbox/outdoors-v12',
+      satellite: 'mapbox://styles/mapbox/satellite-streets-v12'
+    };
+    let currentMapboxStyle = 'standard';
+    let previousMapboxStyle = 'standard';
     let mapbox3d = null;
     let mapboxInitialized = false;
     let isOrbiting = false;
@@ -1228,6 +1248,51 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       });
     }
 
+    function setMapboxStyle(styleKey) {
+      if (!MAPBOX_STYLES[styleKey]) return;
+
+      // Toggle behavior: if satellite is active and clicked again, revert to previous vector style
+      if (styleKey === 'satellite' && currentMapboxStyle === 'satellite') {
+        styleKey = previousMapboxStyle !== 'satellite' ? previousMapboxStyle : 'standard';
+      } else if (styleKey === currentMapboxStyle) {
+        return;
+      }
+
+      if (currentMapboxStyle !== 'satellite') {
+        previousMapboxStyle = currentMapboxStyle;
+      }
+      currentMapboxStyle = styleKey;
+
+      // Update button visual state and aria-pressed attributes
+      ['standard', 'streets', 'outdoors', 'satellite'].forEach(k => {
+        const btn = document.getElementById('style-btn-' + k);
+        if (!btn) return;
+        const isActive = (k === styleKey);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        btn.className = isActive
+          ? 'px-2.5 py-1 rounded text-zinc-100 bg-zinc-800 text-[11px] font-semibold border border-zinc-700 transition flex items-center gap-1'
+          : 'px-2.5 py-1 rounded text-zinc-400 hover:text-zinc-200 text-[11px] transition flex items-center gap-1';
+      });
+
+      // Automatically activate 3D view if currently in 2D mode
+      if (currentMapView !== '3d') {
+        setMapViewMode('3d');
+      }
+
+      if (!mapbox3d) return;
+
+      const el = document.getElementById('fleet-mapbox-3d');
+      el.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+      el.style.opacity = '0.7';
+
+      mapbox3d.setStyle(MAPBOX_STYLES[styleKey]);
+
+      // Restore full opacity smoothly once the new style completes initial tile render
+      mapbox3d.once('idle', () => {
+        el.style.opacity = '1';
+      });
+    }
+
     function initMapbox3D() {
       if (mapboxInitialized && mapbox3d) {
         mapbox3d.resize();
@@ -1251,7 +1316,7 @@ ADMIN_HTML = r"""<!DOCTYPE html>
       try {
         mapbox3d = new mapboxgl.Map({
           container: 'fleet-mapbox-3d',
-          style: 'mapbox://styles/mapbox/standard',
+          style: MAPBOX_STYLES[currentMapboxStyle] || 'mapbox://styles/mapbox/standard',
           center: [72.5714, 23.0225], // Ahmedabad Substation Depot
           zoom: 16.5,
           pitch: 62,
@@ -1265,6 +1330,9 @@ ADMIN_HTML = r"""<!DOCTYPE html>
           mapboxInitialized = true;
           updateMapboxLighting();
           setupFacility3DLayers();
+          if (currentFloorFilter !== 'ALL' && mapbox3d.getLayer('depot-floors-3d')) {
+            mapbox3d.setFilter('depot-floors-3d', ['==', ['get', 'floor'], currentFloorFilter]);
+          }
           render3DMarkers();
         });
 

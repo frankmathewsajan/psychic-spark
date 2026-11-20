@@ -15,7 +15,7 @@ from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 from pptx.oxml import parse_xml
 
 def populate_presentation():
@@ -52,16 +52,22 @@ def populate_presentation():
         if len(slide.shapes) > 0 and slide.shapes[0].has_text_frame:
             s_top = slide.shapes[0]
             s_top.left = Inches(0.6)
-            s_top.top = Inches(0.25)
-            s_top.width = Inches(7.5)
-            s_top.height = Inches(0.65)
+            s_top.top = Inches(0.20)
+            s_top.width = Inches(7.6)
+            s_top.height = Inches(0.80)
             tf = s_top.text_frame
+            tf.auto_size = MSO_AUTO_SIZE.NONE
+            tf.word_wrap = True
+            tf.margin_left = Inches(0)
+            tf.margin_right = Inches(0)
+            tf.margin_top = Inches(0)
+            tf.margin_bottom = Inches(0)
             tf.clear()
             p = tf.paragraphs[0]
             clear_bullet_formatting(p)
             p.text = title_text
             p.font.bold = True
-            p.font.size = Pt(25)
+            p.font.size = Pt(24)
             p.font.color.rgb = DARK_BLUE
 
         # Adjust top-right VIT-AP logo to preserve exact 3.231 diagonal aspect ratio (no horizontal dragging)

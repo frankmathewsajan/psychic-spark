@@ -1,5 +1,5 @@
 # VIT-AP UNIVERSITY — SCHOOL OF COMPUTER SCIENCE AND ENGINEERING (SCOPE)
-## Capstone Project Weekly Progress Diary (Weeks 01 to 16)
+## Capstone Project Weekly Progress Diary (Weeks 01 to 13)
 
 ### Project Identification & Guide Details
 - **Capstone ID:** CAPSTONE - 4001
@@ -19,16 +19,14 @@
 - **Date of Meeting:** August 08, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Analyzed field network limitations across remote utility meter installations and outdoor distribution pillars.
-2. Pivoted system design from a cloud-dependent architecture to a hybrid edge-cloud computing model.
-3. Researched lightweight convolutional neural networks (MobileNet, TFLite) for on-device inference and Optical Character Recognition (OCR).
+**Tasks Completed:**  
+Analyzed field network limitations for remote utility meter installations and outdoor distribution pillars. Pivoted system design from a cloud-dependent architecture to a hybrid edge-cloud computing model. Researched lightweight convolutional neural networks (MobileNet, TFLite) for on-device inference and Optical Character Recognition (OCR).
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Finalize system architecture, draft the telemetry JSON payload schema, and construct the system architecture flowchart.
 
-#### Comments / Suggestion by the Guide:
-*Good focus on real-world cellular constraints. Ensure the local edge pipeline remains viable on entry-level Android hardware.*
+**Comments / Suggestion by the Guide:**  
+Good focus on real-world cellular constraints. Ensure the local edge pipeline remains viable on entry-level Android hardware.
 
 ---
 
@@ -39,17 +37,14 @@ Finalize system architecture, draft the telemetry JSON payload schema, and const
 - **Date of Meeting:** August 14, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Designed the offline store-and-forward data pipeline specification to handle intermittent cellular connectivity.
-2. Drafted the telemetry JSON payload schema and built the comprehensive system architecture flowchart.
-3. Detailed the edge device boundary, local SQLite cache, and FastAPI cloud gateway integration.
-4. Presented Capstone First Review covering problem definition, literature survey, and proposed methodology.
+**Tasks Completed:**  
+Designed the offline store-and-forward data pipeline specification to handle intermittent cellular connectivity. Drafted the telemetry JSON payload schema and built the comprehensive system architecture flowchart detailing the edge device boundary, local SQLite cache, and FastAPI cloud gateway integration. Presented Capstone First Review covering problem definition, literature survey, and proposed methodology.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Initialize the mobile client application using React Native and Expo; establish the local SQLite schema with Write-Ahead Logging.
 
-#### Comments / Suggestion by the Guide:
-*Discarding cloud-dependent designs due to field latency constraints is justified. Proceed with setting up the offline-first SQLite database.*
+**Comments / Suggestion by the Guide:**  
+Discarding cloud-dependent designs due to field latency constraints is justified. Proceed with setting up the offline-first SQLite database.
 
 ---
 
@@ -60,17 +55,14 @@ Initialize the mobile client application using React Native and Expo; establish 
 - **Date of Meeting:** August 21, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Initialized the cross-platform mobile client architecture using React Native, TypeScript, and Expo.
-2. Defined the local SQLite schema with Write-Ahead Logging (`PRAGMA journal_mode = WAL`) as the local Single Source of Truth (SSOT).
-3. Enabled SQLite foreign key enforcement and created indexes for synchronization and inference queues.
-4. Built the repository layer to support local inspection creation and crash-resilient offline persistence.
+**Tasks Completed:**  
+Initialized the cross-platform mobile client architecture using React Native, TypeScript, and Expo. Defined the local SQLite schema with Write-Ahead Logging (PRAGMA journal_mode = WAL) as the local Single Source of Truth (SSOT). Enabled SQLite foreign key enforcement and created indexes for synchronization and inference queues. Built the repository layer to support local inspection creation and crash-resilient offline persistence.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Program device accelerometer sensor math to measure camera tilt and gate the capture viewfinder.
 
-#### Comments / Suggestion by the Guide:
-*WAL mode is critical for preventing write locks during background processing. Keep the schema decoupled from cloud-specific IDs.*
+**Comments / Suggestion by the Guide:**  
+WAL mode is critical for preventing write locks during background processing. Keep the schema decoupled from cloud-specific IDs.
 
 ---
 
@@ -81,16 +73,14 @@ Program device accelerometer sensor math to measure camera tilt and gate the cap
 - **Date of Meeting:** August 28, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Programmed the vertical wall-leveling vector formula using `Math.hypot(x, y)` to evaluate camera perpendicularity.
-2. Implemented an active capture interlock that restricts image acquisition when camera tilt exceeds $\pm 10^\circ$.
-3. Designed high-contrast on-screen bounding reticles for the overall meter casing, 7-segment display, and terminal seals.
+**Tasks Completed:**  
+Programmed the vertical wall-leveling vector formula using Math.hypot(x, y) to evaluate camera perpendicularity. Implemented an active capture interlock that restricts image acquisition when camera tilt exceeds plus-minus 10 degrees. Designed high-contrast on-screen bounding reticles for the overall meter casing, 7-segment display, and terminal seals.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Build the edge validation review screen and implement the physical hazard lockout decision logic.
 
-#### Comments / Suggestion by the Guide:
-*Gating image capture by physical tilt prevents severe glare on curved meter covers. Ensure visual HUD feedback is clear.*
+**Comments / Suggestion by the Guide:**  
+Gating image capture by physical tilt prevents severe glare on curved meter covers. Ensure visual HUD feedback is clear.
 
 ---
 
@@ -101,16 +91,14 @@ Build the edge validation review screen and implement the physical hazard lockou
 - **Date of Meeting:** September 04, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Built the point-of-work visual validation screen featuring editable kWh inputs and confidence indicators.
-2. Implemented an un-dismissible safety lockout modal for critical hazards (exposed wiring, loose phase conductors, broken seals).
-3. Added startup recovery pragmas in SQLite to automatically reset orphaned `SYNCING` states back to `PENDING`.
+**Tasks Completed:**  
+Built the point-of-work visual validation screen featuring editable kWh inputs and confidence indicators. Implemented an un-dismissible safety lockout modal for critical hazards (exposed wiring, loose phase conductors, broken seals). Added startup recovery pragmas in SQLite to automatically reset orphaned SYNCING states back to PENDING.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Implement the client-side Tier 1 cellular synchronization service to dispatch sub-2 KB metadata payloads.
 
-#### Comments / Suggestion by the Guide:
-*Safety lockouts must be strictly non-bypassable to protect field personnel. Good inclusion of startup orphan recovery.*
+**Comments / Suggestion by the Guide:**  
+Safety lockouts must be strictly non-bypassable to protect field personnel. Good inclusion of startup orphan recovery.
 
 ---
 
@@ -121,16 +109,14 @@ Implement the client-side Tier 1 cellular synchronization service to dispatch su
 - **Date of Meeting:** September 11, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Developed the Tier-1 background synchronization service to dispatch sub-2 KB JSON batches over cellular links.
-2. Configured Biome v2 for high-speed static analysis, resolving all client-side TypeScript warnings and formatting inconsistencies.
-3. Implemented network timeout handlers and exponential backoff retry logic for mobile data dropouts.
+**Tasks Completed:**  
+Developed the Tier-1 background synchronization service to dispatch sub-2 KB JSON batches over cellular links. Configured Biome v2 for high-speed static analysis, resolving all client-side TypeScript warnings and formatting inconsistencies. Implemented network timeout handlers and exponential backoff retry logic for mobile data dropouts.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Design the cloud ingestion gateway using FastAPI, SQLAlchemy 2.0, and Pydantic validation schemas.
 
-#### Comments / Suggestion by the Guide:
-*Sub-2 KB payloads will reliably transmit even on degraded 2G links. Proceed with implementing the backend gateway.*
+**Comments / Suggestion by the Guide:**  
+Sub-2 KB payloads will reliably transmit even on degraded 2G links. Proceed with implementing the backend gateway.
 
 ---
 
@@ -141,16 +127,14 @@ Design the cloud ingestion gateway using FastAPI, SQLAlchemy 2.0, and Pydantic v
 - **Date of Meeting:** September 18, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Built the FastAPI cloud gateway with endpoints for Tier-1 telemetry batches and Tier-2 multipart image uploads.
-2. Integrated PostgreSQL with SQLAlchemy 2.0 declarative models and Pydantic validation schemas.
-3. Connected Supabase storage (`audit-images` bucket) with a decoupled `inspection_photos` table to prevent evidence overwriting.
+**Tasks Completed:**  
+Built the FastAPI cloud gateway with endpoints for Tier-1 telemetry batches and Tier-2 multipart image uploads. Integrated PostgreSQL with SQLAlchemy 2.0 declarative models and Pydantic validation schemas. Connected Supabase storage (audit-images bucket) with a decoupled inspection_photos table to prevent evidence overwriting.
 
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Implement conflict-safe idempotency on ingestion, run edge quantization benchmarks, and write integration tests.
 
-#### Comments / Suggestion by the Guide:
-*Decoupling image assets into a dedicated table ensures clean multi-angle support. Ensure duplicate network requests are absorbed safely.*
+**Comments / Suggestion by the Guide:**  
+Decoupling image assets into a dedicated table ensures clean multi-angle support. Ensure duplicate network requests are absorbed safely.
 
 ---
 
@@ -161,178 +145,101 @@ Implement conflict-safe idempotency on ingestion, run edge quantization benchmar
 - **Date of Meeting:** September 25, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Implemented update-on-conflict idempotency logic in FastAPI to absorb cellular retries without raising HTTP 409 errors.
-2. Benchmarked single-threaded INT8 MobileNetV3 inference (verified $24.34\text{ ms}$ latency and $4.59\text{ MB}$ peak RAM).
-3. Validated backend test suite using Pytest/HTTPX and prepared presentation slides and documentation for Review 2.
-4. Successfully presented Capstone Review 2 covering edge architecture, database synchronization, and inference benchmarks.
+**Tasks Completed:**  
+Implemented update-on-conflict idempotency logic in FastAPI to absorb cellular retries without raising HTTP 409 errors. Benchmarked single-threaded INT8 MobileNetV3 inference, verifying 24.34 ms latency and 4.59 MB peak RAM. Validated backend test suite using Pytest/HTTPX and prepared presentation slides and documentation for Review 2. Successfully presented Capstone Review 2 covering edge architecture, database synchronization, and inference benchmarks.
 
-#### Tasks Planned Next Week:
-Evaluate real-world edge model performance against mobile memory constraints and analyze optical character recognition accuracy.
+**Tasks Planned Next Week:**  
+Evaluate edge model performance against mobile memory constraints and analyze optical character recognition accuracy.
 
-#### Comments / Suggestion by the Guide:
-*Review 2 progress is solid. Focus on real-world character-level OCR robustness and physical hazard detection under variable ambient conditions.*
+**Comments / Suggestion by the Guide:**  
+Review 2 progress is solid. Focus on real-world character-level OCR robustness and physical hazard detection under variable ambient conditions.
 
 ---
 
-### Week 09: Edge Model Architecture Pivot & Hazard Detection
+### Week 09: Edge Model Pivot & 7-Segment OCR Automaton
 - **Week Number:** 09
 - **Period From:** September 29, 2026
 - **Period To:** October 05, 2026
 - **Date of Meeting:** October 03, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Evaluated a two-stage YOLOv8 ONNX WebAssembly pipeline (`manu_panel_best_640.onnx` and `liamm_7seg_best_320.onnx`) running inside an off-screen mobile WebView.
-2. Conducted an 83-image sim-to-real benchmark revealing severe thermal throttling, $1,240\text{ ms}$ latency, and excessive memory consumption ($185\text{ MB}$ peak RAM).
-3. Architected a lightweight production alternative: an INT8-quantized MobileNetV3 wire safety classifier ($1.24\text{ MB}$, $24.34\text{ ms}$) paired with Google ML Kit native text recognition.
-4. Formulated the physical hazard lockout logic to detect exposed wiring and uninsulated phase conductors prior to digit extraction.
+**Tasks Completed:**  
+Evaluated a two-stage YOLOv8 ONNX WebAssembly pipeline inside an off-screen mobile WebView, identifying severe thermal and latency bottlenecks (1,240 ms latency, 185 MB peak RAM). Pivoted to a native INT8-quantized MobileNetV3 classifier (1.24 MB, 24.34 ms) for terminal wire safety paired with Google ML Kit text recognition for digits. Formulated the edge physical hazard lockout decision logic to detect exposed wiring and uninsulated phase conductors. Engineered a 7-segment token sanitization automaton and height-ratio decimal recovery rule (r < 0.82), reducing Character Error Rate from 24.8% to 1.2% with 0.0% silent hallucinations.
 
-#### Tasks Planned Next Week:
-Implement deterministic 7-segment digit post-processing and eliminate optical misreads caused by broken or faint display segments.
+**Tasks Planned Next Week:**  
+Build a dedicated point-of-work visual verification screen and implement an unconstrained polygon cropper to rectify skewed meter displays.
 
-#### Comments / Suggestion by the Guide:
-*Prudent pivot from heavy WebView WASM to native INT8 models. The $50.9\times$ latency reduction ensures the inspection app remains responsive on budget field devices.*
+**Comments / Suggestion by the Guide:**  
+Prudent pivot from heavy WebView WASM to native INT8 models. The 50.9x latency reduction ensures the inspection app remains responsive on budget field devices.
 
 ---
 
-### Week 10: 7-Segment Digit Sanitization & Decimal Recovery
+### Week 10: Point-of-Work Verification Screen & CamScanner Precision Polygon Cropper
 - **Week Number:** 10
 - **Period From:** October 06, 2026
 - **Period To:** October 12, 2026
 - **Date of Meeting:** October 10, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Engineered a 7-segment token sanitization automaton that strips unit text (`kWh`, `V`, `A`), filters optical glare artifacts, and resolves ambiguous glyphs ('O'/'D' &rarr; '0', 'I'/'l' &rarr; '1', 'S' &rarr; '5', 'B' &rarr; '8').
-2. Implemented the deterministic bounding-box height-ratio decimal recovery rule ($r = h_{\text{dot}} / h_{\text{digit}} < 0.82$) to recover broken or faint decimal points reliably.
-3. Benchmarked on the 83-image field test set, achieving a drop in Character Error Rate (CER) from 24.8% to 1.2% with 0.0% silent digit hallucinations.
+**Tasks Completed:**  
+Optimized camera capture by invoking takePictureAsync with skipProcessing: true, achieving a sub-250 ms perceived shutter commit without blocking the JavaScript thread. Built the Intermediary Verification Screen (inspect-preview.tsx) uniting Step A (MobileNetV3 wire safety evaluation) and Step B (cropped LCD reading sign-off). Developed a CamScanner-style 4-point polygon cropper with a 2.8x magnifying loupe (85 px above touch), 2x canvas zoom, and affine de-skewing to counter-rotate oblique meter bezels. Redesigned crop actions into a sleek unified segmented pill bar (Adjust / Re-check) with clean SVG icons, zero emojis, and active loading feedback.
 
-#### Tasks Planned Next Week:
-Develop the cloud-tier multimodal Vision-Language Model (VLM) for autonomous physical installation verification and secondary reading cross-checks.
+**Tasks Planned Next Week:**  
+Develop the cloud-tier multimodal Vision-Language Model (VLM) for autonomous physical installation verification and implement cryptographic evidence sealing.
 
-#### Comments / Suggestion by the Guide:
-*Deterministic decimal recovery directly addresses regulatory billing disputes. Proceed with integrating the multimodal cloud verification layer.*
+**Comments / Suggestion by the Guide:**  
+The magnifying loupe and affine de-skewing provide practical ergonomics for tight distribution boxes. Proceed with developing the cloud verification layer.
 
 ---
 
-### Week 11: Cloud Multimodal VLM QC & Reading Reconciliation
+### Week 11: Cloud Multimodal VLM Quality Audit & Reading Reconciliation
 - **Week Number:** 11
 - **Period From:** October 13, 2026
 - **Period To:** October 19, 2026
 - **Date of Meeting:** October 17, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Integrated Google Gemini foundation models (`gemini-2.5-flash` with automatic fallback to `gemini-1.5-pro`) into the FastAPI cloud gateway as an asynchronous auditor.
-2. Formulated a 4-point physical QC evaluation checklist: (1) Wire safety and conductor flushness, (2) Terminal cover seating, (3) Tamper seal presence, and (4) Enclosure casing integrity.
-3. Implemented edge-cloud reading reconciliation with a $\pm 1.0\text{ kWh}$ tolerance threshold; flagged deviations exceeding $1.0\text{ kWh}$ are automatically routed to a supervisor adjudication queue.
+**Tasks Completed:**  
+Integrated Google Gemini foundation models (gemini-2.5-flash with fallback to gemini-1.5-pro) into the FastAPI cloud gateway as an asynchronous auditor. Formulated a 4-point physical QC evaluation checklist covering wire flushness, terminal cover seating, tamper seal presence, and casing integrity. Implemented edge-cloud reading reconciliation with a +/- 1.0 kWh tolerance threshold, automatically routing flagged deviations to supervisor review. Programmed an automated SHA-256 evidence sealing engine computing cryptographic digests over photo bytes, serial, timestamp, and GPS, and attached hardware attribution telemetry (device_id, device_model, app_version) to every record.
 
-#### Tasks Planned Next Week:
-Implement cryptographic evidence sealing and tamper-proof hardware attribution to establish legal non-repudiation during audit disputes.
+**Tasks Planned Next Week:**  
+Implement non-blocking two-tier synchronization, enable cloud disaster recovery sync-back, and build two-way administrative directives.
 
-#### Comments / Suggestion by the Guide:
-*The automated 4-point checklist standardizes field audit quality. Ensure audit evidence is cryptographically sealed to prevent contractor disputes.*
+**Comments / Suggestion by the Guide:**  
+The automated 4-point checklist and cryptographic digests provide the non-repudiation required for regulatory reporting. Focus next on mobile sync resilience.
 
 ---
 
-### Week 12: Cryptographic Evidence Sealing & Audit Exports
+### Week 12: Non-Blocking Sync UX, Cloud Disaster Recovery & Two-Way Directives
 - **Week Number:** 12
 - **Period From:** October 20, 2026
 - **Period To:** October 26, 2026
 - **Date of Meeting:** October 24, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Programmed an automated SHA-256 evidence sealing engine computing a cryptographic digest: $\text{SHA256}(\text{PhotoBytes} \mathbin{\Vert} \text{Serial} \mathbin{\Vert} \text{Timestamp} \mathbin{\Vert} \text{GPS})$.
-2. Embedded hardware attribution telemetry (`device_id`, `device_model`, `app_version`) into every inspection record in PostgreSQL.
-3. Built a high-performance streaming API generating official DISCOM regulatory CSVs with embedded evidence digests (1,000 records in $12.4\text{ ms}$; 10,000 records in $182\text{ ms}$).
+**Tasks Completed:**  
+Decoupled two-tier synchronization so immediate Tier-1 metadata commit (< 1s) releases the UI instantly while heavy Tier-2 casing photos stream non-blockingly in the background. Implemented SQLite live migration 2c adding evidence_sha256 to the inspections table, enabling seamless cloud disaster recovery and sync-back without schema warnings. Constructed a two-way administrative messaging engine supporting BROADCAST, DEVICE, and TECHNICIAN targeting with local SQLite persistence for offline reception. Added closed-loop WebSocket delivery and action acknowledgment tracking (DELIVERED, ACTIONED) with technician reply notes reflected in the admin dashboard in under 95 ms.
 
-#### Tasks Planned Next Week:
-Build bidirectional communication channels to dispatch urgent safety directives and re-inspection orders from headquarters to field handsets.
+**Tasks Planned Next Week:**  
+Integrate a 3D Mapbox digital twin in the admin portal for multi-floor facility monitoring, build a fleet simulator, and prepare final Capstone defense deliverables.
 
-#### Comments / Suggestion by the Guide:
-*Cryptographic digests provide the non-repudiation required for regulatory reporting. Focus next on enabling real-time headquarters-to-field communication.*
+**Comments / Suggestion by the Guide:**  
+Decoupling media upload from point-of-work interactions prevents field workflow interruptions. The clean schema migration ensures reliable disaster recovery.
 
 ---
 
-### Week 13: Bidirectional Fleet Directives & Field Messaging
+### Week 13: 3D Mapbox Digital Twin, Fleet Simulation & Final Capstone Defense
 - **Week Number:** 13
 - **Period From:** October 27, 2026
 - **Period To:** November 02, 2026
 - **Date of Meeting:** October 31, 2026
 - **Members Attended:** 23BCE8713
 
-#### Tasks Completed:
-1. Constructed a two-way administrative messaging engine supporting `BROADCAST`, `DEVICE`, and `TECHNICIAN` targeting with priority tiers (`LOW`, `NORMAL`, `URGENT`).
-2. Implemented local SQLite persistence (`client_messages`, `pending_message_acks`) allowing technicians to receive directives even when offline in basement meter rooms.
-3. Added closed-loop WebSocket delivery and action acknowledgment tracking (`DELIVERED`, `ACTIONED`) with technician reply notes reflected in the admin dashboard in under $95\text{ ms}$.
+**Tasks Completed:**  
+Integrated a 3D Mapbox GL JS v3 digital twin into the admin console with a dual view switcher (2D Classic / Modern 3D View) and auto-panning 360-degree camera orbit. Added dynamic environmental lighting synchronized with Dark (night), Slate (dusk), and Light (day) themes. Modeled the multi-story Ahmedabad Substation Depot with 3D polygon extrusions (Levels L0-L3) and an interactive floor filter HUD. Built an in-memory 8-agent virtual fleet simulation with multi-floor movement, live status popups, and zero database writes. Finalized all Capstone academic deliverables: 7-chapter Overleaf thesis report, 16-slide presentation deck, streaming DISCOM CSV exports, and complete 13-week project diary.
 
-#### Tasks Planned Next Week:
-Eliminate camera shutter lag and build a point-of-work manual polygon adjustment tool for skewed or non-standard meter bezels.
-
-#### Comments / Suggestion by the Guide:
-*Bidirectional directives close the loop between central supervision and ground execution. Ensure the point-of-work cropper is ergonomically intuitive.*
-
----
-
-### Week 14: Zero-Delay Capture & CamScanner-Style Polygon Cropper
-- **Week Number:** 14
-- **Period From:** November 03, 2026
-- **Period To:** November 09, 2026
-- **Date of Meeting:** November 07, 2026
-- **Members Attended:** 23BCE8713
-
-#### Tasks Completed:
-1. Engineered a zero-delay capture flow using `takePictureAsync` with `skipProcessing: true`, achieving $< 250\text{ ms}$ perceived shutter commit without blocking the JavaScript thread.
-2. Built the Intermediary Verification Screen (`inspect-preview.tsx`) uniting Step A (MobileNetV3 wire safety evaluation) and Step B (cropped LCD reading sign-off).
-3. Developed the CamScanner-style 4-point polygon cropper (`camscanner-cropper-modal.tsx`) with a $2.8\times$ magnifying loupe ($85\text{ px}$ above finger touch), $2\times$ canvas zoom, and affine de-skewing (`cropLcdQuad`).
-
-#### Tasks Planned Next Week:
-Refine crop action controls, decouple Tier-2 photo synchronization to unblock the mobile UI, and resolve SQLite cloud restoration schema constraints.
-
-#### Comments / Suggestion by the Guide:
-*The magnifying loupe and affine de-skewing provide practical ergonomics for tight distribution boxes. Proceed with unblocking the mobile sync workflow.*
-
----
-
-### Week 15: Sleek Micro-Actions Bar & Non-Blocking Two-Tier Sync
-- **Week Number:** 15
-- **Period From:** November 10, 2026
-- **Period To:** November 16, 2026
-- **Date of Meeting:** November 14, 2026
-- **Members Attended:** 23BCE8713
-
-#### Tasks Completed:
-1. Redesigned crop actions in `inspect-preview.tsx` into a sleek, unified segmented pill bar (`Adjust` / `Re-check`) with clean SVG icons, zero emojis, and dynamic loading feedback during OCR re-scan.
-2. Decoupled two-tier synchronization: immediate Tier-1 metadata commit (< 1s) releases UI interaction instantly, while heavy Tier-2 casing photos stream non-blockingly in the background.
-3. Implemented SQLite live migration `2c` adding `evidence_sha256` to the `inspections` table, enabling seamless cloud disaster recovery and sync-back without schema warnings.
-4. Updated the administrative dashboard to render technician action reply notes in stylized quote bubbles under directive acknowledgments.
-
-#### Tasks Planned Next Week:
-Integrate a 3D Mapbox GL digital twin in the admin portal for multi-floor facility monitoring, build an in-memory fleet simulator, and finalize thesis documentation.
-
-#### Comments / Suggestion by the Guide:
-*Decoupling media upload from point-of-work interactions prevents field workflow interruptions. The clean schema migration ensures reliable disaster recovery.*
-
----
-
-### Week 16: 3D Mapbox Digital Twin, Fleet Simulation & Final Deliverables
-- **Week Number:** 16
-- **Period From:** November 17, 2026
-- **Period To:** November 23, 2026
-- **Date of Meeting:** November 20, 2026
-- **Members Attended:** 23BCE8713
-
-#### Tasks Completed:
-1. Integrated a 3D Mapbox GL JS v3 digital twin into the admin console with a non-breaking view switcher (`2D Classic` / `Modern 3D View`) and auto-panning 360° camera orbit.
-2. Added dynamic environmental lighting synchronized with Dark (`night`), Slate (`dusk`), and Light (`day`) themes.
-3. Modeled the multi-story Ahmedabad Substation & Fleet Depot with 3D polygon extrusions (Levels L0–L3) and an interactive floor filter HUD.
-4. Built an in-memory 8-agent virtual fleet simulation with multi-floor movement, live status popups, and zero database writes.
-5. Finalized all Capstone academic deliverables: 7-chapter Overleaf thesis report, 16-slide presentation deck, and complete 16-week project diary.
-
-#### Tasks Planned Next Week:
+**Tasks Planned Next Week:**  
 Defend the Capstone Final Viva Review and submit the bound project thesis report along with the digital media repository.
 
-#### Comments / Suggestion by the Guide:
-*Outstanding engineering achievement. The combination of native edge ML, CamScanner-style precision cropping, decoupled cloud resilience, and 3D digital twin fleet monitoring demonstrates exceptional technical and operational maturity.*
+**Comments / Suggestion by the Guide:**  
+Outstanding engineering achievement. The combination of native edge ML, CamScanner-style precision cropping, decoupled cloud resilience, and 3D digital twin fleet monitoring demonstrates exceptional technical and operational maturity.

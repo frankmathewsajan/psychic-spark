@@ -380,12 +380,12 @@ export async function reconcileCloudAuditStatus(
 			}
 
 			if (!local) {
-				await restoreInspectionFromCloud(db, {
+				const restored = await restoreInspectionFromCloud(db, {
 					...item,
 					kwh_reading: item.kwh_reading ?? item.extracted_kwh ?? null,
 					image_url: imageUrl,
 				});
-				updatedCount++;
+				if (restored) updatedCount++;
 			} else {
 				if (item.audit_stage) {
 					await updateInspectionAuditStage(
@@ -498,6 +498,9 @@ export async function syncClientMessages(
 		let newCount = 0;
 		for (const msg of messages) {
 			await upsertClientMessage(db, msg);
+			if (msg.message_type === "SYNC_BACK") {
+				await reconcileCloudAuditStatus(db, gatewayUrl, deviceId);
+			}
 			// Submit immediate DELIVERED ack
 			try {
 				await fetch(

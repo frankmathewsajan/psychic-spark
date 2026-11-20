@@ -129,6 +129,20 @@ async def trigger_sync_back_to_device(device_id: str, db: Annotated[Session, Dep
             "inspection_count": count,
             "message": f"Admin requested restore of {count} cloud inspections to device."
         })
+
+    # Persistent directive so device restores even if WebSocket reconnects or polls
+    sync_msg = AdminMessage(
+        target_type="DEVICE",
+        target_id=device_id,
+        message_type="SYNC_BACK",
+        priority="HIGH",
+        title="Cloud Data Restore",
+        body=f"Supervisor triggered cloud restore of {count} historical inspections to this handset.",
+        payload_json=json.dumps({"inspection_count": count, "trigger": "ADMIN_SYNC_BACK"}),
+    )
+    db.add(sync_msg)
+    db.commit()
+
     return {
         "status": "SUCCESS",
         "device_id": device_id,

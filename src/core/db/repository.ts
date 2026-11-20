@@ -365,39 +365,65 @@ export async function restoreInspectionFromCloud(
 		evidence_sha256?: string | null;
 		image_url?: string | null;
 	},
-): Promise<void> {
-	await db.runAsync(
-		`INSERT OR IGNORE INTO inspections (
-			id, technician_id, device_id, device_model, app_version, meter_serial_number,
-			latitude, longitude, timestamp_utc, qa_status,
-			hazard_reason, extracted_kwh, ocr_confidence,
-			image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg,
-			audit_stage, vlm_kwh, vlm_notes, vlm_summary, vlm_tags, qc_checklist_json, evidence_sha256
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED', 'SYNCED', 'COMPLETED', 0.0, ?, ?, ?, ?, ?, ?, ?);`,
-		[
-			item.id,
-			item.technician_id ?? "TECH-01",
-			item.device_id ?? "UNKNOWN",
-			item.device_model ?? "RESTORED",
-			item.app_version ?? "1.0.0",
-			item.meter_serial_number ?? "UNKNOWN",
-			item.latitude ?? 0.0,
-			item.longitude ?? 0.0,
-			item.timestamp_utc ?? new Date().toISOString(),
-			item.qa_status ?? "PASS",
-			item.hazard_reason ?? null,
-			item.kwh_reading ?? null,
-			item.ocr_confidence ?? 1.0,
-			item.image_url ?? null,
-			item.audit_stage ?? "VLM_VERIFIED",
-			item.vlm_kwh ?? null,
-			item.vlm_notes ?? null,
-			item.vlm_summary ?? null,
-			item.vlm_tags ?? null,
-			item.qc_checklist_json ?? null,
-			item.evidence_sha256 ?? null,
-		],
-	);
+): Promise<boolean> {
+	try {
+		const validQaStatus =
+			item.qa_status === "CRITICAL_HAZARD" || item.qa_status === "WARNING"
+				? item.qa_status
+				: "PASS";
+
+		await db.runAsync(
+			`INSERT INTO inspections (
+				id, technician_id, device_id, device_model, app_version, meter_serial_number,
+				latitude, longitude, timestamp_utc, qa_status,
+				hazard_reason, extracted_kwh, ocr_confidence,
+				image_local_path, sync_tier1_status, sync_tier2_status, inference_status, tilt_deg,
+				audit_stage, vlm_kwh, vlm_notes, vlm_summary, vlm_tags, qc_checklist_json, evidence_sha256, created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED', 'SYNCED', 'DONE', 0.0, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				technician_id = excluded.technician_id,
+				meter_serial_number = excluded.meter_serial_number,
+				qa_status = excluded.qa_status,
+				hazard_reason = excluded.hazard_reason,
+				extracted_kwh = COALESCE(excluded.extracted_kwh, inspections.extracted_kwh),
+				image_local_path = CASE WHEN inspections.image_local_path IS NOT NULL AND inspections.image_local_path != '' THEN inspections.image_local_path ELSE excluded.image_local_path END,
+				audit_stage = excluded.audit_stage,
+				vlm_kwh = excluded.vlm_kwh,
+				vlm_notes = excluded.vlm_notes,
+				vlm_summary = excluded.vlm_summary,
+				vlm_tags = excluded.vlm_tags,
+				qc_checklist_json = excluded.qc_checklist_json,
+				evidence_sha256 = COALESCE(excluded.evidence_sha256, inspections.evidence_sha256);`,
+			[
+				item.id,
+				item.technician_id ?? "TECH-01",
+				item.device_id ?? "UNKNOWN",
+				item.device_model ?? "RESTORED",
+				item.app_version ?? "1.0.0",
+				item.meter_serial_number ?? "UNKNOWN",
+				item.latitude ?? 0.0,
+				item.longitude ?? 0.0,
+				item.timestamp_utc ?? new Date().toISOString(),
+				validQaStatus,
+				item.hazard_reason ?? null,
+				item.kwh_reading ?? null,
+				item.ocr_confidence ?? 1.0,
+				item.image_url ?? "",
+				item.audit_stage ?? "VLM_VERIFIED",
+				item.vlm_kwh ?? null,
+				item.vlm_notes ?? null,
+				item.vlm_summary ?? null,
+				item.vlm_tags ?? null,
+				item.qc_checklist_json ?? null,
+				item.evidence_sha256 ?? null,
+				item.timestamp_utc ?? new Date().toISOString(),
+			],
+		);
+		return true;
+	} catch (err) {
+		logger.warn("Repository", `Failed to restore inspection ${item.id}`, err);
+		return false;
+	}
 }
 
 export async function clearAllInspections(db: SQLiteDatabase): Promise<void> {

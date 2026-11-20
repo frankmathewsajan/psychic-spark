@@ -23,6 +23,7 @@ import {
 	setSetting,
 } from "@/core/db/repository";
 import { type ThemeMode, useTheme } from "@/core/theme-context";
+import { reconcileCloudAuditStatus } from "@/services/sync/tier1-sync";
 
 const DEFAULT_GATEWAY_URL = "https://psychic-spark.onrender.com";
 
@@ -36,6 +37,8 @@ export default function SettingsScreen() {
 	const [wakeFeedback, setWakeFeedback] = useState<string | null>(null);
 	const [deviceId, setDeviceId] = useState<string>("Loading...");
 	const [fingerprintHash, setFingerprintHash] = useState<string>("");
+	const [restoring, setRestoring] = useState(false);
+	const [restoreFeedback, setRestoreFeedback] = useState<string | null>(null);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -102,6 +105,44 @@ export default function SettingsScreen() {
 		} finally {
 			setIsWaking(false);
 			setTimeout(() => setWakeFeedback(null), 4000);
+		}
+	};
+
+	const handleRestoreFromCloud = async () => {
+		if (restoring) return;
+		setRestoring(true);
+		setRestoreFeedback("Restoring cloud data...");
+		try {
+			const db = await getDb();
+			const id = await getOrCreateDeviceId(db);
+			const count = await reconcileCloudAuditStatus(db, gatewayUrl, id);
+			if (count > 0) {
+				setRestoreFeedback(`Restored ${count} records ✓`);
+				Alert.alert(
+					"Sync Back Complete",
+					`Successfully restored ${count} inspections and photos from cloud.`,
+					[
+						{
+							text: "View Inspections",
+							onPress: () => router.replace("/"),
+						},
+					],
+				);
+			} else {
+				setRestoreFeedback("No records found");
+				Alert.alert(
+					"Sync Back",
+					"No historical records found in cloud for this device.",
+				);
+			}
+		} catch (e: unknown) {
+			const errMsg =
+				e instanceof Error ? e.message : "Failed to restore data from cloud.";
+			setRestoreFeedback("Restore failed");
+			Alert.alert("Sync Back Error", errMsg);
+		} finally {
+			setRestoring(false);
+			setTimeout(() => setRestoreFeedback(null), 3000);
 		}
 	};
 
@@ -348,6 +389,53 @@ export default function SettingsScreen() {
 				{/* DATA STORAGE SECTION */}
 				<Text style={[styles.sectionTitle, dynSub]}>Local Storage</Text>
 				<View style={[styles.card, dynCard]}>
+					<View style={styles.cardRow}>
+						<View style={styles.cardInfo}>
+							<Text style={[styles.cardItemTitle, dynText]}>
+								Restore from Cloud (Sync Back)
+							</Text>
+							<Text style={[styles.cardItemSub, dynSub]}>
+								Download all cloud inspections and photos to this handset
+							</Text>
+						</View>
+					</View>
+
+					<Pressable
+						disabled={restoring}
+						style={({ pressed }) => [
+							styles.primaryBtn,
+							pressed && styles.btnPressed,
+							restoring && styles.btnDisabled,
+							{ marginBottom: 16 },
+						]}
+						onPress={handleRestoreFromCloud}
+					>
+						{restoring ? (
+							<ActivityIndicator size="small" color="#fff" />
+						) : (
+							<View
+								style={{
+									flexDirection: "row",
+									alignItems: "center",
+									justifyContent: "center",
+									gap: 8,
+								}}
+							>
+								<AppSymbol name="sync" size={16} color="#fff" />
+								<Text style={styles.primaryBtnText}>
+									{restoreFeedback ?? "Restore from Cloud (Sync Back)"}
+								</Text>
+							</View>
+						)}
+					</Pressable>
+
+					<View
+						style={[
+							styles.divider,
+							{ backgroundColor: colors.border, marginBottom: 16 },
+						]}
+					/>
+
 					<View style={styles.cardRow}>
 						<View style={styles.cardInfo}>
 							<Text style={[styles.cardItemTitle, dynText]}>
